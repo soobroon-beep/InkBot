@@ -664,40 +664,6 @@ function renderStoryDOM(c,handle){
 }
 // Note: Chrome records as WebM but we name it .mp4 — Instagram accepts both
 // For true MP4 we use the webm file renamed; most platforms accept it
-document.getElementById('btn-mockup').addEventListener('click',function(){
-  if(!currentStory) return;
-  var screen = document.getElementById('mockup-screen');
-  // Clone the story frame into the mockup screen
-  var sf = document.getElementById('sf');
-  var clone = sf.cloneNode(true);
-  clone.style.width = '100%';
-  clone.style.height = '100%';
-  clone.style.position = 'relative';
-  clone.style.border = 'none';
-  clone.style.boxShadow = 'none';
-  clone.style.borderRadius = '0';
-  // Remove loader from clone
-  var loader = clone.querySelector('.sloader');
-  if(loader) loader.style.display = 'none';
-  screen.innerHTML = '';
-  screen.appendChild(clone);
-  // Start bg animation in clone canvas
-  var cloneCanvas = clone.querySelector('canvas.cbg');
-  if(cloneCanvas){
-    var cc = cloneCanvas.getContext('2d');
-    cloneCanvas.width = cloneCanvas.offsetWidth * (window.devicePixelRatio||1);
-    cloneCanvas.height = cloneCanvas.offsetHeight * (window.devicePixelRatio||1);
-    cc.scale(window.devicePixelRatio||1, window.devicePixelRatio||1);
-    var W = cloneCanvas.offsetWidth, H = cloneCanvas.offsetHeight;
-    var bgFn = bgAnimFunctions[selBg];
-    if(bgFn) bgFn(cc, W, H, null);
-    else if(selBg==='photo'&&photos.length){var img=new Image();img.onload=function(){drawPhoto(cc,img,W,H);};img.src=photos[pidx];}
-  }
-  // Update handle in SVG
-  var ht = document.getElementById('mockup-handle-text');
-  if(ht) ht.textContent = document.getElementById('handle').value || '@victortip';
-  document.getElementById('mockup-overlay').style.display = 'flex';
-});
 
 document.getElementById('btn-dl-mp4').addEventListener('click',function(){
   if(!currentStory){setSt('st-gen','Genera primero','err');return;}
