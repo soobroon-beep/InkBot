@@ -8,7 +8,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--red:#CC0000;--gold:#C8860A;--bg:#060606;--surf:#0d0d0d;--surf2:#131313;--b1:#1c1c1c;--b2:#252525;--txt:#f0ebe3;--mut:#505050;--mut2:#777}
-body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .topbar{height:50px;background:var(--surf);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0}
 .logo-box{width:28px;height:28px;background:var(--red);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#fff}
 .logo-txt{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:4px}
@@ -21,9 +21,9 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-
 .api-inp{background:var(--surf2);border:1px solid var(--b2);color:var(--txt);padding:6px 10px;font-family:'Space Mono',monospace;font-size:11px;width:190px;outline:none}
 .api-inp:focus,.api-sel:focus{border-color:var(--red)}
 .api-inp::placeholder{color:var(--mut)}
-.body{display:flex;flex:1;overflow:hidden;height:calc(100vh - 50px)}
-.sidebar{width:260px;min-width:260px;max-width:260px;background:var(--surf);border-right:1px solid var(--b1);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;flex-shrink:0}
-.sidebar::-webkit-scrollbar{width:3px}.sidebar::-webkit-scrollbar-thumb{background:var(--b2)}
+.body{display:flex;flex:1;overflow:hidden;position:relative}
+.sidebar{width:260px;min-width:260px;max-width:260px;background:var(--surf);border-right:1px solid var(--b1);overflow-y:scroll;overflow-x:hidden;display:flex;flex-direction:column;flex-shrink:0;position:absolute;top:0;bottom:0;left:0;scroll-behavior:smooth}
+.sidebar::-webkit-scrollbar{width:5px}.sidebar::-webkit-scrollbar-thumb{background:#333;border-radius:3px}.sidebar::-webkit-scrollbar-track{background:var(--surf)}
 .sb{padding:12px;border-bottom:1px solid var(--b1);width:100%;overflow:hidden}
 .lbl{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--mut);margin-bottom:7px;font-family:'Space Mono',monospace}
 .pills{display:flex;flex-wrap:wrap;gap:4px}
@@ -52,9 +52,9 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .copybtn:hover{background:var(--gold);color:#000}.copybtn.ok{background:#1a5c3a;border-color:#1a5c3a;color:#fff}
 .st{font-size:10px;color:var(--mut);font-family:'Space Mono',monospace;text-align:center;min-height:14px;padding:3px 0}
 .st.ok{color:#1D9E75}.st.err{color:var(--red)}.st.ld{color:var(--gold)}
-.main{flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0}
-.pane{display:none;flex:1;flex-direction:column;overflow:hidden}.pane.active{display:flex}
-.prev{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:0}
+.main{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;min-width:0;margin-left:260px}
+.pane{display:none;flex-direction:column;min-height:0}.pane.active{display:flex;flex:1;flex-direction:column;min-height:0}
+.prev{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px 20px 60px}
 .phone-mockup{position:relative;display:none;align-items:center;justify-content:center}
 .phone-mockup.active{display:flex}
 .phone-shell{width:320px;height:640px;background:#111;border-radius:44px;border:6px solid #333;box-shadow:0 0 0 1px #222,0 30px 80px rgba(0,0,0,.9);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
@@ -138,7 +138,7 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 
 <!-- PROGRESS OVERLAY for video export -->
 <div class="prog-overlay" id="prog-overlay">
-  <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:4px;color:var(--txt)">GENERANDO MP4</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:4px;color:var(--txt)">GENERANDO VIDEO</div>
   <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar"></div></div>
   <div class="prog-label" id="prog-label">Iniciando...</div>
 </div>
@@ -159,19 +159,39 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
   </div>
 </div>
 
+<!-- Google Drive setup panel -->
+<div id="gd-setup" style="display:none;background:#0d1f0d;border-bottom:1px solid #1a4a1a;padding:10px 16px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+  <span style="font-size:10px;color:#4ade80;font-family:'Space Mono',monospace;letter-spacing:2px;text-transform:uppercase">Google Drive</span>
+  <input type="text" id="gd-client-id" placeholder="Google OAuth Client ID (console.cloud.google.com)" style="flex:1;min-width:260px;padding:6px 10px;background:#0a1a0a;border:1px solid #2a5a2a;color:#4ade80;font-family:'Space Mono',monospace;font-size:10px;outline:none">
+  <button onclick="document.getElementById('gd-setup').style.display='none';document.getElementById('btn-drive-png').click()" style="padding:6px 14px;background:#4ade80;color:#000;border:none;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer">Conectar</button>
+  <button onclick="document.getElementById('gd-setup').style.display='none'" style="padding:6px 10px;background:transparent;color:#555;border:1px solid #333;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer">✕</button>
+  <div style="width:100%;font-size:9px;color:#2a6a2a;font-family:'Space Mono',monospace">Necesitas crear credenciales OAuth en console.cloud.google.com → APIs → Drive API → Credenciales</div>
+</div>
+
 <div class="body">
 <div class="sidebar">
   <div class="sb"><div class="lbl">Tipo de historia</div>
     <div class="pills" id="type-pills">
-      <div class="pill on" data-val="dato">Dato</div><div class="pill" data-val="estilo">Estilo</div>
-      <div class="pill" data-val="proceso">Técnica</div><div class="pill" data-val="historia">Historia</div>
-      <div class="pill" data-val="mito">Mito</div><div class="pill" data-val="cuidado">Cuidado</div>
-      <div class="pill" data-val="simbolo">Símbolo JP</div><div class="pill" data-val="famoso">Icónico</div>
-      <div class="pill" data-val="region">Regional</div><div class="pill" data-val="color">Color/Tinta</div>
-      <div class="pill" data-val="dolor">Dolor</div><div class="pill" data-val="consejo">Primer tat</div>
-      <div class="pill" data-val="cliente">Cliente</div>
-      <div class="pill" data-val="tendencia">Tendencia</div><div class="pill" data-val="flash">Flash Day</div>
-      <div class="pill" data-val="retoque">Retoque</div><div class="pill" data-val="psicologia">Psicología</div>
+      <div class="pill on" data-val="dato">Dato</div>
+      <div class="pill" data-val="sabias">¿Sabías que...?</div>
+      <div class="pill" data-val="interactivo">Interactivo</div>
+      <div class="pill" data-val="inspiracion">Inspiración</div>
+      <div class="pill" data-val="estilo">Estilo</div>
+      <div class="pill" data-val="historia">Historia</div>
+      <div class="pill" data-val="mito">Mito vs Real</div>
+      <div class="pill" data-val="simbolo">Símbolo</div>
+      <div class="pill" data-val="famoso">Icónico</div>
+      <div class="pill" data-val="region">Regional</div>
+      <div class="pill" data-val="idea">💡 Idea de tat</div>
+      <div class="pill" data-val="consejo">Primer tat</div>
+      <div class="pill" data-val="cliente">Decisión</div>
+      <div class="pill" data-val="tendencia">Tendencia</div>
+      <div class="pill" data-val="tribu">🌍 Tribu</div>
+      <div class="pill" data-val="psicologia">Psicología</div>
+      <div class="pill" data-val="encuesta">Encuesta A/B</div>
+      <div class="pill" data-val="confiesa">Confiesa</div>
+      <div class="pill" data-val="mitoregional">Mito Regional</div>
+      <div class="pill" data-val="cultpop">Cultura Pop</div>
     </div>
   </div>
   <div class="sb"><div class="lbl">Fondo animado</div>
@@ -201,9 +221,9 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
   <div class="sb"><div class="lbl">Tu logo (PNG transparente)</div>
     <div class="upz"><input type="file" id="logo-input" accept=".png,.svg,.webp"><img id="logo-prev" style="display:none;max-height:34px;max-width:100px;object-fit:contain;margin:0 auto 5px"><p id="logo-txt">↑ Sube tu logo</p></div>
   </div>
-  <div class="sb"><div class="lbl">Handle de Instagram</div><input type="text" class="inp" id="handle" value="@victortip"></div>
+  <div class="sb"><div class="lbl">Handle de Instagram</div><input type="text" class="inp" id="handle" value="" placeholder="@tuhandle"></div>
   <div class="sb"><div class="lbl">Tu estilo y especialidad</div><textarea class="inp" id="ctx">Japonés neotradicional. Rojo carmesí, negro, dorado, verde jade. 10 años de experiencia. Veracruz, México.</textarea></div>
-  <div class="sb" style="display:flex;flex-direction:column;gap:7px;padding-bottom:20px">
+  <div class="sb" style="display:flex;flex-direction:column;gap:7px;padding-bottom:40px">
     <button class="btn-red" id="btn-gen">⚡ GENERAR HISTORIA</button>
     <div class="st" id="st-gen"></div>
     <button class="btn-ghost" id="btn-regen" style="display:none">↺ Regenerar</button>
@@ -232,9 +252,18 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
         <div class="sloader" id="sloader" style="display:none"><div class="spin"></div><p style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--mut);text-transform:uppercase">Creando...</p></div>
       </div>
       <!-- Download buttons below preview -->
-      <div id="dl-btn-area" style="display:none;flex-direction:row;gap:8px;width:270px;margin-top:10px">
-        <button id="btn-dl-png" style="flex:1;padding:9px 6px;background:transparent;color:var(--txt);border:1px solid var(--b2);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--txt)'">↓ PNG</button>
-        <button id="btn-dl-mp4" style="flex:1;padding:9px 6px;background:transparent;color:var(--gold);border:1px solid var(--gold);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s" onmouseover="this.style.background='var(--gold)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--gold)'">▶ MP4 15s</button>
+      <div id="dl-btn-area" style="display:none;flex-direction:column;gap:6px;width:270px;margin-top:10px">
+        <div style="display:flex;gap:6px">
+          <button id="btn-dl-png" style="flex:1;padding:9px 6px;background:transparent;color:var(--txt);border:1px solid var(--b2);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--txt)'">↓ PNG</button>
+          <button id="btn-dl-mp4" style="flex:1;padding:9px 6px;background:transparent;color:var(--gold);border:1px solid var(--gold);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s" onmouseover="this.style.background='var(--gold)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--gold)'">▶ Video 15s</button>
+        </div>
+        <a id="btn-convert-mp4" href="https://cloudconvert.com/webm-to-mp4" target="_blank" style="display:none;width:100%;padding:8px 6px;background:transparent;color:#60a5fa;border:1px solid #60a5fa;font-family:'Space Mono',monospace;font-size:9px;cursor:pointer;text-transform:uppercase;transition:all .2s;text-decoration:none;align-items:center;justify-content:center;gap:6px;box-sizing:border-box" onmouseover="this.style.background='#60a5fa';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='#60a5fa'">
+          🔄 Convertir .webm → .mp4 (cloudconvert.com)
+        </a>
+        <button id="btn-drive-png" style="width:100%;padding:8px 6px;background:transparent;color:#4ade80;border:1px solid #4ade80;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px" onmouseover="this.style.background='#4ade80';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='#4ade80'">
+          <svg width="12" height="12" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+          Guardar en Drive
+        </button>
       </div>
     </div>
   </div>
@@ -244,7 +273,11 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
       <div style="display:flex;gap:8px">
         <button class="btn-ghost" id="btn-gen-week" style="width:auto;padding:8px 14px">⚡ Generar semana</button>
         <button class="btn-gold" id="btn-export-week" disabled>↓ ZIP PNG</button>
-        <button class="btn-gold" id="btn-export-week-mp4" disabled style="border-color:#c8860a">▶ ZIP MP4</button>
+        <button class="btn-gold" id="btn-export-week-mp4" disabled style="border-color:#c8860a">▶ ZIP Video</button>
+        <button id="btn-drive-week" disabled style="padding:8px 10px;background:transparent;color:#4ade80;border:1px solid #4ade80;font-family:'Space Mono',monospace;font-size:9px;cursor:pointer;text-transform:uppercase;transition:all .2s;opacity:.4;display:flex;align-items:center;gap:5px" onmouseover="if(!this.disabled){this.style.background='#4ade80';this.style.color='#000'}" onmouseout="this.style.background='transparent';this.style.color='#4ade80'">
+          <svg width="10" height="10" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+          Drive ZIP
+        </button>
       </div>
     </div>
     <div class="wbody"><div class="wgrid" id="wgrid"></div></div>
@@ -287,7 +320,27 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
   <div class="pane" id="pane-bank">
     <div class="bbar">
       <input type="text" class="bsearch" id="bq" placeholder="Buscar en mis historias...">
-      <select class="bsel" id="bfilter"><option value="">Todos</option><option value="dato">Dato</option><option value="estilo">Estilo</option><option value="proceso">Técnica</option><option value="historia">Historia</option><option value="mito">Mito</option><option value="cuidado">Cuidado</option><option value="simbolo">Símbolo</option><option value="famoso">Icónico</option><option value="region">Regional</option><option value="color">Color</option><option value="dolor">Dolor</option><option value="consejo">Consejo</option><option value="tendencia">Tendencia</option></select>
+      <select class="bsel" id="bfilter"><option value="">Todos</option>
+        <option value="dato">Dato</option>
+        <option value="sabias">¿Sabías que...?</option>
+        <option value="interactivo">Interactivo</option>
+        <option value="inspiracion">Inspiración</option>
+        <option value="estilo">Estilo</option>
+        <option value="historia">Historia</option>
+        <option value="mito">Mito vs Real</option>
+        <option value="simbolo">Símbolo</option>
+        <option value="famoso">Icónico</option>
+        <option value="region">Regional</option>
+        <option value="idea">Idea de Tatuaje</option>
+        <option value="consejo">Primer tat</option>
+        <option value="cliente">Decisión</option>
+        <option value="tendencia">Tendencia</option>
+        <option value="tribu">Tribu/Cultura</option>
+        <option value="psicologia">Psicología</option>
+        <option value="encuesta">Encuesta A/B</option>
+        <option value="confiesa">Confiesa</option>
+        <option value="mitoregional">Mito Regional</option>
+        <option value="cultpop">Cultura Pop</option></select>
       <span style="font-size:10px;color:var(--mut);font-family:'Space Mono',monospace;white-space:nowrap" id="bcount"></span>
     </div>
     <div class="bgrid" id="bgrid"></div>
@@ -296,6 +349,158 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
+<script>
+// ── ENCODER DE VIDEO — WebCodecs + mp4-muxer ──────────────────────────────
+// Genera MP4 H.264 Baseline idéntico al video que funciona en Instagram:
+//   H.264 Baseline Profile Level 4.0, 30fps, ~1.4Mbps, yuv420p, bt709
+//   1080×1920, sin audio, contenedor isom/avc1/mp41
+
+function recordAndExport(canvas, renderFn, durationMs, progressCb) {
+  durationMs = durationMs || 15000;
+  var fps = 30;
+  var totalFrames = Math.round(fps * durationMs / 1000);
+  var W = canvas.width, H = canvas.height;
+
+  // Verificar soporte de WebCodecs + mp4-muxer
+  if (typeof VideoEncoder === 'undefined' || typeof Mp4Muxer === 'undefined') {
+    return recordWebmFallback(canvas, renderFn, durationMs, progressCb);
+  }
+
+  return new Promise(function(resolve, reject) {
+    var muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.ArrayBufferTarget(),
+      video: {
+        codec: 'avc',
+        width: W,
+        height: H,
+        frameRate: fps
+      },
+      fastStart: 'in-memory', // moov al principio — obligatorio para streaming
+      firstTimestampBehavior: 'offset'
+    });
+
+    var encoder = new VideoEncoder({
+      output: function(chunk, meta) {
+        muxer.addVideoChunk(chunk, meta);
+      },
+      error: function(e) { reject(e); }
+    });
+
+    encoder.configure({
+      codec: 'avc1.42C028',  // H.264 Baseline Profile Level 4.0 — igual que el video funcional
+      width: W,
+      height: H,
+      framerate: fps,
+      bitrate: 1400000,      // ~1.4 Mbps — igual que el video que funciona
+      latencyMode: 'quality',
+      avc: { format: 'avc' } // formato AVC (annexb=false) — requerido por mp4-muxer
+    });
+
+    if (progressCb) progressCb(0, 'Iniciando encoder...');
+
+    var frameIdx = 0;
+
+    function encodeNextFrame() {
+      if (frameIdx >= totalFrames) {
+        encoder.flush().then(function() {
+          encoder.close();
+          muxer.finalize();
+          if (progressCb) progressCb(98, 'Empaquetando MP4...');
+          var buf = muxer.target.buffer;
+          var blob = new Blob([buf], { type: 'video/mp4' });
+          if (progressCb) progressCb(100, '¡Listo!');
+          resolve(blob);
+        }).catch(reject);
+        return;
+      }
+
+      var t = frameIdx / totalFrames;
+      renderFn(t);
+
+      if (progressCb && frameIdx % 15 === 0) {
+        progressCb(Math.round(t * 95), 'Renderizando: ' + Math.round(t * durationMs / 1000) + 's / 15s...');
+      }
+
+      createImageBitmap(canvas).then(function(bmp) {
+        var timestampUs = Math.round(frameIdx * 1000000 / fps);
+        var vf = new VideoFrame(bmp, {
+          timestamp: timestampUs,
+          duration: Math.round(1000000 / fps)
+        });
+        // Keyframe cada 2 segundos (igual que el video funcional)
+        encoder.encode(vf, { keyFrame: frameIdx % (fps * 2) === 0 });
+        vf.close();
+        bmp.close();
+        frameIdx++;
+        setTimeout(encodeNextFrame, 0);
+      }).catch(function() {
+        frameIdx++;
+        setTimeout(encodeNextFrame, 0);
+      });
+    }
+
+    encodeNextFrame();
+  });
+}
+
+// Fallback para navegadores sin WebCodecs (Firefox, Safari antiguo)
+// Graba WebM y corrige la duración en el header — Instagram acepta WebM en móvil
+function recordWebmFallback(canvas, renderFn, durationMs, progressCb) {
+  return new Promise(function(resolve, reject) {
+    var fps = 30, mimeType = '';
+    ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].forEach(function(m) {
+      if (!mimeType && MediaRecorder.isTypeSupported(m)) mimeType = m;
+    });
+    if (!mimeType) { reject(new Error('Navegador no soporta grabación de video')); return; }
+
+    var chunks = [], stopped = false, recStart = Date.now();
+    renderFn(0);
+
+    var mr = new MediaRecorder(canvas.captureStream(fps), {
+      mimeType: mimeType,
+      videoBitsPerSecond: 6000000
+    });
+    mr.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    mr.onstop = function() {
+      var blob = new Blob(chunks, { type: mimeType });
+      // Corregir duración en header WebM para que Instagram lo reconozca
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var buf = new Uint8Array(e.target.result);
+        var dv = new DataView(new ArrayBuffer(8));
+        dv.setFloat64(0, durationMs / 1000, false);
+        var db = new Uint8Array(dv.buffer);
+        for (var i = 0; i < buf.length - 10; i++) {
+          if (buf[i] === 0x44 && buf[i+1] === 0x89 && buf[i+2] === 0x88) {
+            for (var j = 0; j < 8; j++) buf[i+3+j] = db[j];
+            break;
+          }
+        }
+        resolve(new Blob([buf.buffer], { type: 'video/webm' }));
+      };
+      reader.onerror = function() { resolve(blob); };
+      reader.readAsArrayBuffer(blob);
+    };
+    mr.onerror = function(e) { reject(e.error || new Error('Error grabando')); };
+    mr.start(100);
+
+    var targetEnd = Date.now() + durationMs;
+    var loop = setInterval(function() {
+      if (stopped) return;
+      var now = Date.now(), elapsed = now - recStart, t = Math.min(elapsed / durationMs, 1);
+      renderFn(t);
+      var c = canvas.getContext('2d'); c.fillStyle = 'rgba(0,0,0,0.0001)'; c.fillRect(0, 0, 1, 1);
+      if (progressCb) progressCb(Math.round(t * 90), 'Grabando: ' + Math.round(elapsed / 1000) + 's / 15s...');
+      if (now >= targetEnd && !stopped) {
+        stopped = true; clearInterval(loop);
+        setTimeout(function() { if (mr.state !== 'inactive') mr.stop(); }, 300);
+      }
+    }, Math.round(1000 / fps));
+  });
+}
+
+</script>
 <script>
 (function(){
 
@@ -305,23 +510,26 @@ var bank=[],weekData=[],currentStory=null;
 var capB64=null,capMime=null,fontsReady=false;
 
 var typeMap={
-  dato:'un dato curioso e impactante sobre tatuajes (histórico, científico o cultural)',
-  estilo:'el estilo de tatuaje del día: elige uno entre blackwork, realismo, japonés neotradicional, fineline, acuarela, old school, tribal, geométrico, chicano, trash polka, single needle',
-  proceso:'un aspecto fascinante del proceso de tatuar: agujas, máquinas, tinta, técnica de sombreado',
-  historia:'un hecho histórico fascinante sobre el origen del tatuaje en alguna cultura',
-  mito:'un mito o creencia falsa sobre tatuajes y la realidad que lo desmiente claramente',
-  cuidado:'un consejo práctico de cuidado post-tatuaje: cicatrización, humectación, sol',
-  simbolo:'el significado de un símbolo japonés en tatuajes: koi, dragón, oni, kitsune, peonía, gru',
-  famoso:'una historia curiosa o sorprendente sobre un tatuaje icónico de una figura famosa',
-  region:'la tradición del tatuaje de una región del mundo: Japón, Polinesia, México prehispánico, Egipto',
-  color:'teoría del color en tatuaje: tintas que duran más y cómo reaccionan en diferentes pieles',
-  dolor:'zonas del cuerpo y su nivel de dolor al tatuar, con escala clara y memorable',
-  consejo:'el consejo más importante para alguien que se va a hacer su primer tatuaje',
-  cliente:'qué hace a un buen cliente de tatuaje: preparación, cuidados, comunicación con el artista',
-  tendencia:'una tendencia actual en el mundo del tatuaje que está creciendo en popularidad',
-  flash:'qué es un Flash Day de tatuajes y por qué los tatuadores y clientes los disfrutan',
-  retoque:'cuándo y por qué retocarse un tatuaje: decoloración, líneas perdidas, envejecimiento',
-  psicologia:'la psicología detrás de tatuarse: por qué la gente se tatúa, significado personal, identidad'
+  dato:'un dato curioso, sorprendente e impactante sobre tatuajes que la mayoría de personas no conoce. Que sea histórico, cultural, antropológico o sobre el significado humano detrás del tatuaje. NUNCA menciones tintas UV, rayos X, fluorescencia, cómo brillan los tatuajes con luz especial, ni propiedades ópticas de las tintas. El dato debe generar asombro emocional o cultural.',
+  estilo:'explica un estilo de tatuaje de forma visual y emocionante: qué lo hace único, de dónde viene culturalmente, qué tipo de persona lo elige y por qué es poderoso. Elige entre: blackwork, realismo, japonés neotradicional, fineline, acuarela, old school, tribal, geométrico, chicano, trash polka, single needle, puntillismo. Enfócate en el origen cultural y el significado, no en técnicas de tinta.',
+  historia:'una historia fascinante y casi desconocida sobre el origen del tatuaje en una cultura del mundo: guerreros, rituales, significados sagrados, momentos históricos que cambiaron la visión del tatuaje. Que sea dramática y evocadora.',
+  mito:'desmiente un mito muy extendido sobre los tatuajes con datos reales y contundentes. Que sea algo que la gente cree y está equivocada. NUNCA uses el mito de tintas UV o que los tatuajes brillan. Elige mitos sobre dolor, cicatrización, trabajo, significado o prejuicios sociales. Hazlo convincente y revelador.',
+  simbolo:'el significado profundo y poderoso de un símbolo japonés o ancestral en tatuajes: koi, dragón, oni, kitsune, peonía, lobo, serpiente, luna, fénix, tigre, grulla. Explica su origen mitológico y por qué la gente los elige para marcar momentos de su vida.',
+  famoso:'una historia curiosa, sorprendente o emotiva sobre un tatuaje icónico de una figura famosa o personaje histórico. Que revele algo sobre su personalidad o historia de vida.',
+  region:'la tradición del tatuaje en una región o cultura del mundo: Japón, Polinesia, México prehispánico, Tailandia, Egipto, tribus africanas, Maorí, Vikings. Que sea visual y evocador, con datos culturales específicos.',
+  idea:'una idea de tatuaje específica y hermosa con su significado profundo: por qué tatuarse eso, qué representa, en qué parte del cuerpo queda mejor y por qué tiene tanto poder visual. Elige ideas originales: constelación personal, coordenadas de un lugar especial, retrato de mascota, frase en otro idioma, elemento natural. Que inspire a actuar.',
+  consejo:'el consejo más importante y honesto para alguien que va a hacerse su primer tatuaje. Que sea práctico, directo, sin tecnicismos de tintas, y que genere confianza en el proceso.',
+  cliente:'qué significa para una persona decidir tatuarse: el proceso emocional, cómo elegir el diseño correcto, la conexión con su historia personal, por qué los tatuajes son una forma de arte permanente en la piel.',
+  tendencia:'una tendencia actual o emergente en el mundo del tatuaje que está cambiando la industria. Por qué está creciendo y qué la hace especial. Enfócate en estilos artísticos y culturales, no en tecnología de tintas.',
+  tribu:'la historia fascinante de una tribu o cultura ancestral que usaba tatuajes: los Maorí de Nueva Zelanda, los guerreros Yakuza en Japón, las mujeres Inuit de Alaska, los guerreros Dayak de Borneo, los aztecas, los celtas, los polinesios. Qué significaban sus tatuajes, cómo los hacían y qué pasaba si los quitaban. Que sea épica y cultural.',
+  psicologia:'la psicología detrás de tatuarse: por qué la gente elige tatuajes permanentes, qué dice de su personalidad, la conexión entre arte corporal e identidad, el proceso de duelo o celebración que representa un tatuaje.',
+  encuesta:'crea una historia tipo encuesta con DOS opciones claras (A o B) sobre tatuajes. Ejemplos: ¿Tatuaje pequeño o grande? ¿Color o negro? ¿Visible o escondido? ¿Un solo estilo o mezcla? ¿Con significado o solo estético? La pregunta debe ser divertida y generar debate. El body presenta las dos opciones con emojis.',
+  confiesa:'crea una historia tipo confesiónario que invite al seguidor a responder algo personal sobre tatuajes. Ejemplos: ¿Tienes un tatuaje del que te arrepientes?, ¿Cuánto tiempo tardaste en decidirte?, ¿Le ocultaste a alguien tu primer tatuaje? Que sea íntima, sin juzgar, que genere confianza.',
+  mitoregional:'un mito, creencia o superstición sobre tatuajes específica de México, América Latina u otro país. Qué cree la gente, de dónde viene esa creencia y cuál es la realidad. Que sea culturalmente interesante.',
+  cultpop:'un tatuaje icónico del mundo del cine, música, deportes o cultura popular. La historia detrás de ese tatuaje, qué significa para esa persona y por qué se volvió famoso. Que sea algo que la gente reconozca.',
+  sabias:'un "¿Sabías que...?" impactante sobre tatuajes que deje a la gente con la boca abierta. NUNCA uses datos sobre tintas UV, fluorescencia, rayos X o propiedades de luz. Elige datos históricos, antropológicos, sobre culturas ancestrales, sobre personajes históricos tatuados, o sobre récords y curiosidades humanas del mundo del tatuaje. Que sea completamente inesperado.',
+  interactivo:'crea una historia que haga UNA pregunta directa e interesante a los seguidores para que respondan. Ejemplos: ¿cuál sería tu primer tatuaje?, ¿qué símbolo te define?, ¿tienes tatuajes que cuenten tu historia?, ¿en qué parte del cuerpo te tatuarías si no te importara el dolor? La pregunta debe generar ganas de responder.',
+  inspiracion:'una historia que inspire a alguien a tatuarse o a valorar su tatuaje. Puede ser sobre superación, identidad, libertad, arte, memoria. Que sea emotiva y poderosa sin ser cursi.'
 };
 var toneMap={storytelling:'narrativo, evocador',educativo:'informativo y claro',personal:'en primera persona, cercano',misterioso:'intrigante y poético'};
 var bgList=['photo','ink','fire','smoke','sakura','geo','lightning','matrix','blood','neon','stars','waves','lava','circuit'];
@@ -652,7 +860,11 @@ function genStory(){
   }).catch(function(e){setSt('st-gen','Error: '+(e.message||'Intenta'),'err');}).finally(function(){document.getElementById('sloader').style.display='none';document.getElementById('btn-gen').disabled=false;});
 }
 function buildPrompt(type,handle,ctxTxt){
-  return 'Eres experto en marketing de tatuajes para Instagram. Crea contenido cautivador y claro.\n\nTema: '+typeMap[type]+'\nHandle: '+handle+'\nArtista: '+ctxTxt+'\n\nREGLAS:\n- Oraciones cortas, directas, fáciles de leer de un vistazo\n- Título impactante y entendible\n- Body máximo 110 caracteres\n\nResponde SOLO con JSON válido sin markdown:\n{"eyebrow":"2-3 palabras MAYÚSCULAS etiqueta (ej: DATO DEL DÍA / MITO JAPONÉS)","title1":"primera línea 2-4 palabras impactante","title2":"segunda línea 2-4 palabras","accent":"UNA palabra exacta del título que va en rojo","body":"2 oraciones directas. Primera: el dato principal. Segunda: el contexto. Máx 110 chars.","cta":"CTA corto con emoji"}';
+  var antiRepeat='IMPORTANTE: Esta historia debe ser COMPLETAMENTE DIFERENTE a cualquier historia anterior. Usa un ángulo, dato, cultura o enfoque que no hayas usado antes. Nunca repitas el mismo dato, símbolo o historia.';
+  var clientFocus='ENFOQUE: El contenido es para personas interesadas en tatuajes como clientes. No hables del tatuador ni de su técnica. Habla de lo que le interesa, emociona o educa al cliente. Que sea relevante para su vida.';
+  var rules='REGLAS DE ESCRITURA:\n- Texto directo, claro y apasionante\n- Nada de frases mamónas ni de autoexaltación\n- Primera oración: gancho que detenga el scroll\n- Segunda oración: el dato, historia o idea principal\n- Sin mencionar al tatuador\n- El body puede tener hasta 160 caracteres\n- El título debe ser corto e impactante (máx 5 palabras entre las dos líneas)';
+  var prompt='Eres un experto en cultura del tatuaje y comunicación para redes sociales. Crea contenido cautivador para Instagram Stories.\n\n'+antiRepeat+'\n\n'+clientFocus+'\n\nTema específico: '+typeMap[type]+'\n\n'+rules+'\n\nResponde SOLO con JSON válido sin markdown:\n{"eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas y apasionantes. Primera: gancho. Segunda: el dato o idea. Máximo 160 caracteres total.","cta":"llamada a acción corta con emoji, orientada al cliente"}';
+  return prompt;
 }
 function renderStoryDOM(c,handle){
   var t1=c.title1||'',t2=c.title2||'';
@@ -665,46 +877,114 @@ function renderStoryDOM(c,handle){
 // Note: Chrome records as WebM but we name it .mp4 — Instagram accepts both
 // For true MP4 we use the webm file renamed; most platforms accept it
 
+// ── GOOGLE DRIVE EXPORT ───────────────────────────────────────────────────
+document.getElementById('btn-drive-png').addEventListener('click',function(){
+  if(!currentStory){setSt('st-gen','Genera primero','err');return;}
+  var btn=this;
+  // Step 1: Export PNG as blob
+  var handle=document.getElementById('handle').value||'@victortip';
+  var bgSrc=selBg==='photo'&&photos.length?photos[pidx]:null;
+  btn.disabled=true;
+  setSt('st-gen','Preparando para Drive...','ld');
+  loadFonts().then(function(){
+    var oc=document.createElement('canvas');oc.width=EW;oc.height=EH;var c2=oc.getContext('2d');
+    function go(bgImg){
+      renderFrame(c2,currentStory,handle,bgImg,selBg,EW,EH,0);
+      oc.toBlob(function(blob){
+        uploadToDrive(blob, 'inkbot-'+selType+'-'+Date.now()+'.png', btn);
+      },'image/png');
+    }
+    if(bgSrc){var img=new Image();img.onload=function(){go(img);};img.onerror=function(){go(null);};img.src=bgSrc;}
+    else{go(null);}
+  });
+});
+
+function uploadToDrive(blob, filename, btn){
+  // Use Google Drive Picker — needs user to auth with Google
+  // Check if we have a stored token
+  var token = sessionStorage.getItem('gd_token');
+  if(!token){
+    // Open Google auth
+    setSt('st-gen','Abriendo Google...','ld');
+    var clientId = document.getElementById('gd-client-id').value.trim();
+    if(!clientId){
+      // Show client ID input
+      document.getElementById('gd-setup').style.display='block';
+      setSt('st-gen','Configura Google Drive primero','err');
+      btn.disabled=false;
+      return;
+    }
+    var authUrl='https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(clientId)+'&redirect_uri='+encodeURIComponent(location.origin+location.pathname)+'&response_type=token&scope='+encodeURIComponent('https://www.googleapis.com/auth/drive.file');
+    var popup=window.open(authUrl,'gdrive_auth','width=500,height=600');
+    // Listen for token in URL hash when popup redirects back
+    var checkInterval=setInterval(function(){
+      try{
+        if(popup.closed){clearInterval(checkInterval);setSt('st-gen','Auth cancelada','err');btn.disabled=false;return;}
+        var hash=popup.location.hash;
+        if(hash&&hash.includes('access_token')){
+          clearInterval(checkInterval);popup.close();
+          var params=new URLSearchParams(hash.slice(1));
+          token=params.get('access_token');
+          sessionStorage.setItem('gd_token',token);
+          doUpload(blob,filename,token,btn);
+        }
+      }catch(e){}
+    },500);
+    return;
+  }
+  doUpload(blob,filename,token,btn);
+}
+
+function doUpload(blob,filename,token,btn){
+  setSt('st-gen','Subiendo a Drive...','ld');
+  var metadata={name:filename,mimeType:'image/png',parents:['root']};
+  var form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+  form.append('file',blob);
+  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token},
+    body:form
+  }).then(function(r){
+    if(r.status===401){sessionStorage.removeItem('gd_token');setSt('st-gen','Token expirado, intenta de nuevo','err');btn.disabled=false;return;}
+    return r.json();
+  }).then(function(d){
+    if(d&&d.id){
+      setSt('st-gen','✓ Guardado en Google Drive','ok');
+      btn.disabled=false;
+    }
+  }).catch(function(){setSt('st-gen','Error al subir a Drive','err');btn.disabled=false;});
+}
+
+// ── VIDEO INDIVIDUAL — MP4 H.264 Baseline, 30fps, 15s exactos ────────────
 document.getElementById('btn-dl-mp4').addEventListener('click',function(){
   if(!currentStory){setSt('st-gen','Genera primero','err');return;}
   var btn=this;btn.disabled=true;
   var handle=document.getElementById('handle').value||'@victortip';
   var bgSrc=selBg==='photo'&&photos.length?photos[pidx]:null;
   var VW=1080,VH=1920;
-  showProgress(0,'Cargando fuentes...');
-
+  showProgress(0,'Preparando...');
   function startRec(bgImg){
     loadFonts().then(function(){
-      var oc=document.createElement('canvas');oc.width=VW;oc.height=VH;var c2=oc.getContext('2d');
-      // Pick best supported codec
-      var mimeType='video/mp4';
-      if(!MediaRecorder.isTypeSupported('video/mp4'))mimeType='video/webm;codecs=vp9';
-      if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm';
-      var mr=new MediaRecorder(oc.captureStream(VID_FPS),{mimeType:mimeType,videoBitsPerSecond:20000000});
-      var chunks=[];
-      mr.ondataavailable=function(e){if(e.data&&e.data.size>0)chunks.push(e.data);};
-      mr.onstop=function(){
-        var ext=mimeType.startsWith('video/mp4')?'.mp4':'.mp4'; // always name as mp4
-        var blob=new Blob(chunks,{type:mimeType});
-        var a=document.createElement('a');a.download='inkbot-'+selType+'-'+Date.now()+ext;a.href=URL.createObjectURL(blob);a.click();
-        hideProgress();setSt('st-gen','✓ MP4 descargado (15s)','ok');btn.disabled=false;
-      };
-      // Use 33ms interval (30fps) — more reliable than requestAnimationFrame for recording
-      mr.start(500); // collect chunks every 500ms
-      var start=Date.now();
-      var recInterval=setInterval(function(){
-        var elapsed=Date.now()-start;
-        var t=Math.min(elapsed/VID_DURATION,1);
+      var oc=document.createElement('canvas');oc.width=VW;oc.height=VH;
+      var c2=oc.getContext('2d');
+      recordAndExport(oc,function(t){
         renderFrame(c2,currentStory,handle,bgImg,selBg,VW,VH,t*4);
-        // Force codec to encode by drawing a 1px changing pixel
-        c2.fillStyle='rgba(0,0,0,0.001)';
-        c2.fillRect(0,0,1,1);
-        showProgress(Math.round(t*100),'Grabando: '+Math.round(elapsed/1000)+'s / 15s...');
-        if(elapsed>=VID_DURATION){
-          clearInterval(recInterval);
-          setTimeout(function(){ mr.stop(); },600);
-        }
-      },33);
+      },15000,function(pct,msg){
+        showProgress(pct,msg);
+      }).then(function(mp4){
+        var ext = (mp4.type && mp4.type.includes('webm')) ? '.webm' : '.mp4';
+        var a=document.createElement('a');
+        a.download='inkbot-'+selType+'-'+Date.now()+ext;
+        a.href=URL.createObjectURL(mp4);a.click();
+        hideProgress();
+        setSt('st-gen','✓ Video 15s listo — compatible con Instagram','ok');
+        btn.disabled=false;
+      }).catch(function(err){
+        hideProgress();
+        setSt('st-gen','Error: '+(err.message||'Intenta de nuevo'),'err');
+        btn.disabled=false;
+      });
     });
   }
   if(bgSrc){var img=new Image();img.onload=function(){startRec(img);};img.onerror=function(){startRec(null);};img.src=bgSrc;}
@@ -719,7 +999,27 @@ function showProgress(pct,label){
 function hideProgress(){document.getElementById('prog-overlay').style.display='none';}
 
 // ── BANK ─────────────────────────────────────────────
-function renderBank(q,tf){var g=document.getElementById('bgrid');var items=bank;if(q)items=items.filter(function(i){return(i.content.title1+' '+i.content.title2+' '+(i.content.body||'')).toLowerCase().indexOf(q.toLowerCase())>-1;});if(tf)items=items.filter(function(i){return i.type===tf;});document.getElementById('bcount').textContent=items.length+' historia'+(items.length!==1?'s':'');if(!items.length){g.innerHTML='<div class="bempty">'+(bank.length?'Sin resultados.':'Aún no tienes historias.<br>Genera una y aparecerá aquí.')+'</div>';return;}g.innerHTML='';items.forEach(function(item){var ri=bank.indexOf(item);var d=document.createElement('div');d.className='bc';d.innerHTML='<div class="bctype">'+item.type.toUpperCase()+'</div><div class="bctitle">'+(item.content.title1||'')+' '+(item.content.title2||'')+'</div><div class="bcbody">'+((item.content.body||'').slice(0,90))+'...</div><div class="bcdate">'+item.date+'</div><div class="bcdel">✕</div>';d.querySelector('.bcdel').addEventListener('click',function(e){e.stopPropagation();bank.splice(ri,1);save();renderBank();});d.addEventListener('click',function(){currentStory=item.content;renderStoryDOM(item.content,item.handle||document.getElementById('handle').value);goTab('story');document.getElementById('dl-btn-area').style.display='flex';});g.appendChild(d);});}
+function renderBank(q,tf){var g=document.getElementById('bgrid');var items=bank;if(q)items=items.filter(function(i){return(i.content.title1+' '+i.content.title2+' '+(i.content.body||'')).toLowerCase().indexOf(q.toLowerCase())>-1;});if(tf)items=items.filter(function(i){return i.type===tf;});
+// Sort: liked items first, then by date
+items=items.slice().sort(function(a,b){var la=a.likes||0,lb=b.likes||0;return lb-la||0;});
+document.getElementById('bcount').textContent=items.length+' historia'+(items.length!==1?'s':'');if(!items.length){g.innerHTML='<div class="bempty">'+(bank.length?'Sin resultados.':'Aún no tienes historias.<br>Genera una y aparecerá aquí.')+'</div>';return;}g.innerHTML='';items.forEach(function(item){var ri=bank.indexOf(item);var likes=item.likes||0;var liked=likes>0;var d=document.createElement('div');d.className='bc';d.innerHTML='<div class="bctype">'+item.type.toUpperCase()+'</div><div class="bctitle">'+(item.content.title1||'')+' '+(item.content.title2||'')+'</div><div class="bcbody">'+((item.content.body||'').slice(0,90))+'...</div><div class="bcdate" style="display:flex;justify-content:space-between;align-items:center"><span>'+item.date+'</span><button class="like-btn" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;opacity:'+(liked?'1':'.35')+';transition:all .2s;color:'+(liked?'#ff4466':'#888')+'" title="Like para aprender">'+(liked?'❤️':'🤍')+' '+(likes>0?likes:'')+'</button></div><div class="bcdel">✕</div>';
+var likeBtn=d.querySelector('.like-btn');
+(function(bankItem,btn){
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    bankItem.likes=(bankItem.likes||0)+1;
+    btn.style.opacity='1';
+    btn.style.color='#ff4466';
+    btn.textContent='❤️ '+bankItem.likes;
+    btn.style.transform='scale(1.3)';
+    setTimeout(function(){btn.style.transform='scale(1)';},200);
+    save();
+    // Show feedback
+    setSt('bcount','✓ ¡Aprendido!','ok');
+    setTimeout(function(){renderBank(document.getElementById('bq').value,document.getElementById('bfilter').value);},800);
+  });
+})(item,likeBtn);
+d.querySelector('.bcdel').addEventListener('click',function(e){e.stopPropagation();bank.splice(ri,1);save();renderBank();});d.addEventListener('click',function(){currentStory=item.content;renderStoryDOM(item.content,item.handle||document.getElementById('handle').value);goTab('story');document.getElementById('dl-btn-area').style.display='flex';});g.appendChild(d);});}
 document.getElementById('bq').addEventListener('input',function(){renderBank(this.value,document.getElementById('bfilter').value);});
 document.getElementById('bfilter').addEventListener('change',function(){renderBank(document.getElementById('bq').value,this.value);});
 
@@ -730,14 +1030,20 @@ document.getElementById('btn-gen-week').addEventListener('click',function(){
   var key=getKey();if(!key){setSt('st-week','Ingresa API Key primero','err');return;}
   var handle=document.getElementById('handle').value,ctxTxt=document.getElementById('ctx').value;
   var btn=this;btn.disabled=true;weekData=[];
-  var st2=TYPES.slice();for(var i=st2.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=st2[i];st2[i]=st2[j];st2[j]=tmp;}
-  var ex=TYPES.slice();for(var i=ex.length-1;i>0;i--){var j2=Math.floor(Math.random()*(i+1));var t2=ex[i];ex[i]=ex[j2];ex[j2]=t2;}
-  var wt=st2.concat(ex.slice(0,Math.max(0,21-st2.length)));
+  // Build 21 types — weight by likes from bank
+  var typeLikes={};TYPES.forEach(function(t){typeLikes[t]=0;});
+  bank.forEach(function(item){if(item.likes&&item.likes>0)typeLikes[item.type]=(typeLikes[item.type]||0)+item.likes;});
+  var allTypes=[];TYPES.forEach(function(t){var weight=1+Math.min((typeLikes[t]||0),4);for(var w=0;w<weight;w++)allTypes.push(t);});
+  // Shuffle
+  for(var i=allTypes.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=allTypes[i];allTypes[i]=allTypes[j];allTypes[j]=tmp;}
+  // Build 21 slots — deduplicate adjacent
+  var wt=[],last='';
+  while(wt.length<21){var pick=allTypes[wt.length%allTypes.length];if(pick===last){pick=allTypes[(wt.length+1)%allTypes.length]||pick;}wt.push(pick);last=pick;}
   var wb=bgList.filter(function(b){return b!=='photo';});for(var i=wb.length-1;i>0;i--){var j3=Math.floor(Math.random()*(i+1));var tb=wb[i];wb[i]=wb[j3];wb[j3]=tb;}
   var weekBgs=[];for(var i=0;i<21;i++)weekBgs.push(photos.length&&i%3===0?'photo':wb[i%wb.length]);
   var chain=Promise.resolve(),idx=0;
   DAYS.forEach(function(day,di){TIMES.forEach(function(time,ti){(function(di2,ti2,type,bg){chain=chain.then(function(){var slot=document.getElementById('sl-'+di2+'-'+ti2);slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dempty" style="color:var(--gold)">Generando...</div>';setSt('st-week','Día '+(di2+1)+'/7 · '+(ti2+1)+'/3...','ld');return callAI(key,buildPrompt(type,handle,ctxTxt)).then(function(raw){var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());weekData.push({day:di2,time:ti2,type:type,bg:bg,content:c});slot.className='dslot filled';slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dtype">'+type.toUpperCase()+' · '+bg+'</div><div class="dtxt">'+(c.title1||'')+' '+(c.title2||'')+'</div><div class="dtxt" style="opacity:.55;margin-top:2px">'+((c.body||'').slice(0,55))+'...</div>';}).catch(function(){slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dempty" style="color:var(--red)">Error</div>';}).then(function(){return new Promise(function(r){setTimeout(r,300);});});});})(di,ti,wt[idx%wt.length],weekBgs[idx]);idx++;});});
-  chain.then(function(){setSt('st-week','✓ '+weekData.length+' historias listas','ok');document.getElementById('btn-export-week').disabled=false;document.getElementById('btn-export-week-mp4').disabled=false;btn.disabled=false;});
+  chain.then(function(){setSt('st-week','✓ '+weekData.length+' historias listas','ok');document.getElementById('btn-export-week').disabled=false;document.getElementById('btn-export-week-mp4').disabled=false;var dw=document.getElementById('btn-drive-week');dw.disabled=false;dw.style.opacity='1';btn.disabled=false;});
 });
 
 document.getElementById('btn-export-week').addEventListener('click',function(){
@@ -750,49 +1056,45 @@ document.getElementById('btn-export-week').addEventListener('click',function(){
   }).then(function(){return zip.generateAsync({type:'blob'});}).then(function(content){var a=document.createElement('a');a.download='inkbot-semana-'+new Date().toLocaleDateString('es-MX').replace(/\//g,'-')+'.zip';a.href=URL.createObjectURL(content);a.click();setSt('st-week','✓ ZIP descargado','ok');btn.disabled=false;});
 });
 
-// ── CAPTION ──────────────────────────────────────────
+// ── DRIVE WEEK ZIP ──────────────────────────────────
+document.getElementById('btn-drive-week').addEventListener('click',function(){
+  if(!weekData.length)return;
+  var btn=this;btn.disabled=true;setSt('st-week','Exportando PNGs para Drive...','ld');
+  var zip=new JSZip();var folder=zip.folder('inkbot-semana');var handle=document.getElementById('handle').value||'@victortip';
+  loadFonts().then(function(){
+    var chain=Promise.resolve();
+    weekData.forEach(function(item,i){chain=chain.then(function(){setSt('st-week','Preparando '+(i+1)+'/'+weekData.length+'...','ld');var bgSrc=item.bg==='photo'&&photos.length?photos[i%photos.length]:null;var oc=document.createElement('canvas');oc.width=EW;oc.height=EH;var c2=oc.getContext('2d');return new Promise(function(res){function go(bgImg){renderFrame(c2,item.content,handle,bgImg,item.bg,EW,EH,0);oc.toBlob(function(blob){var fn=DAYS[item.day]+'-'+TIMES[item.time].replace(':','h').replace(' ','')+'-'+item.type+'.png';folder.file(fn,blob);res();});}if(bgSrc){var img=new Image();img.onload=function(){go(img);};img.onerror=function(){go(null);};img.src=bgSrc;}else{go(null);}});});});
+    return chain;
+  }).then(function(){return zip.generateAsync({type:'blob'});}).then(function(blob){
+    uploadToDrive(blob,'inkbot-semana-'+new Date().toLocaleDateString('es-MX').replace(/\//g,'-')+'.zip',btn);
+    setSt('st-week','Subiendo ZIP a Drive...','ld');
+  });
+});
+
+// ── CAPTION ─────────────────────────────────────────
 document.getElementById('btn-export-week-mp4').addEventListener('click',function(){
   if(!weekData.length)return;
-  var btn=this;btn.disabled=true;setSt('st-week','Grabando videos MP4...','ld');
+  var btn=this;btn.disabled=true;setSt('st-week','Iniciando exportación...','ld');
   var handle=document.getElementById('handle').value||'@victortip';
-  var VW=1080,VH=1920,VID_FPS=24,VID_DURATION=15000;
+  var VW=1080,VH=1920;
   var zip=new JSZip();var folder=zip.folder('inkbot-semana-mp4');
   loadFonts().then(function(){
-    // Record videos one by one sequentially
     var chain=Promise.resolve();
     weekData.forEach(function(item,i){
       chain=chain.then(function(){
-        setSt('st-week','Grabando video '+(i+1)+'/'+weekData.length+' ('+Math.round(i/weekData.length*100)+'%)...','ld');
         var bgSrc=item.bg==='photo'&&photos.length?photos[i%photos.length]:null;
         return new Promise(function(resolve){
           function startRec(bgImg){
-            var oc=document.createElement('canvas');oc.width=VW;oc.height=VH;var c2=oc.getContext('2d');
-            var mimeType='video/mp4';
-            if(!MediaRecorder.isTypeSupported('video/mp4'))mimeType='video/webm;codecs=vp9';
-            if(!MediaRecorder.isTypeSupported(mimeType))mimeType='video/webm';
-            var mr=new MediaRecorder(oc.captureStream(VID_FPS),{mimeType:mimeType,videoBitsPerSecond:20000000});
-            var chunks=[];
-            mr.ondataavailable=function(e){if(e.data&&e.data.size>0)chunks.push(e.data);};
-            mr.onstop=function(){
-              var blob=new Blob(chunks,{type:mimeType});
-              var ext=mimeType.startsWith('video/mp4')?'.mp4':'.mp4';
-              var fn=DAYS[item.day]+'-'+TIMES[item.time].replace(':','h').replace(' ','')+'-'+item.type+ext;
-              folder.file(fn,blob);
-              resolve();
-            };
-            mr.start(500);
-            var start=Date.now();
-            var fi=setInterval(function(){
-              var elapsed=Date.now()-start;
-              var t=Math.min(elapsed/VID_DURATION,1);
+            var oc=document.createElement('canvas');oc.width=VW;oc.height=VH;
+            var c2=oc.getContext('2d');
+            recordAndExport(oc,function(t){
               renderFrame(c2,item.content,handle,bgImg,item.bg,VW,VH,t*4);
-              c2.fillStyle='rgba(0,0,0,0.001)';
-              c2.fillRect(0,0,1,1);
-              if(elapsed>=VID_DURATION){
-                clearInterval(fi);
-                setTimeout(function(){ mr.stop(); },600);
-              }
-            },33);
+            },15000,function(pct,msg){
+              setSt('st-week','Video '+(i+1)+'/'+weekData.length+': '+msg,'ld');
+            }).then(function(mp4){
+              var fn=DAYS[item.day]+'-'+TIMES[item.time].replace(':','h').replace(' ','')+'-'+item.type+'.mp4';
+              folder.file(fn,mp4);resolve();
+            }).catch(function(){resolve();});
           }
           if(bgSrc){var img=new Image();img.onload=function(){startRec(img);};img.onerror=function(){startRec(null);};img.src=bgSrc;}
           else{startRec(null);}
@@ -801,13 +1103,16 @@ document.getElementById('btn-export-week-mp4').addEventListener('click',function
     });
     return chain;
   }).then(function(){
-    setSt('st-week','Comprimiendo ZIP de videos...','ld');
-    return zip.generateAsync({type:'blob',compression:'STORE'}); // no compress videos
+    setSt('st-week','Comprimiendo ZIP...','ld');
+    return zip.generateAsync({type:'blob',compression:'STORE'});
   }).then(function(content){
     var a=document.createElement('a');
     a.download='inkbot-semana-mp4-'+new Date().toLocaleDateString('es-MX').replace(/\//g,'-')+'.zip';
     a.href=URL.createObjectURL(content);a.click();
     setSt('st-week','✓ ZIP con '+weekData.length+' MP4s descargado','ok');
+    btn.disabled=false;
+  }).catch(function(err){
+    setSt('st-week','Error: '+(err.message||'Intenta'),'err');
     btn.disabled=false;
   });
 });
