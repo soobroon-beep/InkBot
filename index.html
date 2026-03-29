@@ -132,6 +132,79 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 .prog-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted2);letter-spacing:2px}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── MÓVIL ────────────────────────────────────────────── */
+@media(max-width:768px){
+  body{overflow:hidden}
+
+  /* Topbar: ocultar logo-sub y API en una sola línea */
+  .topbar{flex-wrap:wrap;height:auto;padding:8px 10px;gap:6px}
+  .logo-sub{display:none}
+  .tabs{margin-left:0;width:100%;order:2;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab{height:36px;padding:0 10px;font-size:9px}
+  .api-area{order:1;margin-left:auto;gap:6px}
+  .api-sel{font-size:9px;padding:5px 6px}
+  .api-inp{width:130px;font-size:10px;padding:5px 8px}
+
+  /* Layout: sidebar como panel inferior deslizable */
+  .body{flex-direction:column}
+  .sidebar{
+    position:fixed;
+    left:0;right:0;bottom:0;
+    top:auto;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    height:60vh;
+    border-right:none;
+    border-top:2px solid var(--red);
+    transform:translateY(100%);
+    transition:transform .3s ease;
+    z-index:100;
+  }
+  .sidebar.mob-open{transform:translateY(0)}
+  .main{margin-left:0;width:100%}
+
+  /* Botón flotante para abrir sidebar */
+  #mob-toggle{
+    display:flex;
+    position:fixed;
+    bottom:16px;right:16px;
+    width:50px;height:50px;
+    background:var(--red);
+    border:none;border-radius:50%;
+    color:#fff;font-size:20px;
+    align-items:center;justify-content:center;
+    z-index:200;cursor:pointer;
+    box-shadow:0 4px 20px rgba(204,0,0,.5);
+  }
+
+  /* Preview de historia más pequeño */
+  .sf{width:200px;height:356px}
+  #dl-btn-area{width:200px!important}
+
+  /* Semana: scroll horizontal */
+  .wgrid{overflow-x:auto}
+  .drow{min-width:600px}
+
+  /* Schedule: scroll horizontal */
+  .sgrid{overflow-x:auto;display:flex;flex-wrap:nowrap}
+  .sday{min-width:100px}
+
+  /* Caption body */
+  .cbody{padding:12px}
+
+  /* Banco: 1 columna */
+  .bgrid{grid-template-columns:1fr}
+
+  /* Encabezados de semana */
+  .phdr{flex-direction:column;gap:8px}
+  .phdr>div:last-child{display:flex;flex-wrap:wrap;gap:6px}
+  .btn-gold{padding:7px 10px;font-size:9px}
+
+  /* Progress overlay */
+  .prog-bar-wrap{width:85vw}
+}
 </style>
 </head>
 <body>
@@ -167,6 +240,8 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
   <button onclick="document.getElementById('gd-setup').style.display='none'" style="padding:6px 10px;background:transparent;color:#555;border:1px solid #333;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer">✕</button>
   <div style="width:100%;font-size:9px;color:#2a6a2a;font-family:'Space Mono',monospace">Necesitas crear credenciales OAuth en console.cloud.google.com → APIs → Drive API → Credenciales</div>
 </div>
+
+<button id="mob-toggle" style="display:none" onclick="document.querySelector('.sidebar').classList.toggle('mob-open');this.textContent=document.querySelector('.sidebar').classList.contains('mob-open')?'✕':'⚙️'">⚙️</button>
 
 <div class="body">
 <div class="sidebar">
@@ -1132,6 +1207,33 @@ function setSt(id,msg,cls){var e=document.getElementById(id);if(e){e.textContent
 
 function goTab(name){document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active');});document.querySelector('[data-tab="'+name+'"]').classList.add('active');document.querySelectorAll('.pane').forEach(function(p){p.classList.remove('active');});document.getElementById('pane-'+name).classList.add('active');}
 
+})();
+</script>
+
+<script>
+// ── MÓVIL: botón flotante y cierre de sidebar ─────────────────────────────
+(function(){
+  function isMobile(){return window.innerWidth<=768;}
+  function initMobile(){
+    var btn=document.getElementById('mob-toggle');
+    btn.style.display=isMobile()?'flex':'none';
+  }
+  initMobile();
+  window.addEventListener('resize',initMobile);
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.addEventListener('click',function(){
+      if(isMobile()){
+        document.querySelector('.sidebar').classList.remove('mob-open');
+        document.getElementById('mob-toggle').textContent='⚙️';
+      }
+    });
+  });
+  document.querySelector('.main').addEventListener('click',function(){
+    if(isMobile()&&document.querySelector('.sidebar').classList.contains('mob-open')){
+      document.querySelector('.sidebar').classList.remove('mob-open');
+      document.getElementById('mob-toggle').textContent='⚙️';
+    }
+  });
 })();
 </script>
 </body>
