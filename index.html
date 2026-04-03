@@ -347,6 +347,14 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
       <div class="pill" data-val="confiesa">Confiesa</div>
       <div class="pill" data-val="mitoregional">Mito Regional</div>
       <div class="pill" data-val="cultpop">Cultura Pop</div>
+      <div class="pill" data-val="curiosidad">🔍 Curiosidad</div>
+      <div class="pill" data-val="proceso">⚙️ Proceso</div>
+      <div class="pill" data-val="ritual">🕯 Ritual</div>
+      <div class="pill" data-val="significado">🔮 Significado</div>
+      <div class="pill" data-val="comparacion">⚖️ Comparación</div>
+      <div class="pill" data-val="filosofia">💭 Filosofía</div>
+      <div class="pill" data-val="colores">🎨 Colores</div>
+      <div class="pill" data-val="dolor">💢 Dolor</div>
     </div>
   </div>
   <div class="sb"><div class="lbl">Fondo animado</div>
@@ -365,6 +373,16 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
       <div class="pill" data-val="waves">〰 Ondas</div>
       <div class="pill" data-val="lava">🌋 Lava</div>
       <div class="pill" data-val="circuit">🔲 Circuito</div>
+      <div class="pill" data-val="aurora">🌌 Aurora</div>
+      <div class="pill" data-val="vortex">🌀 Vórtex</div>
+      <div class="pill" data-val="ink2">🖋 Tinta 2</div>
+      <div class="pill" data-val="tribal">⟁ Tribal</div>
+      <div class="pill" data-val="galaxy">🪐 Galaxia</div>
+      <div class="pill" data-val="sandstorm">🏜 Tormenta</div>
+      <div class="pill" data-val="glitch">📺 Glitch</div>
+      <div class="pill" data-val="dragonscale">🐉 Escamas</div>
+      <div class="pill" data-val="bokeh">✦ Bokeh</div>
+      <div class="pill" data-val="redmoon">🌑 Luna Roja</div>
     </div>
   </div>
   <div class="sb"><div class="lbl">Fotos de tus tatuajes</div>
@@ -495,7 +513,15 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
         <option value="encuesta">Encuesta A/B</option>
         <option value="confiesa">Confiesa</option>
         <option value="mitoregional">Mito Regional</option>
-        <option value="cultpop">Cultura Pop</option></select>
+        <option value="cultpop">Cultura Pop</option>
+        <option value="curiosidad">Curiosidad</option>
+        <option value="proceso">Proceso</option>
+        <option value="ritual">Ritual</option>
+        <option value="significado">Significado</option>
+        <option value="comparacion">Comparación</option>
+        <option value="filosofia">Filosofía</option>
+        <option value="colores">Colores</option>
+        <option value="dolor">Dolor</option></select>
       <span style="font-size:10px;color:var(--mut);font-family:'Space Mono',monospace;white-space:nowrap" id="bcount"></span>
     </div>
     <div class="bgrid" id="bgrid"></div>
@@ -665,29 +691,37 @@ var bank=[],weekData=[],currentStory=null;
 var capB64=null,capMime=null,fontsReady=false;
 
 var typeMap={
-  dato:'un dato curioso, sorprendente e impactante sobre tatuajes que la mayoría de personas no conoce. Que sea histórico, cultural, antropológico o sobre el significado humano detrás del tatuaje. NUNCA menciones tintas UV, rayos X, fluorescencia, cómo brillan los tatuajes con luz especial, ni propiedades ópticas de las tintas. El dato debe generar asombro emocional o cultural.',
-  estilo:'explica un estilo de tatuaje de forma visual y emocionante: qué lo hace único, de dónde viene culturalmente, qué tipo de persona lo elige y por qué es poderoso. Elige entre: blackwork, realismo, japonés neotradicional, fineline, acuarela, old school, tribal, geométrico, chicano, trash polka, single needle, puntillismo. Enfócate en el origen cultural y el significado, no en técnicas de tinta.',
-  historia:'una historia fascinante y casi desconocida sobre el origen del tatuaje en una cultura del mundo: guerreros, rituales, significados sagrados, momentos históricos que cambiaron la visión del tatuaje. Que sea dramática y evocadora.',
-  mito:'desmiente un mito muy extendido sobre los tatuajes con datos reales y contundentes. Que sea algo que la gente cree y está equivocada. NUNCA uses el mito de tintas UV o que los tatuajes brillan. Elige mitos sobre dolor, cicatrización, trabajo, significado o prejuicios sociales. Hazlo convincente y revelador.',
-  simbolo:'el significado profundo y poderoso de un símbolo japonés o ancestral en tatuajes: koi, dragón, oni, kitsune, peonía, lobo, serpiente, luna, fénix, tigre, grulla. Explica su origen mitológico y por qué la gente los elige para marcar momentos de su vida.',
-  famoso:'una historia curiosa, sorprendente o emotiva sobre un tatuaje icónico de una figura famosa o personaje histórico. Que revele algo sobre su personalidad o historia de vida.',
-  region:'la tradición del tatuaje en una región o cultura del mundo: Japón, Polinesia, México prehispánico, Tailandia, Egipto, tribus africanas, Maorí, Vikings. Que sea visual y evocador, con datos culturales específicos.',
-  idea:'una idea de tatuaje específica y hermosa con su significado profundo: por qué tatuarse eso, qué representa, en qué parte del cuerpo queda mejor y por qué tiene tanto poder visual. Elige ideas originales: constelación personal, coordenadas de un lugar especial, retrato de mascota, frase en otro idioma, elemento natural. Que inspire a actuar.',
-  consejo:'el consejo más importante y honesto para alguien que va a hacerse su primer tatuaje. Que sea práctico, directo, sin tecnicismos de tintas, y que genere confianza en el proceso.',
-  cliente:'qué significa para una persona decidir tatuarse: el proceso emocional, cómo elegir el diseño correcto, la conexión con su historia personal, por qué los tatuajes son una forma de arte permanente en la piel.',
-  tendencia:'una tendencia actual o emergente en el mundo del tatuaje que está cambiando la industria. Por qué está creciendo y qué la hace especial. Enfócate en estilos artísticos y culturales, no en tecnología de tintas.',
-  tribu:'la historia fascinante de una tribu o cultura ancestral que usaba tatuajes: los Maorí de Nueva Zelanda, los guerreros Yakuza en Japón, las mujeres Inuit de Alaska, los guerreros Dayak de Borneo, los aztecas, los celtas, los polinesios. Qué significaban sus tatuajes, cómo los hacían y qué pasaba si los quitaban. Que sea épica y cultural.',
-  psicologia:'la psicología detrás de tatuarse: por qué la gente elige tatuajes permanentes, qué dice de su personalidad, la conexión entre arte corporal e identidad, el proceso de duelo o celebración que representa un tatuaje.',
-  encuesta:'crea una historia tipo encuesta con DOS opciones claras (A o B) sobre tatuajes. Ejemplos: ¿Tatuaje pequeño o grande? ¿Color o negro? ¿Visible o escondido? ¿Un solo estilo o mezcla? ¿Con significado o solo estético? La pregunta debe ser divertida y generar debate. El body presenta las dos opciones con emojis.',
-  confiesa:'crea una historia tipo confesiónario que invite al seguidor a responder algo personal sobre tatuajes. Ejemplos: ¿Tienes un tatuaje del que te arrepientes?, ¿Cuánto tiempo tardaste en decidirte?, ¿Le ocultaste a alguien tu primer tatuaje? Que sea íntima, sin juzgar, que genere confianza.',
-  mitoregional:'un mito, creencia o superstición sobre tatuajes específica de México, América Latina u otro país. Qué cree la gente, de dónde viene esa creencia y cuál es la realidad. Que sea culturalmente interesante.',
-  cultpop:'un tatuaje icónico del mundo del cine, música, deportes o cultura popular. La historia detrás de ese tatuaje, qué significa para esa persona y por qué se volvió famoso. Que sea algo que la gente reconozca.',
-  sabias:'un "¿Sabías que...?" impactante sobre tatuajes que deje a la gente con la boca abierta. NUNCA uses datos sobre tintas UV, fluorescencia, rayos X o propiedades de luz. Elige datos históricos, antropológicos, sobre culturas ancestrales, sobre personajes históricos tatuados, o sobre récords y curiosidades humanas del mundo del tatuaje. Que sea completamente inesperado.',
-  interactivo:'crea una historia que haga UNA pregunta directa e interesante a los seguidores para que respondan. Ejemplos: ¿cuál sería tu primer tatuaje?, ¿qué símbolo te define?, ¿tienes tatuajes que cuenten tu historia?, ¿en qué parte del cuerpo te tatuarías si no te importara el dolor? La pregunta debe generar ganas de responder.',
-  inspiracion:'una historia que inspire a alguien a tatuarse o a valorar su tatuaje. Puede ser sobre superación, identidad, libertad, arte, memoria. Que sea emotiva y poderosa sin ser cursi.'
+  dato:'un dato curioso, sorprendente e impactante sobre tatuajes que la mayoría de personas no conoce. REGLA: cada vez elige un ángulo COMPLETAMENTE DIFERENTE: edad mínima para tatuarse en distintos países, cuántos tatuajes tiene una persona en promedio, qué cultura inventó la aguja para tatuar, el primer tatuaje documentado en una momia, tatuajes en la historia de la medicina, la conexión entre tatuajes y rituales de paso, datos de récords mundiales. NUNCA el mismo dato dos veces. NUNCA tintas UV, rayos X ni propiedades ópticas de tintas.',
+  estilo:'explica UN estilo de tatuaje concreto de forma visual y emocionante. REGLA: cada generación debe ser un estilo DIFERENTE. Rota entre: blackwork geométrico, realismo fotográfico, japonés clásico Irezumi, fineline minimalista, acuarela abstracta, old school americano, Maorí tribal, biomecánico, pointillism, chicano black and grey, trash polka europeo, ornamental hindú, illustrative moderno, neo-japonés contemporáneo. Para cada uno: dónde nació, qué lo hace único visualmente, qué tipo de historia personal cuentan quienes lo eligen.',
+  historia:'una historia ESPECÍFICA y casi desconocida sobre un momento real en la historia del tatuaje. Cada vez elige una historia diferente: el primer tatuador profesional en Occidente (Samuel O'Reilly, 1891), las mujeres tatuadas del circo del siglo XIX, los marineros y sus supersticiones, los tatuajes de los presos de las gulags soviéticas y su lenguaje secreto visual, los samuráis japoneses tatuados en el período Edo, las guerreras maoríes y el tā moko, los tatuajes en la corte real de Birmania. Que sea dramática con personajes reales.',
+  mito:'desmiente un mito MUY ESPECÍFICO sobre tatuajes. REGLA: elige un mito diferente cada vez y nunca repitas ninguno. Mitos para rotar: Los negros envejecen peor que los de color — FALSO. Tatuarse sobre cicatrices es imposible — FALSO. Los tatuajes se borran con limón — FALSO y peligroso. Los tatuajes afectan análisis de sangre — FALSO. Tatuarse embarazada siempre es peligroso — MATIZADO. Tatuarse en el mismo lugar dos veces destruye la piel — FALSO. El alcohol adelgaza la sangre antes de tatuar — VERDADERO. El tatuaje se ve igual toda la vida — FALSO, evoluciona. Las alergias al tatuaje son rarísimas — FALSO. Los tatuajes grises duran menos que los negros — FALSO. Datos reales y contundentes.',
+  simbolo:'el significado profundo de UN símbolo específico en tatuajes. Cada vez elige uno diferente: serpiente ouroboros (eternidad), loto (renacimiento desde el barro), ojo de Horus (protección), calavera mexicana (celebración de la muerte), ancla (estabilidad en el caos), reloj sin manecillas (el momento presente), luna creciente (transformación), lobo solitario (independencia y libertad), elefante Ganesha (obstáculos removidos), cuervo nórdico (mensajero entre mundos), rosa negra (amor que termina), tigre coreano Baekho (protector del oeste). Origen mitológico exacto y por qué la gente lo elige en momentos clave de su vida.',
+  famoso:'una historia ESPECÍFICA con datos VERÍDICOS sobre el tatuaje de una celebridad actual o histórica REAL. ROTA entre personas completamente diferentes cada vez: LeBron James y sus tatuajes tribales y dedicatorias familiares, Rihanna y el guerrero en el tobillo, Post Malone y el significado detrás de sus tatuajes faciales, Angelina Jolie y las coordenadas de nacimiento de sus hijos tatuadas en el brazo, Tupac Shakur y "Thug Life" en el abdomen, Harry Styles y el proceso detrás de cada uno de sus tatuajes, Robbie Williams y su adicción confesada a los tatuajes japoneses, Kat Von D como artista tatuadora que transformó la industria, Travis Barker y sus tatuajes relacionados con el accidente de avión que sobrevivió, Megan Fox y su tatuaje de Marilyn Monroe que después borró. Solo datos verificables.',
+  region:'la tradición del tatuaje en UNA región o cultura específica. Cada vez elige una diferente y NO repitas: tatuaje Sak Yant en Tailandia (monjes que tatúan con barras de acero y oraciones budistas), Kakau en Hawái (extinto y revivido), Tā Moko maorí en Nueva Zelanda (identidad genealógica), Kalinga en Filipinas (mujeres guerreras como Whang Od), Tebori japonés hecho a mano con palo, los tatuajes de Coptic en Egipto cristiano (cruz en la muñeca), el código visual de los tatuajes en el Gulag ruso, tatuajes rituales de los indígenas amazónicos Shuar. Datos culturales específicos e inesperados.',
+  idea:'una idea de tatuaje ESPECÍFICA, original y con significado profundo. NUNCA repitas. Rota entre categorías completamente diferentes: (A) NATURALEZA: constelación del día de nacimiento exacta, animal espíritu de tu cultura ancestral, árbol con raíces que son fechas y ramas que son nombres. (B) MEMORIA: coordenadas GPS del lugar más importante de tu vida, ECG real del latido de alguien amado, huella dactilar de tu abuelo o hijo. (C) IDENTIDAD: frase en náhuatl o latín o sánscrito que define tu filosofía, símbolo de tu signo en la mitología griega original, retrato de mascota fallecida en estilo realismo. (D) ARTE: fragmento de pintura de Klimt adaptado, la arquitectura de la catedral de tu ciudad, el compás musical de la canción de tu boda. (E) VIAJE: silueta de la montaña que escalaste, el mapa del barrio donde creciste, las olas de la playa donde enterraste a alguien. Especifica zona del cuerpo y por qué ese diseño en ese lugar es poderoso.',
+  consejo:'un consejo CONCRETO y honesto para quien va a tatuarse. Cada vez un consejo DIFERENTE: (1) Por qué esperar 2 semanas entre decidir y tatuar. (2) Cómo elegir el tamaño correcto para tu primer tatuaje (regla del puño). (3) Por qué la zona del cuerpo importa más que el diseño. (4) Cómo preparar tu piel el día anterior: hidratación, descanso, azúcar. (5) Por qué debes confiar en el artista y no llevar referencia exacta cerrada. (6) Qué preguntar en la consulta previa. (7) Por qué el precio más bajo puede costarte más caro. (8) Cómo cuidar el tatuaje las primeras 2 semanas sin echar a perder el trabajo. Práctico, directo y que genere confianza real.',
+  cliente:'la experiencia emocional ESPECÍFICA de tatuarse. Cada vez un ángulo diferente: el momento en que decides que ESTE es el diseño y no otro, qué pasa en tu mente las horas antes de entrar al estudio, el antes y después emocional de salir con el tatuaje fresco, por qué algunas personas lloran en la silla (no de dolor sino de liberación), la sensación de ver tu piel tatuada por primera vez en el espejo, cómo explicarle a tu familia el primer tatuaje, qué pasa cuando amas un tatuaje que nadie más entiende y no te importa.',
+  tendencia:'una tendencia ESPECÍFICA del mundo del tatuaje con nombre propio. Rota entre: Ignorant Style (trazos simples deliberadamente crudos que se hicieron élite), Botanical Fine Line (botánica minimalista fotorrealista), Micro-Realism (detalles fotográficos en 2cm), Geometric Blackwork (mandala estructural matemático), Anatomical Art Nouveau (órganos humanos como flores de Mucha), Anime Realism (personajes de manga con técnica hiperrealista), Vintage Flash Sheet Revival (revival de los 50s y 60s), Dark Surrealism (Dalí mezclado con tatuaje), Lettering tipográfico como obra de arte, Color Bombing en blackwork existente. Por qué esa tendencia crece y quién la adopta primero.',
+  tribu:'la historia de UNA tribu o cultura ancestral con tatuajes. Rota entre culturas completamente diferentes: guerreros Dayak de Borneo (tatuajes de cabezas tomadas en batalla como trofeos de honor), mujeres Inuit de Alaska (tatuajes en mentón que marcan la mayoría de edad y el derecho al matrimonio), guerreros Cherokee en Norteamérica (tatuajes de animales como escudos espirituales), faraona Amunet del Antiguo Egipto (momia con tatuajes de líneas abstractas), los Pictos de Escocia pintados de azul que aterrorizaban a los romanos, los Escitas de las estepas con animales míticos tatuados en sus momias, los guerreros Haida del Pacífico noroeste canadiense con historias genealógicas en la piel. Datos verificables y épicos.',
+  psicologia:'un aspecto ESPECÍFICO de la psicología del tatuaje. Rota el ángulo: (1) Por qué los tatuajes reducen la ansiedad social en muchas personas — estudios universitarios. (2) El fenómeno de coleccionar tatuajes como adicción positiva (completitud, no exceso). (3) Por qué tatuar algo doloroso del pasado funciona como terapia de exposición. (4) Qué predice el arrepentimiento de un tatuaje — factores psicológicos reales. (5) Por qué ciertos arquetipos dominan los estudios — leones, águilas, serpientes. (6) La conexión entre tatuajes y alta tolerancia al riesgo en estudios de personalidad. (7) Por qué la piel como lienzo es psicológicamente diferente a cualquier otro arte.',
+  encuesta:'una encuesta con DOS opciones OPUESTAS e interesantes. Elige un tema diferente cada vez: ¿Tatuaje de 5 minutos o sesión de 8 horas? / ¿Diseño del artista o tu propia idea? / ¿Algo que amabas de joven o algo que amas hoy? / ¿Tatuaje que solo ves tú o que todos ven? / ¿Negro sólido o full color? / ¿Un enorme o diez pequeños? / ¿Con fecha o sin fecha? / ¿Único de artista o flash sheet? / ¿Primero el arte o primero el artista? / ¿Tatúate o esperas 6 meses más? Que genere debate real y sea divertida. Las dos opciones con emoji.',
+  confiesa:'una invitación íntima a confesar algo sobre tatuajes. Elige un ángulo diferente cada vez: ¿Le ocultaste a alguien tu primer tatuaje? / ¿Tienes un tatuaje que ya no representa quién eres? / ¿Cuántas horas tardaste en decidirte? / ¿Cancelaste una cita de tatuaje? ¿Cuántas veces? / ¿Tienes uno que nadie sabe dónde está? / ¿Tu familia todavía no sabe que tienes tatuajes? / ¿Tatuaste algo por alguien que ya no está en tu vida? / ¿Tu tatuaje más barato es tu favorito? / ¿Tienes un boceto guardado que no te has atrevido a hacerte? Sin juicio, que genere confianza real.',
+  mitoregional:'una creencia específica sobre tatuajes arraigada en una cultura. Rota entre: En México: tatuar el nombre de tu pareja trae mala suerte — cuándo empezó ese mito y qué tan cierto es estadísticamente. En Japón: los tatuados no pueden entrar a onsen ni ciertos templos — realidad legal actual. En Tailandia: los Sak Yant pierden poder si el portador no cumple ciertas reglas de comportamiento. En Colombia: tatuarse en Semana Santa trae consecuencias. En Brasil: ciertos tatuajes son asociados con grupos específicos. En Argentina: tatuajes en la espalda y su carga cultural. Dato real y origen del mito.',
+  cultpop:'la historia de UN tatuaje icónico de cultura pop con datos REALES y VERIFICABLES. Rota entre personas y obras completamente diferentes: los tatuajes de Johnny Depp y cómo borró el de Winona Ryder, el tatuaje de Lady Gaga en el brazo y su conexión con Rilke, los tatuajes de Amy Winehouse y su relación con su música, el tatuaje facial de Mike Tyson — la historia real del artista maorí que lo diseñó, David Beckham y cómo sus tatuajes cambiaron la percepción del atleta tatuado, el tatuaje tribal de Dwayne Johnson y la cultura samoana de su familia, los tatuajes de Ozzy Osbourne y la historia del heavy metal en la piel. Solo datos verídicos.',
+  sabias:'un "¿Sabías que...?" VERIFICABLE y sorprendente sobre tatuajes. Rota el ángulo completamente cada vez: (A) ARQUEOLOGÍA: la momia más antigua con tatuajes conocidos del mundo y dónde fue encontrada. (B) GEOGRAFÍA: el país con más tatuados per cápita del mundo según estudios. (C) BIOLOGÍA: por qué los tatuajes son permanentes — la respuesta de los macrófagos. (D) RÉCORD: personas con tatuajes que cubren porcentaje extremo de su cuerpo. (E) LEGAL: países y regiones donde ciertos tatuajes están prohibidos por ley. (F) HISTORIA: el primer libro de tatuajes publicado en la historia occidental. (G) SOCIOLOGÍA: estudios que contradicen la percepción laboral negativa de los tatuajes. NUNCA UV ni tintas fluorescentes.',
+  interactivo:'una pregunta directa que invite a responder con una sola frase. Rota la pregunta cada vez con ángulos completamente diferentes: ¿Cuál fue el primer tatuaje que quisiste y nunca te hiciste? / ¿Qué palabra llevarías tatuada para siempre? / ¿Qué animal te representa hoy, no ayer? / ¿Qué coordenadas tatúarías en tu piel? / ¿Qué parte de tu historia merece tinta? / ¿Qué símbolo define quién eres hoy? / ¿Cuántos tatuajes tienes en mente que nunca has confesado? / ¿Qué tatuaría de tu ciudad natal? / ¿Qué le tatuarías a tu yo de hace 10 años? La pregunta debe ser específica e inesperada, nunca genérica.',
+  inspiracion:'una historia real o arquetípica de transformación relacionada con un tatuaje. Rota el ángulo cada vez: (A) Personas que tatuaron cicatrices de cirugías cardíacas o mastectomías y las convirtieron en arte. (B) El tatuaje como primer acto de autonomía corporal a los 18 años. (C) Personas que tatuaron la fecha en que superaron una adicción. (D) Madres que tatuaron el latido del corazón de su bebé registrado en el hospital. (E) Veteranos de guerra que procesaron trauma con tatuajes en lugar de terapia convencional. (F) Personas que tatuaron el nombre de alguien que perdieron y encontraron cierre. (G) El tatuaje como acto de amor propio después de años de inseguridad corporal. Que sea real, nunca cursi.',
+  curiosidad:'un hecho COMPLETAMENTE DESCONOCIDO sobre tatuajes que ninguna otra cuenta comparte. Busca ángulos únicos: arqueología (tatuajes en momias de Paracas en Perú, 2000 años de antigüedad), medicina forense (casos reales donde tatuajes ayudaron a identificar personas), biología molecular (la proteína que hace permanente el tatuaje), historia del arte (pintores del Renacimiento que tenían tatuajes), economía (el tatuaje como industria de 3 mil millones de dólares anuales solo en EE.UU.), sociología (el único estudio que mide si los tatuados ganan menos — resultado: depende del sector). Que sea ÚNICO y específico.',
+  proceso:'el proceso de HACERSE un tatuaje desde la perspectiva del cliente. Elige un aspecto diferente cada vez: (1) Por qué la consulta previa es más importante que el tatuaje mismo. (2) Cómo el artista adapta el diseño a la curva y movimiento del cuerpo. (3) Por qué el boceto digital nunca es igual al tatuaje real en piel viva. (4) Las 4 etapas de cicatrización y lo que sientes en cada una. (5) Por qué los retoques son parte del proceso y no un error del artista. (6) Cómo la piel absorbe el pigmento diferente según zona, edad y tono. Sin tecnicismos de tintas. Siempre desde la experiencia del cliente.',
+  ritual:'el ritual personal o cultural alrededor de tatuarse. Elige un ángulo diferente cada vez: (A) Por qué mucha gente se tatúa sola en silencio sin decírselo a nadie — la intimidad del proceso. (B) El ayuno y preparación espiritual de los Sak Yant en Tailandia. (C) Cómo grupos de amigos crean rituales de tatuajes compartidos como marcas de momento. (D) El código de los marineros del siglo XIX — qué significaba cada nuevo tatuaje en su cuerpo. (E) Por qué en algunas culturas el dolor del tatuaje ES el ritual, no el diseño. (F) El ritual de mirarse al espejo con el tatuaje nuevo por primera vez. Íntimo y cultural.',
+  significado:'el significado OCULTO de un diseño muy común en tatuajes. Rota el diseño cada vez: la rosa con espinas (no amor romántico — luto en la tradición victoriana), el reloj detenido (origen en Great Expectations de Dickens), la mariposa monarca (migración y patria para los mexicanos del norte), el diente de león que se dispersa (dejar ir, no optimismo banal), la semicolón (movimiento de salud mental iniciado en 2013 por Amy Bleuel), el unalome budista (el camino imperfecto hacia la iluminación — la espiral es el caos de la juventud), el compás náutico (no aventura — dirección cuando estás perdido). Siempre origen cultural real.',
+  comparacion:'una comparación fascinante entre DOS formas de vivir el tatuaje. Rota el enfoque: tatuaje con significado vs tatuaje solo estético — cuál resiste mejor el tiempo emocional. Tatuaje visible vs tatuaje oculto — qué dice de la persona según estudios. Tatuaje único de artista vs flash sheet — la economía y la democratización del arte. Tatuaje en jóvenes vs adultos mayores de 50 — qué cambia en la motivación. Tatuaje en culturas occidentales vs culturas asiáticas — diferencias históricas en la aceptación. Sesión única vs proyecto multi-año — diferentes formas de vivir el arte corporal.',
+  filosofia:'reflexión filosófica sobre los tatuajes. Elige un ángulo diferente: (1) El tatuaje como la única forma de arte que muere contigo. (2) Por qué marcar el cuerpo es un acto político en ciertas culturas y épocas. (3) La paradoja del tatuaje: lo permanente en un cuerpo que cambia. (4) Por qué el tatuaje es el único arte donde el proceso duele. (5) La diferencia entre decorar el cuerpo y habitar el cuerpo. (6) Por qué los tatuajes son autobiografía visible que el tiempo reescribe. (7) El tatuaje como forma de resistirse al olvido. Profunda sin ser pesada ni pretenciosa.',
+  colores:'la historia y significado de los COLORES en los tatuajes. Rota el color cada vez: el negro — por qué el negro es el color más universal del tatuaje y qué representa en culturas distintas. El rojo carmesí — su uso en el Irezumi japonés y su simbolismo de vida y sangre. El blanco — el color más difícil técnicamente y por qué se usa en pieles oscuras. El verde — los tatuajes celtas y druidas y por qué el verde era sagrado. El azul marino — origen en los marineros del siglo XIX y su código de navegación. El dorado en tatuajes — su asociación con la realeza en Tailandia. Sin mencionar tintas UV ni fluorescentes.',
+  dolor:'un aspecto específico del dolor en tatuajes. Rota completamente: (1) El mapa real del dolor corporal — qué partes duelen más según la densidad de terminaciones nerviosas. (2) Por qué el mismo tatuaje duele diferente en personas con la misma tolerancia al dolor. (3) La psicología del dolor en tatuajes — por qué muchos lo describen como adictivo y liberador. (4) Por qué tatuarse en una zona ya tatuada duele diferente la segunda vez. (5) Los tatuadores que usan música y ritmo para manejar el umbral de dolor. (6) La diferencia entre el dolor agudo inicial y el ardor continuo y qué indica cada uno. Sin drama, con datos reales.'
 };
 var toneMap={storytelling:'narrativo, evocador',educativo:'informativo y claro',personal:'en primera persona, cercano',misterioso:'intrigante y poético'};
-var bgList=['photo','ink','fire','smoke','sakura','geo','lightning','matrix','blood','neon','stars','waves','lava','circuit'];
+var bgList=['photo','ink','fire','smoke','sakura','geo','lightning','matrix','blood','neon','stars','waves','lava','circuit','aurora','vortex','ink2','tribal','galaxy','sandstorm','glitch','dragonscale','bokeh','redmoon'];
 var DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 var TIMES=['8:00 AM','1:00 PM','7:00 PM'];
 var TYPES=Object.keys(typeMap);
@@ -896,6 +930,123 @@ function animCircuit(c,W,H,cb){
 }
 bgAnimFunctions['circuit']=animCircuit;
 
+
+// ── 10 NEW BACKGROUND ANIMATIONS ─────────────────────
+
+function animAurora(c,W,H,cb){
+  var t=0;
+  function f(){t+=0.008;c.clearRect(0,0,W,H);c.fillStyle='#020612';c.fillRect(0,0,W,H);
+    for(var i=0;i<5;i++){var y=H*(0.2+i*0.12);var amp=H*0.06+i*H*0.02;var hue=160+i*30+Math.sin(t+i)*20;var gr=c.createLinearGradient(0,y-amp,0,y+amp);gr.addColorStop(0,'transparent');gr.addColorStop(0.5,'hsla('+hue+',100%,60%,'+(0.08+i*0.02)+')');gr.addColorStop(1,'transparent');c.fillStyle=gr;c.beginPath();c.moveTo(0,y);for(var x=0;x<=W;x+=8){c.lineTo(x,y+Math.sin(x/W*Math.PI*4+t*1.5+i*0.7)*amp);}c.lineTo(W,H);c.lineTo(0,H);c.closePath();c.fill();}
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['aurora']=animAurora;
+
+function animVortex(c,W,H,cb){
+  var t=0,cx=W/2,cy=H/2;
+  function f(){t+=0.018;c.clearRect(0,0,W,H);c.fillStyle='#040208';c.fillRect(0,0,W,H);
+    for(var i=0;i<120;i++){var a=i/120*Math.PI*2*6+t*2;var r=i/120*(Math.min(W,H)*0.45);var x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;var hue=i%2===0?0:280;c.fillStyle='hsla('+hue+',90%,55%,'+(0.05+i/120*0.25)+')';c.beginPath();c.arc(x,y,1.5,0,Math.PI*2);c.fill();}
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['vortex']=animVortex;
+
+function animInk2(c,W,H,cb){
+  var drops=[],t=0;
+  for(var i=0;i<8;i++)drops.push({x:Math.random()*W,y:Math.random()*H,r:0,maxR:W*0.15+Math.random()*W*0.12,spd:0.4+Math.random()*0.5,op:0.18+Math.random()*0.14,hue:Math.random()<0.5?0:200,born:Math.random()*180});
+  function f(){t++;c.clearRect(0,0,W,H);c.fillStyle='#070708';c.fillRect(0,0,W,H);
+    var g=c.createRadialGradient(W*0.5,H*0.35,0,W*0.5,H*0.35,W*0.7);g.addColorStop(0,'rgba(60,0,0,0.2)');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,W,H);
+    drops.forEach(function(d){if(t<d.born)return;d.r+=d.spd;if(d.r>d.maxR){d.r=0;d.x=Math.random()*W;d.y=Math.random()*H;d.born=t+Math.random()*100;}var prog=d.r/d.maxR;var fade=prog<0.2?prog/0.2:prog>0.7?(1-prog)/0.3:1;var gr=c.createRadialGradient(d.x,d.y,0,d.x,d.y,d.r);gr.addColorStop(0,'hsla('+d.hue+',80%,12%,'+(d.op*fade*1.4)+')');gr.addColorStop(0.5,'hsla('+d.hue+',90%,8%,'+(d.op*fade)+')');gr.addColorStop(1,'transparent');c.fillStyle=gr;c.beginPath();c.arc(d.x,d.y,d.r,0,Math.PI*2);c.fill();});
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['ink2']=animInk2;
+
+function animTribal(c,W,H,cb){
+  var t=0;
+  var shapes=[];
+  for(var i=0;i<14;i++){shapes.push({x:Math.random()*W,y:Math.random()*H,s:W*0.04+Math.random()*W*0.06,rot:Math.random()*Math.PI,rotV:(Math.random()-0.5)*0.006,type:Math.floor(Math.random()*3)});}
+  function drawTribal(x,y,s,rot,type){c.save();c.translate(x,y);c.rotate(rot);c.strokeStyle='rgba(204,0,0,0.12)';c.lineWidth=1;
+    if(type===0){c.beginPath();c.moveTo(0,-s);c.lineTo(s*0.7,s*0.5);c.lineTo(-s*0.7,s*0.5);c.closePath();c.stroke();c.beginPath();c.moveTo(0,-s*0.5);c.lineTo(s*0.35,s*0.25);c.lineTo(-s*0.35,s*0.25);c.closePath();c.stroke();}
+    else if(type===1){for(var j=0;j<4;j++){c.beginPath();c.moveTo(-s+j*s*0.6,0);c.lineTo(j*s*0.6-s*0.3,-s*0.5);c.lineTo(j*s*0.6,-s*0.15);c.stroke();}}
+    else{c.beginPath();c.moveTo(-s,0);c.lineTo(0,-s);c.lineTo(s,0);c.lineTo(0,s);c.closePath();c.stroke();c.beginPath();c.moveTo(-s*0.5,0);c.lineTo(0,-s*0.5);c.lineTo(s*0.5,0);c.lineTo(0,s*0.5);c.closePath();c.stroke();}
+    c.restore();}
+  function f(){t+=0.01;c.clearRect(0,0,W,H);c.fillStyle='#060404';c.fillRect(0,0,W,H);
+    var g=c.createRadialGradient(W*0.5,H*0.5,0,W*0.5,H*0.5,W*0.7);g.addColorStop(0,'rgba(80,10,0,0.2)');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,W,H);
+    shapes.forEach(function(s){s.rot+=s.rotV;drawTribal(s.x,s.y,s.s,s.rot,s.type);});
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['tribal']=animTribal;
+
+function animGalaxy(c,W,H,cb){
+  var stars=[];var t=0;
+  for(var i=0;i<200;i++)stars.push({a:(i/200)*Math.PI*2*5,r:Math.random()*Math.min(W,H)*0.44,hue:Math.random()<0.3?0:Math.random()<0.5?200:280,size:Math.random()*2+0.5,speed:0.0004+Math.random()*0.0003});
+  function f(){t+=0.01;c.clearRect(0,0,W,H);c.fillStyle='#030208';c.fillRect(0,0,W,H);
+    var g=c.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.3);g.addColorStop(0,'rgba(80,0,30,0.3)');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,W,H);
+    stars.forEach(function(s){s.a+=s.speed;var x=W*0.5+Math.cos(s.a)*s.r,y=H*0.4+Math.sin(s.a)*s.r*0.5;var alpha=0.3+0.6*Math.sin(t*3+s.a);c.fillStyle='hsla('+s.hue+',80%,70%,'+alpha+')';c.beginPath();c.arc(x,y,s.size,0,Math.PI*2);c.fill();});
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['galaxy']=animGalaxy;
+
+function animSandstorm(c,W,H,cb){
+  var particles=[];var t=0;
+  for(var i=0;i<180;i++)particles.push({x:Math.random()*W,y:Math.random()*H,vx:0.8+Math.random()*1.5,vy:(Math.random()-0.5)*0.4,size:Math.random()*2.5+0.5,op:Math.random()*0.35+0.1});
+  function f(){t+=0.01;c.clearRect(0,0,W,H);c.fillStyle='#080503';c.fillRect(0,0,W,H);
+    var g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'rgba(80,40,0,0.25)');g.addColorStop(1,'rgba(40,10,0,0.1)');c.fillStyle=g;c.fillRect(0,0,W,H);
+    particles.forEach(function(p){p.x+=p.vx+Math.sin(t+p.y*0.02)*0.5;p.y+=p.vy+Math.cos(t*0.7+p.x*0.015)*0.2;if(p.x>W+5)p.x=-5;if(p.y<0)p.y=H;if(p.y>H)p.y=0;c.fillStyle='rgba(180,120,40,'+p.op+')';c.beginPath();c.arc(p.x,p.y,p.size,0,Math.PI*2);c.fill();});
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['sandstorm']=animSandstorm;
+
+function animGlitch(c,W,H,cb){
+  var t=0;
+  function f(){t++;c.clearRect(0,0,W,H);c.fillStyle='#050505';c.fillRect(0,0,W,H);
+    if(t%8<3){var sliceH=Math.random()*60+10,sliceY=Math.random()*H;c.save();c.drawImage(c.canvas,Math.random()*20-10,sliceY,W,sliceH,0,sliceY,W,sliceH);c.restore();}
+    if(t%12<2){c.fillStyle='rgba(204,0,0,0.15)';c.fillRect(0,Math.random()*H,W,Math.random()*30+2);}
+    if(t%20<3){c.fillStyle='rgba(0,100,200,0.1)';c.fillRect(Math.random()*10-5,0,W,H);}
+    for(var i=0;i<6;i++){var y=Math.random()*H;c.fillStyle='rgba('+(Math.random()<0.5?204:0)+',0,'+(Math.random()<0.3?200:0)+','+(0.03+Math.random()*0.04)+')';c.fillRect(0,y,W,1+Math.random()*2);}
+    var g=c.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.6);g.addColorStop(0,'rgba(60,0,0,0.18)');g.addColorStop(1,'transparent');c.fillStyle=g;c.fillRect(0,0,W,H);
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['glitch']=animGlitch;
+
+function animDragonscale(c,W,H,cb){
+  var t=0;var sw=W*0.09,sh=sw*0.55;var cols=Math.ceil(W/sw)+1,rows=Math.ceil(H/sh)+1;
+  function f(){t+=0.008;c.clearRect(0,0,W,H);c.fillStyle='#040506';c.fillRect(0,0,W,H);
+    for(var row=0;row<rows;row++){for(var col=0;col<cols;col++){var ox=(row%2)*sw*0.5;var x=col*sw-ox,y=row*sh*0.8;var wave=Math.sin(t*2+col*0.5+row*0.4)*0.5+0.5;var hue=wave<0.5?0:200;var lightness=8+wave*12;var alpha=0.08+wave*0.12;c.beginPath();c.ellipse(x,y,sw*0.52,sh*0.52,0,0,Math.PI*2);c.strokeStyle='hsla('+hue+',70%,'+(lightness+10)+'%,'+alpha+')';c.lineWidth=1;c.stroke();c.fillStyle='hsla('+hue+',60%,'+lightness+'%,'+(alpha*0.4)+')';c.fill();}}
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['dragonscale']=animDragonscale;
+
+function animBokeh(c,W,H,cb){
+  var circles=[];var t=0;
+  for(var i=0;i<30;i++)circles.push({x:Math.random()*W,y:Math.random()*H,r:W*0.03+Math.random()*W*0.07,vy:(Math.random()-0.5)*0.3,vx:(Math.random()-0.5)*0.15,phase:Math.random()*Math.PI*2,hue:Math.random()<0.6?0:Math.random()<0.5?30:320,op:0.06+Math.random()*0.08});
+  function f(){t+=0.012;c.clearRect(0,0,W,H);c.fillStyle='#050507';c.fillRect(0,0,W,H);
+    circles.forEach(function(b){b.x+=b.vx;b.y+=b.vy;if(b.y<-b.r)b.y=H+b.r;if(b.y>H+b.r)b.y=-b.r;if(b.x<-b.r)b.x=W+b.r;if(b.x>W+b.r)b.x=-b.r;var pulse=0.6+0.4*Math.sin(t*1.5+b.phase);var gr=c.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);gr.addColorStop(0,'transparent');gr.addColorStop(0.6,'hsla('+b.hue+',90%,60%,'+(b.op*pulse*0.5)+')');gr.addColorStop(0.88,'hsla('+b.hue+',100%,70%,'+(b.op*pulse)+')');gr.addColorStop(1,'transparent');c.fillStyle=gr;c.beginPath();c.arc(b.x,b.y,b.r,0,Math.PI*2);c.fill();});
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['bokeh']=animBokeh;
+
+function animRedmoon(c,W,H,cb){
+  var t=0;var haze=[];
+  for(var i=0;i<12;i++)haze.push({x:Math.random()*W,y:Math.random()*H,r:W*0.1+Math.random()*W*0.12,op:0.04+Math.random()*0.06,vy:(Math.random()-0.5)*0.12,phase:Math.random()*Math.PI*2});
+  function f(){t+=0.006;c.clearRect(0,0,W,H);c.fillStyle='#060103';c.fillRect(0,0,W,H);
+    var gr=c.createRadialGradient(W*0.5,H*0.28,0,W*0.5,H*0.28,W*0.22);gr.addColorStop(0,'rgba(180,20,0,0.55)');gr.addColorStop(0.5,'rgba(100,5,0,0.25)');gr.addColorStop(1,'transparent');c.fillStyle=gr;c.fillRect(0,0,W,H);
+    c.strokeStyle='rgba(200,50,0,0.18)';c.lineWidth=W*0.003;c.beginPath();c.arc(W*0.5,H*0.28,W*0.18+Math.sin(t)*W*0.005,0,Math.PI*2);c.stroke();
+    c.strokeStyle='rgba(200,60,0,0.08)';c.lineWidth=1;c.beginPath();c.arc(W*0.5,H*0.28,W*0.22,0,Math.PI*2);c.stroke();
+    haze.forEach(function(h){h.y+=h.vy;h.phase+=0.01;if(h.y<-h.r)h.y=H+h.r;if(h.y>H+h.r)h.y=-h.r;var fade=0.5+0.5*Math.sin(h.phase);var gr2=c.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r);gr2.addColorStop(0,'rgba(120,10,0,'+(h.op*fade)+')');gr2.addColorStop(1,'transparent');c.fillStyle=gr2;c.beginPath();c.arc(h.x,h.y,h.r,0,Math.PI*2);c.fill();});
+    var br=c.createLinearGradient(0,H*0.55,0,H);br.addColorStop(0,'transparent');br.addColorStop(1,'rgba(80,0,0,0.35)');c.fillStyle=br;c.fillRect(0,0,W,H);
+    var id=requestAnimationFrame(f);if(cb){cb(id);cb=null;}}
+  f();
+}
+bgAnimFunctions['redmoon']=animRedmoon;
+
 // ── RENDER ANIMATED BG FOR EXPORT ────────────────────
 function drawAnimBgFrame(c,bgType,W,H,t){
   // Always start with solid black — prevents transparency artifacts in PNG export
@@ -937,8 +1088,48 @@ function drawAnimBgFrame(c,bgType,W,H,t){
     c.fillStyle='#020508';c.fillRect(0,0,W,H);
     c.globalAlpha=1;c.strokeStyle='rgba(0,200,100,.07)';c.lineWidth=.8;
     for(var i=0;i<7;i++){for(var j=0;j<11;j++){var cx3=i/6*W,cy3=j/10*H;if(i<6){c.beginPath();c.moveTo(cx3,cy3);c.lineTo((i+1)/6*W,cy3);c.stroke();}if(j<10){c.beginPath();c.moveTo(cx3,cy3);c.lineTo(cx3,(j+1)/10*H);c.stroke();}var puls=(t*5+i*.7+j*.5)%1;c.fillStyle='rgba(0,255,120,'+(0.7-puls*.6)+')';c.beginPath();c.arc(cx3,cy3,3*(1-puls),0,PI*2);c.fill();}}
+  } else if(bgType==='aurora'){
+    c.fillStyle='#020612';c.fillRect(0,0,W,H);
+    for(var i=0;i<5;i++){var ay=H*(0.2+i*0.12),amp=H*0.06+i*H*0.02,ahue=160+i*30+Math.sin(t*6+i)*20;var gr=c.createLinearGradient(0,ay-amp,0,ay+amp);gr.addColorStop(0,'transparent');gr.addColorStop(0.5,'hsla('+ahue+',100%,60%,'+(0.07+i*0.018)+')');gr.addColorStop(1,'transparent');c.fillStyle=gr;c.beginPath();c.moveTo(0,ay);for(var x=0;x<=W;x+=12){c.lineTo(x,ay+Math.sin(x/W*PI*4+t*9+i*0.7)*amp);}c.lineTo(W,H);c.lineTo(0,H);c.closePath();c.fill();}
+  } else if(bgType==='vortex'){
+    c.fillStyle='#040208';c.fillRect(0,0,W,H);
+    for(var i=0;i<120;i++){var va=i/120*PI*12+t*12,vr=i/120*(Math.min(W,H)*0.45);var vx=W*0.5+Math.cos(va)*vr,vy=H*0.5+Math.sin(va)*vr;var vh=i%2===0?0:280;c.fillStyle='hsla('+vh+',90%,55%,'+(0.04+i/120*0.22)+')';c.beginPath();c.arc(vx,vy,1.5,0,PI*2);c.fill();}
+  } else if(bgType==='ink2'){
+    c.fillStyle='#070708';c.fillRect(0,0,W,H);var ig=c.createRadialGradient(W*0.5,H*0.35,0,W*0.5,H*0.35,W*0.7);ig.addColorStop(0,'rgba(60,0,0,0.2)');ig.addColorStop(1,'transparent');c.fillStyle=ig;c.fillRect(0,0,W,H);
+    for(var i=0;i<8;i++){var ix=((i*137+t*W*0.8)%W)*W/W*W/W,iy=((i*97+t*H*0.6)%H)*H/H*H/H;var ir=W*0.12+i*W*0.02;var igr=c.createRadialGradient(i*(W/8)+W/16,H*0.2+i*H*0.08,0,i*(W/8)+W/16,H*0.2+i*H*0.08,ir*(1+0.3*Math.sin(t*3+i)));igr.addColorStop(0,'hsla('+(i%2===0?0:200)+',80%,10%,'+(0.15+i*0.01)+')');igr.addColorStop(1,'transparent');c.fillStyle=igr;c.beginPath();c.arc(i*(W/8)+W/16,H*0.2+i*H*0.08,ir,0,PI*2);c.fill();}
+  } else if(bgType==='tribal'){
+    c.fillStyle='#060404';c.fillRect(0,0,W,H);var tg=c.createRadialGradient(W*0.5,H*0.5,0,W*0.5,H*0.5,W*0.7);tg.addColorStop(0,'rgba(80,10,0,0.2)');tg.addColorStop(1,'transparent');c.fillStyle=tg;c.fillRect(0,0,W,H);
+    c.strokeStyle='rgba(204,0,0,0.1)';c.lineWidth=1;
+    for(var i=0;i<10;i++){var tx=i*(W/10)+W/20,ty=H*0.5;var ts=W*0.05+i%3*W*0.02;c.save();c.translate(tx,ty);c.rotate(t*0.5+i*0.6);c.beginPath();c.moveTo(0,-ts);c.lineTo(ts*0.7,ts*0.5);c.lineTo(-ts*0.7,ts*0.5);c.closePath();c.stroke();c.beginPath();c.moveTo(0,-ts*0.5);c.lineTo(ts*0.35,ts*0.25);c.lineTo(-ts*0.35,ts*0.25);c.closePath();c.stroke();c.restore();}
+  } else if(bgType==='galaxy'){
+    c.fillStyle='#030208';c.fillRect(0,0,W,H);var gg=c.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.3);gg.addColorStop(0,'rgba(80,0,30,0.3)');gg.addColorStop(1,'transparent');c.fillStyle=gg;c.fillRect(0,0,W,H);
+    for(var i=0;i<150;i++){var ga=(i/150*PI*10+t*0.5),gr=Math.random?i/150*Math.min(W,H)*0.44:i/150*Math.min(W,H)*0.44;ga=i/150*PI*10+t*0.5;gr=i/150*Math.min(W,H)*0.44;var gx=W*0.5+Math.cos(ga)*gr,gy=H*0.4+Math.sin(ga)*gr*0.55;var gh=i%3===0?0:i%3===1?200:280;var galpha=0.2+0.5*Math.sin(t*4+i);c.fillStyle='hsla('+gh+',80%,70%,'+galpha+')';c.beginPath();c.arc(gx,gy,i%5===0?1.8:0.8,0,PI*2);c.fill();}
+  } else if(bgType==='sandstorm'){
+    c.fillStyle='#080503';c.fillRect(0,0,W,H);var sg=c.createLinearGradient(0,0,W,H);sg.addColorStop(0,'rgba(80,40,0,0.25)');sg.addColorStop(1,'rgba(40,10,0,0.1)');c.fillStyle=sg;c.fillRect(0,0,W,H);
+    for(var i=0;i<120;i++){var sx=((i*53+t*W*1.8)%W),sy=((i*79+t*H*0.4)%H);c.fillStyle='rgba(180,120,40,'+(0.08+i%4*0.04)+')';c.beginPath();c.arc(sx*W/W,sy*H/H,1+i%3,0,PI*2);c.fill();}
+    for(var i=0;i<25;i++){var ly=((i*41+t*H*0.3)%H);c.fillStyle='rgba(150,90,20,'+(0.04+i%3*0.02)+')';c.fillRect(0,ly*H/H,W,1+i%2);}
+  } else if(bgType==='glitch'){
+    c.fillStyle='#050505';c.fillRect(0,0,W,H);
+    var glt=Math.floor(t*20)%30;
+    if(glt<3){c.fillStyle='rgba(204,0,0,0.12)';c.fillRect(0,Math.sin(t*17)*H,W,H*0.04+Math.cos(t*11)*H*0.02);}
+    if(glt<5&&glt>2){c.fillStyle='rgba(0,80,200,0.08)';c.fillRect(Math.cos(t*13)*W*0.03,0,W,H);}
+    for(var i=0;i<8;i++){c.fillStyle='rgba('+(i%2===0?180:0)+',0,'+(i%3===0?150:0)+','+(0.02+i*0.01)+')';c.fillRect(0,((i*H/8+t*H*0.5)%H),W,1+i%2);}
+    var gg2=c.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.6);gg2.addColorStop(0,'rgba(60,0,0,0.18)');gg2.addColorStop(1,'transparent');c.fillStyle=gg2;c.fillRect(0,0,W,H);
+  } else if(bgType==='dragonscale'){
+    c.fillStyle='#040506';c.fillRect(0,0,W,H);
+    var dsw=W*0.09,dsh=dsw*0.55,dcols=Math.ceil(W/dsw)+2,drows=Math.ceil(H/(dsh*0.8))+2;
+    for(var row=0;row<drows;row++){for(var col=0;col<dcols;col++){var dox=(row%2)*dsw*0.5;var dx=col*dsw-dox,dy=row*dsh*0.8;var dwave=0.5+0.5*Math.sin(t*6+col*0.5+row*0.4);var dhue=dwave<0.5?0:200;var dl=8+dwave*12;c.beginPath();c.ellipse(dx,dy,dsw*0.52,dsh*0.52,0,0,PI*2);c.strokeStyle='hsla('+dhue+',70%,'+(dl+10)+'%,'+(0.07+dwave*0.1)+')';c.lineWidth=1;c.stroke();c.fillStyle='hsla('+dhue+',60%,'+dl+'%,'+(0.03+dwave*0.05)+')';c.fill();}}
+  } else if(bgType==='bokeh'){
+    c.fillStyle='#050507';c.fillRect(0,0,W,H);
+    for(var i=0;i<25;i++){var bkx=((i*137.5)%(W+100))-50,bky=((i*97.3+t*H*0.15)%(H+100))-50;var bkr=W*0.04+i%5*W*0.03;var bkh=i%3===0?0:i%3===1?30:320;var bkpulse=0.5+0.5*Math.sin(t*4+i);var bkgr=c.createRadialGradient(bkx,bky,0,bkx,bky,bkr);bkgr.addColorStop(0,'transparent');bkgr.addColorStop(0.6,'hsla('+bkh+',90%,60%,'+(0.04+i%3*0.02)*bkpulse+')');bkgr.addColorStop(0.9,'hsla('+bkh+',100%,70%,'+(0.07+i%4*0.02)*bkpulse+')');bkgr.addColorStop(1,'transparent');c.fillStyle=bkgr;c.beginPath();c.arc(bkx,bky,bkr,0,PI*2);c.fill();}
+  } else if(bgType==='redmoon'){
+    c.fillStyle='#060103';c.fillRect(0,0,W,H);
+    var rmg=c.createRadialGradient(W*0.5,H*0.28,0,W*0.5,H*0.28,W*0.22+Math.sin(t*6)*W*0.01);rmg.addColorStop(0,'rgba(180,20,0,0.55)');rmg.addColorStop(0.5,'rgba(100,5,0,0.25)');rmg.addColorStop(1,'transparent');c.fillStyle=rmg;c.fillRect(0,0,W,H);
+    c.strokeStyle='rgba(200,50,0,0.16)';c.lineWidth=W*0.003;c.beginPath();c.arc(W*0.5,H*0.28,W*0.18,0,PI*2);c.stroke();
+    for(var i=0;i<8;i++){var rhx=((i*139+t*W*0.3)%(W+100))-50,rhy=((i*97+t*H*0.12)%H);var rhr=W*0.12+i%3*W*0.04;var rhg=c.createRadialGradient(rhx,rhy,0,rhx,rhy,rhr);rhg.addColorStop(0,'rgba(120,10,0,'+(0.04+i%3*0.015)+')');rhg.addColorStop(1,'transparent');c.fillStyle=rhg;c.beginPath();c.arc(rhx,rhy,rhr,0,PI*2);c.fill();}
+    var rbb=c.createLinearGradient(0,H*0.55,0,H);rbb.addColorStop(0,'transparent');rbb.addColorStop(1,'rgba(80,0,0,0.3)');c.fillStyle=rbb;c.fillRect(0,0,W,H);
   } else if(bgType==='geo'){
-    c.fillStyle='#070707';c.fillRect(0,0,W,H);var g6=c.createRadialGradient(W*.5,H*.5,0,W*.5,H*.5,W*.7);g6.addColorStop(0,'rgba(100,0,0,.1)');g6.addColorStop(1,'transparent');c.fillStyle=g6;c.fillRect(0,0,W,H);
+    c.fillStyle='#070707';;c.fillRect(0,0,W,H);var g6=c.createRadialGradient(W*.5,H*.5,0,W*.5,H*.5,W*.7);g6.addColorStop(0,'rgba(100,0,0,.1)');g6.addColorStop(1,'transparent');c.fillStyle=g6;c.fillRect(0,0,W,H);
     for(var i=0;i<7;i++){var sides=3+i%4,r4=W*.07+i*W*.05,rot3=t*PI*2*(i%2===0?1:-1)+i;c.beginPath();for(var j=0;j<sides;j++){var a=rot3+j/sides*PI*2;if(j===0)c.moveTo(W*.5+Math.cos(a)*r4,H*.5+Math.sin(a)*r4);else c.lineTo(W*.5+Math.cos(a)*r4,H*.5+Math.sin(a)*r4);}c.closePath();c.strokeStyle='hsla('+(i%2===0?0:30)+',80%,50%,'+(0.06+i*.012)+')';c.lineWidth=.7;c.stroke();}
   } else {
     // default ink
