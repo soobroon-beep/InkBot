@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -43,8 +44,6 @@
   }
 })();
 </script>
-
-
 
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Serif+JP:wght@900&family=Space+Mono&family=DM+Sans:wght@300;400;500&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -178,118 +177,120 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 /* ── MÓVIL ────────────────────────────────────────────── */
 @media(max-width:768px){
 
-  /* ── BODY BASE ── */
-  html,body{overflow:hidden;height:100%;height:100dvh}
+/* ── BODY BASE ── */
+html,body{overflow:hidden;height:100%;height:100dvh}
 
-  /* ── TOPBAR ── */
-  .topbar{flex-wrap:wrap;height:auto;padding:7px 10px;gap:5px;flex-shrink:0}
-  .logo-sub{display:none}
-  .logo-txt{font-size:15px}
-  .tabs{margin-left:0;width:100%;order:2;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .tabs::-webkit-scrollbar{display:none}
-  .tab{height:34px;padding:0 10px;font-size:9px;white-space:nowrap;flex-shrink:0}
-  .api-area{order:1;margin-left:auto;gap:5px}
-  .api-sel{font-size:9px;padding:4px 5px}
-  .api-inp{width:120px;font-size:10px;padding:4px 7px}
+/* ── TOPBAR ── */
+.topbar{flex-wrap:wrap;height:auto;padding:7px 10px;gap:5px;flex-shrink:0}
+.logo-sub{display:none}
+.logo-txt{font-size:15px}
+.tabs{margin-left:0;width:100%;order:2;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{height:34px;padding:0 10px;font-size:9px;white-space:nowrap;flex-shrink:0}
+.api-area{order:1;margin-left:auto;gap:5px}
+.api-sel{font-size:9px;padding:4px 5px}
+.api-inp{width:120px;font-size:10px;padding:4px 7px}
 
-  /* ── LAYOUT PRINCIPAL ── */
-  .body{flex-direction:column;position:relative}
-  .main{margin-left:0;width:100%;height:100%}
+/* ── LAYOUT PRINCIPAL ── */
+.body{flex-direction:column;position:relative}
+.main{margin-left:0;width:100%;height:100%}
 
-  /* ── SIDEBAR COMO DRAWER INFERIOR ── */
-  .sidebar{
-    position:fixed;
-    left:0;right:0;bottom:0;top:auto;
-    width:100%;max-width:100%;min-width:0;
-    /* Altura dinámica — cabe todo con scroll */
-    height:82dvh;height:82vh;
-    /* Scroll interno habilitado */
-    overflow-y:auto!important;
-    overflow-x:hidden!important;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    /* Secciones internas que no se corten */
-    display:flex;
-    flex-direction:column;
-    border-right:none;
-    border-top:2px solid var(--red);
-    transform:translateY(100%);
-    transition:transform .28s cubic-bezier(.4,0,.2,1);
-    z-index:100;
-    padding-bottom:70px; /* espacio para no tapar el botón generar */
-  }
-  .sidebar.mob-open{transform:translateY(0)}
+/* ── SIDEBAR COMO DRAWER INFERIOR ── */
+.sidebar{
+position:fixed;
+left:0;right:0;bottom:0;top:auto;
+width:100%;max-width:100%;min-width:0;
+/* Altura dinámica — cabe todo con scroll */
+height:82dvh;height:82vh;
+/* Scroll interno habilitado */
+overflow-y:auto!important;
+overflow-x:hidden!important;
+-webkit-overflow-scrolling:touch;
+overscroll-behavior:contain;
+/* Secciones internas que no se corten */
+display:flex;
+flex-direction:column;
+border-right:none;
+border-top:2px solid var(–red);
+transform:translateY(100%);
+transition:transform .28s cubic-bezier(.4,0,.2,1);
+z-index:100;
+padding-bottom:70px; /* espacio para no tapar el botón generar */
+}
+.sidebar.mob-open{transform:translateY(0)}
 
-  /* Cada sección del sidebar NO corta su contenido */
-  .sb{
-    overflow:visible!important;
-    flex-shrink:0;
-    width:100%;
-    box-sizing:border-box;
-  }
+/* Cada sección del sidebar NO corta su contenido */
+.sb{
+overflow:visible!important;
+flex-shrink:0;
+width:100%;
+box-sizing:border-box;
+}
 
-  /* Pills se envuelven bien */
-  .pills{display:flex;flex-wrap:wrap;gap:5px}
-  .pill{font-size:11px;padding:5px 9px}
+/* Pills se envuelven bien */
+.pills{display:flex;flex-wrap:wrap;gap:5px}
+.pill{font-size:11px;padding:5px 9px}
 
-  /* Botón GENERAR siempre visible al fondo del drawer */
-  .sidebar .sb:last-child{
-    position:sticky;
-    bottom:0;
-    background:var(--surf);
-    z-index:10;
-    border-top:1px solid var(--b2);
-    padding-bottom:12px;
-  }
+/* Botón GENERAR siempre visible al fondo del drawer */
+.sidebar .sb:last-child{
+position:sticky;
+bottom:0;
+background:var(–surf);
+z-index:10;
+border-top:1px solid var(–b2);
+padding-bottom:12px;
+}
 
-  /* ── BOTÓN FLOTANTE ⚙️ ── */
-  #mob-toggle{
-    display:flex;
-    position:fixed;
-    bottom:18px;right:18px;
-    width:52px;height:52px;
-    background:var(--red);
-    border:none;border-radius:50%;
-    color:#fff;font-size:22px;
-    align-items:center;justify-content:center;
-    z-index:200;cursor:pointer;
-    box-shadow:0 4px 24px rgba(204,0,0,.6);
-    transition:transform .15s;
-  }
-  #mob-toggle:active{transform:scale(.9)}
+/* ── BOTÓN FLOTANTE ⚙️ ── */
+#mob-toggle{
+display:flex;
+position:fixed;
+bottom:18px;right:18px;
+width:52px;height:52px;
+background:var(–red);
+border:none;border-radius:50%;
+color:#fff;font-size:22px;
+align-items:center;justify-content:center;
+z-index:200;cursor:pointer;
+box-shadow:0 4px 24px rgba(204,0,0,.6);
+transition:transform .15s;
+}
+#mob-toggle:active{transform:scale(.9)}
 
-  /* ── PREVIEW HISTORIA ── */
-  .prev{padding:12px 12px 80px}
-  .sf{width:calc(100vw - 48px);max-width:260px;height:auto;aspect-ratio:9/16}
-  #dl-btn-area{width:calc(100vw - 48px)!important;max-width:260px!important}
+/* ── PREVIEW HISTORIA ── */
+.prev{padding:12px 12px 80px}
+.sf{width:calc(100vw - 48px);max-width:260px;height:auto;aspect-ratio:9/16}
+#dl-btn-area{width:calc(100vw - 48px)!important;max-width:260px!important}
 
-  /* ── SEMANA ── */
-  .wbody{padding:8px}
-  .wgrid{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .drow{min-width:580px}
-  .phdr{flex-direction:column;gap:6px}
-  .phdr>div:last-child{display:flex;flex-wrap:wrap;gap:5px}
-  .btn-gold{padding:6px 9px;font-size:9px}
+/* ── SEMANA ── */
+.wbody{padding:8px}
+.wgrid{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.drow{min-width:580px}
+.phdr{flex-direction:column;gap:6px}
+.phdr>div:last-child{display:flex;flex-wrap:wrap;gap:5px}
+.btn-gold{padding:6px 9px;font-size:9px}
 
-  /* ── HORARIOS ── */
-  .sbody{padding:10px}
-  .sgrid{overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:nowrap}
-  .sday{min-width:95px;flex-shrink:0}
+/* ── HORARIOS ── */
+.sbody{padding:10px}
+.sgrid{overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:nowrap}
+.sday{min-width:95px;flex-shrink:0}
 
-  /* ── CAPTIONS ── */
-  .cbody{padding:10px}
+/* ── CAPTIONS ── */
+.cbody{padding:10px}
 
-  /* ── BANCO ── */
-  .bgrid{grid-template-columns:1fr;padding:10px}
+/* ── BANCO ── */
+.bgrid{grid-template-columns:1fr;padding:10px}
 
-  /* ── PROGRESS OVERLAY ── */
-  .prog-bar-wrap{width:88vw}
+/* ── PROGRESS OVERLAY ── */
+.prog-bar-wrap{width:88vw}
 }
 </style>
+
 </head>
 <body>
 
 <!-- PROGRESS OVERLAY for video export -->
+
 <div class="prog-overlay" id="prog-overlay">
   <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:4px;color:var(--txt)">GENERANDO VIDEO</div>
   <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar"></div></div>
@@ -313,6 +314,7 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 </div>
 
 <!-- Google Drive setup panel -->
+
 <div id="gd-setup" style="display:none;background:#0d1f0d;border-bottom:1px solid #1a4a1a;padding:10px 16px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
   <span style="font-size:10px;color:#4ade80;font-family:'Space Mono',monospace;letter-spacing:2px;text-transform:uppercase">Google Drive</span>
   <input type="text" id="gd-client-id" placeholder="Google OAuth Client ID (console.cloud.google.com)" style="flex:1;min-width:260px;padding:6px 10px;background:#0a1a0a;border:1px solid #2a5a2a;color:#4ade80;font-family:'Space Mono',monospace;font-size:10px;outline:none">
@@ -327,7 +329,8 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 <div class="sidebar">
   <div class="sb"><div class="lbl">Tipo de historia</div>
     <div class="pills" id="type-pills">
-      <div class="pill on" data-val="dato">Dato</div>
+      <div class="pill on" data-val="random" style="background:linear-gradient(90deg,#CC0000,#c8860a);color:#fff;font-weight:700">🎲 RANDOM</div>
+      <div class="pill" data-val="dato">Dato</div>
       <div class="pill" data-val="sabias">¿Sabías que...?</div>
       <div class="pill" data-val="interactivo">Interactivo</div>
       <div class="pill" data-val="inspiracion">Inspiración</div>
@@ -355,6 +358,19 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
       <div class="pill" data-val="filosofia">💭 Filosofía</div>
       <div class="pill" data-val="colores">🎨 Colores</div>
       <div class="pill" data-val="dolor">💢 Dolor</div>
+      <div class="pill" data-val="mexico">🇲🇽 México Profundo</div>
+      <div class="pill" data-val="prehispanico">🪶 Prehispánico</div>
+      <div class="pill" data-val="narcocultura">🔥 Narcocultura</div>
+      <div class="pill" data-val="luchalibre">🎭 Lucha Libre</div>
+      <div class="pill" data-val="leyenda">👻 Leyenda</div>
+      <div class="pill" data-val="prison">⛓ Carcelario</div>
+      <div class="pill" data-val="oscuro">🌑 Lado Oscuro</div>
+      <div class="pill" data-val="amor">❤️ Amor & Pérdida</div>
+      <div class="pill" data-val="cuerpo">🫀 Cuerpo Vivo</div>
+      <div class="pill" data-val="dinero">💰 Dinero & Tat</div>
+      <div class="pill" data-val="ciencia">🧬 Ciencia</div>
+      <div class="pill" data-val="errores">⚠️ Errores Reales</div>
+      <div class="pill" data-val="primero">🥇 Primeras Veces</div>
     </div>
   </div>
   <div class="sb"><div class="lbl">Fondo animado</div>
@@ -394,8 +410,8 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
   <div class="sb"><div class="lbl">Tu logo (PNG transparente)</div>
     <div class="upz"><input type="file" id="logo-input" accept=".png,.svg,.webp"><img id="logo-prev" style="display:none;max-height:34px;max-width:100px;object-fit:contain;margin:0 auto 5px"><p id="logo-txt">↑ Sube tu logo</p></div>
   </div>
-  <div class="sb"><div class="lbl">Handle de Instagram</div><input type="text" class="inp" id="handle" value="" placeholder="V.SOBRONTT ❘ INKBOT"></div>
-  <div class="sb"><div class="lbl">Tu estilo y especialidad</div><textarea class="inp" id="ctx">Japonés neotradicional. Rojo carmesí, negro, dorado, verde jade. 10 años de experiencia. Veracruz, México.</textarea></div>
+  <div class="sb"><div class="lbl">Handle de Instagram</div><input type="text" class="inp" id="handle" value="V.SOBRONTT ❘ INKBOT" placeholder="V.SOBRONTT ❘ INKBOT"></div>
+  <textarea id="ctx" style="display:none">Japonés neotradicional. Rojo carmesí, negro, dorado, verde jade. 10 años de experiencia. Veracruz, México.</textarea>
   <div class="sb" style="display:flex;flex-direction:column;gap:7px;padding-bottom:40px">
     <button class="btn-red" id="btn-gen">⚡ GENERAR HISTORIA</button>
     <div class="st" id="st-gen"></div>
@@ -426,6 +442,13 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
       </div>
       <!-- Download buttons below preview -->
       <div id="dl-btn-area" style="display:none;flex-direction:column;gap:6px;width:270px;margin-top:10px">
+        <!-- ── LIKE / DISLIKE ── -->
+        <div id="feedback-bar" style="display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.03);border:1px solid var(--b2);padding:8px 10px">
+          <span style="font-size:9px;color:var(--mut);font-family:'Space Mono',monospace;letter-spacing:1px;text-transform:uppercase;flex:1">¿Te gustó?</span>
+          <button id="btn-like" title="Me gustó — genera más así" style="flex:1;padding:7px 4px;background:transparent;border:1px solid #2a5c2a;color:#4ade80;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;transition:all .2s;border-radius:2px">👍 Me gustó</button>
+          <button id="btn-dislike" title="Repetida — genera otra distinta" style="flex:1;padding:7px 4px;background:transparent;border:1px solid #5c2a2a;color:#f87171;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;transition:all .2s;border-radius:2px">👎 Repetida</button>
+        </div>
+        <div id="feedback-msg" style="display:none;font-size:9px;font-family:'Space Mono',monospace;letter-spacing:1px;text-align:center;padding:4px 0;text-transform:uppercase"></div>
         <div style="display:flex;gap:6px">
           <button id="btn-dl-png" style="flex:1;padding:9px 6px;background:transparent;color:var(--txt);border:1px solid var(--b2);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--txt)'">↓ PNG</button>
           <button id="btn-dl-mp4" style="flex:1;padding:9px 6px;background:transparent;color:var(--gold);border:1px solid var(--gold);font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s" onmouseover="this.style.background='var(--gold)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--gold)'">▶ Video 15s</button>
@@ -530,7 +553,9 @@ canvas.cbg{position:absolute;inset:0;width:100%;height:100%}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
+
 <script>
 // ── ENCODER DE VIDEO — WebCodecs + mp4-muxer ──────────────────────────────
 // Genera MP4 H.264 Baseline idéntico al video que funciona en Instagram:
@@ -682,6 +707,7 @@ function recordWebmFallback(canvas, renderFn, durationMs, progressCb) {
 }
 
 </script>
+
 <script>
 (function(){
 
@@ -691,34 +717,49 @@ var bank=[],weekData=[],currentStory=null;
 var capB64=null,capMime=null,fontsReady=false;
 
 var typeMap={
-  dato:'un dato curioso, sorprendente e impactante sobre tatuajes que la mayoría de personas no conoce. REGLA: cada vez elige un ángulo COMPLETAMENTE DIFERENTE: edad mínima para tatuarse en distintos países, cuántos tatuajes tiene una persona en promedio, qué cultura inventó la aguja para tatuar, el primer tatuaje documentado en una momia, tatuajes en la historia de la medicina, la conexión entre tatuajes y rituales de paso, datos de récords mundiales. NUNCA el mismo dato dos veces. NUNCA tintas UV, rayos X ni propiedades ópticas de tintas.',
-  estilo:'explica UN estilo de tatuaje concreto de forma visual y emocionante. REGLA: cada generación debe ser un estilo DIFERENTE. Rota entre: blackwork geométrico, realismo fotográfico, japonés clásico Irezumi, fineline minimalista, acuarela abstracta, old school americano, Maorí tribal, biomecánico, pointillism, chicano black and grey, trash polka europeo, ornamental hindú, illustrative moderno, neo-japonés contemporáneo. Para cada uno: dónde nació, qué lo hace único visualmente, qué tipo de historia personal cuentan quienes lo eligen.',
-  historia:'una historia ESPECÍFICA y casi desconocida sobre un momento real en la historia del tatuaje. Cada vez elige una historia diferente: el primer tatuador profesional en Occidente (Samuel O\'Reilly, 1891), las mujeres tatuadas del circo del siglo XIX, los marineros y sus supersticiones, los tatuajes de los presos de las gulags soviéticas y su lenguaje secreto visual, los samuráis japoneses tatuados en el período Edo, las guerreras maoríes y el tā moko, los tatuajes en la corte real de Birmania. Que sea dramática con personajes reales.',
-  mito:'desmiente un mito MUY ESPECÍFICO sobre tatuajes. REGLA: elige un mito diferente cada vez y nunca repitas ninguno. Mitos para rotar: Los negros envejecen peor que los de color — FALSO. Tatuarse sobre cicatrices es imposible — FALSO. Los tatuajes se borran con limón — FALSO y peligroso. Los tatuajes afectan análisis de sangre — FALSO. Tatuarse embarazada siempre es peligroso — MATIZADO. Tatuarse en el mismo lugar dos veces destruye la piel — FALSO. El alcohol adelgaza la sangre antes de tatuar — VERDADERO. El tatuaje se ve igual toda la vida — FALSO, evoluciona. Las alergias al tatuaje son rarísimas — FALSO. Los tatuajes grises duran menos que los negros — FALSO. Datos reales y contundentes.',
-  simbolo:'el significado profundo de UN símbolo específico en tatuajes. Cada vez elige uno diferente: serpiente ouroboros (eternidad), loto (renacimiento desde el barro), ojo de Horus (protección), calavera mexicana (celebración de la muerte), ancla (estabilidad en el caos), reloj sin manecillas (el momento presente), luna creciente (transformación), lobo solitario (independencia y libertad), elefante Ganesha (obstáculos removidos), cuervo nórdico (mensajero entre mundos), rosa negra (amor que termina), tigre coreano Baekho (protector del oeste). Origen mitológico exacto y por qué la gente lo elige en momentos clave de su vida.',
-  famoso:'una historia ESPECÍFICA con datos VERÍDICOS sobre el tatuaje de una celebridad actual o histórica REAL. ROTA entre personas completamente diferentes cada vez: LeBron James y sus tatuajes tribales y dedicatorias familiares, Rihanna y el guerrero en el tobillo, Post Malone y el significado detrás de sus tatuajes faciales, Angelina Jolie y las coordenadas de nacimiento de sus hijos tatuadas en el brazo, Tupac Shakur y "Thug Life" en el abdomen, Harry Styles y el proceso detrás de cada uno de sus tatuajes, Robbie Williams y su adicción confesada a los tatuajes japoneses, Kat Von D como artista tatuadora que transformó la industria, Travis Barker y sus tatuajes relacionados con el accidente de avión que sobrevivió, Megan Fox y su tatuaje de Marilyn Monroe que después borró. Solo datos verificables.',
-  region:'la tradición del tatuaje en UNA región o cultura específica. Cada vez elige una diferente y NO repitas: tatuaje Sak Yant en Tailandia (monjes que tatúan con barras de acero y oraciones budistas), Kakau en Hawái (extinto y revivido), Tā Moko maorí en Nueva Zelanda (identidad genealógica), Kalinga en Filipinas (mujeres guerreras como Whang Od), Tebori japonés hecho a mano con palo, los tatuajes de Coptic en Egipto cristiano (cruz en la muñeca), el código visual de los tatuajes en el Gulag ruso, tatuajes rituales de los indígenas amazónicos Shuar. Datos culturales específicos e inesperados.',
-  idea:'una idea de tatuaje ESPECÍFICA, original y con significado profundo. NUNCA repitas. Rota entre categorías completamente diferentes: (A) NATURALEZA: constelación del día de nacimiento exacta, animal espíritu de tu cultura ancestral, árbol con raíces que son fechas y ramas que son nombres. (B) MEMORIA: coordenadas GPS del lugar más importante de tu vida, ECG real del latido de alguien amado, huella dactilar de tu abuelo o hijo. (C) IDENTIDAD: frase en náhuatl o latín o sánscrito que define tu filosofía, símbolo de tu signo en la mitología griega original, retrato de mascota fallecida en estilo realismo. (D) ARTE: fragmento de pintura de Klimt adaptado, la arquitectura de la catedral de tu ciudad, el compás musical de la canción de tu boda. (E) VIAJE: silueta de la montaña que escalaste, el mapa del barrio donde creciste, las olas de la playa donde enterraste a alguien. Especifica zona del cuerpo y por qué ese diseño en ese lugar es poderoso.',
-  consejo:'un consejo CONCRETO y honesto para quien va a tatuarse. Cada vez un consejo DIFERENTE: (1) Por qué esperar 2 semanas entre decidir y tatuar. (2) Cómo elegir el tamaño correcto para tu primer tatuaje (regla del puño). (3) Por qué la zona del cuerpo importa más que el diseño. (4) Cómo preparar tu piel el día anterior: hidratación, descanso, azúcar. (5) Por qué debes confiar en el artista y no llevar referencia exacta cerrada. (6) Qué preguntar en la consulta previa. (7) Por qué el precio más bajo puede costarte más caro. (8) Cómo cuidar el tatuaje las primeras 2 semanas sin echar a perder el trabajo. Práctico, directo y que genere confianza real.',
-  cliente:'la experiencia emocional ESPECÍFICA de tatuarse. Cada vez un ángulo diferente: el momento en que decides que ESTE es el diseño y no otro, qué pasa en tu mente las horas antes de entrar al estudio, el antes y después emocional de salir con el tatuaje fresco, por qué algunas personas lloran en la silla (no de dolor sino de liberación), la sensación de ver tu piel tatuada por primera vez en el espejo, cómo explicarle a tu familia el primer tatuaje, qué pasa cuando amas un tatuaje que nadie más entiende y no te importa.',
-  tendencia:'una tendencia ESPECÍFICA del mundo del tatuaje con nombre propio. Rota entre: Ignorant Style (trazos simples deliberadamente crudos que se hicieron élite), Botanical Fine Line (botánica minimalista fotorrealista), Micro-Realism (detalles fotográficos en 2cm), Geometric Blackwork (mandala estructural matemático), Anatomical Art Nouveau (órganos humanos como flores de Mucha), Anime Realism (personajes de manga con técnica hiperrealista), Vintage Flash Sheet Revival (revival de los 50s y 60s), Dark Surrealism (Dalí mezclado con tatuaje), Lettering tipográfico como obra de arte, Color Bombing en blackwork existente. Por qué esa tendencia crece y quién la adopta primero.',
-  tribu:'la historia de UNA tribu o cultura ancestral con tatuajes. Rota entre culturas completamente diferentes: guerreros Dayak de Borneo (tatuajes de cabezas tomadas en batalla como trofeos de honor), mujeres Inuit de Alaska (tatuajes en mentón que marcan la mayoría de edad y el derecho al matrimonio), guerreros Cherokee en Norteamérica (tatuajes de animales como escudos espirituales), faraona Amunet del Antiguo Egipto (momia con tatuajes de líneas abstractas), los Pictos de Escocia pintados de azul que aterrorizaban a los romanos, los Escitas de las estepas con animales míticos tatuados en sus momias, los guerreros Haida del Pacífico noroeste canadiense con historias genealógicas en la piel. Datos verificables y épicos.',
-  psicologia:'un aspecto ESPECÍFICO de la psicología del tatuaje. Rota el ángulo: (1) Por qué los tatuajes reducen la ansiedad social en muchas personas — estudios universitarios. (2) El fenómeno de coleccionar tatuajes como adicción positiva (completitud, no exceso). (3) Por qué tatuar algo doloroso del pasado funciona como terapia de exposición. (4) Qué predice el arrepentimiento de un tatuaje — factores psicológicos reales. (5) Por qué ciertos arquetipos dominan los estudios — leones, águilas, serpientes. (6) La conexión entre tatuajes y alta tolerancia al riesgo en estudios de personalidad. (7) Por qué la piel como lienzo es psicológicamente diferente a cualquier otro arte.',
-  encuesta:'una encuesta con DOS opciones OPUESTAS e interesantes. Elige un tema diferente cada vez: ¿Tatuaje de 5 minutos o sesión de 8 horas? / ¿Diseño del artista o tu propia idea? / ¿Algo que amabas de joven o algo que amas hoy? / ¿Tatuaje que solo ves tú o que todos ven? / ¿Negro sólido o full color? / ¿Un enorme o diez pequeños? / ¿Con fecha o sin fecha? / ¿Único de artista o flash sheet? / ¿Primero el arte o primero el artista? / ¿Tatúate o esperas 6 meses más? Que genere debate real y sea divertida. Las dos opciones con emoji.',
-  confiesa:'una invitación íntima a confesar algo sobre tatuajes. Elige un ángulo diferente cada vez: ¿Le ocultaste a alguien tu primer tatuaje? / ¿Tienes un tatuaje que ya no representa quién eres? / ¿Cuántas horas tardaste en decidirte? / ¿Cancelaste una cita de tatuaje? ¿Cuántas veces? / ¿Tienes uno que nadie sabe dónde está? / ¿Tu familia todavía no sabe que tienes tatuajes? / ¿Tatuaste algo por alguien que ya no está en tu vida? / ¿Tu tatuaje más barato es tu favorito? / ¿Tienes un boceto guardado que no te has atrevido a hacerte? Sin juicio, que genere confianza real.',
-  mitoregional:'una creencia específica sobre tatuajes arraigada en una cultura. Rota entre: En México: tatuar el nombre de tu pareja trae mala suerte — cuándo empezó ese mito y qué tan cierto es estadísticamente. En Japón: los tatuados no pueden entrar a onsen ni ciertos templos — realidad legal actual. En Tailandia: los Sak Yant pierden poder si el portador no cumple ciertas reglas de comportamiento. En Colombia: tatuarse en Semana Santa trae consecuencias. En Brasil: ciertos tatuajes son asociados con grupos específicos. En Argentina: tatuajes en la espalda y su carga cultural. Dato real y origen del mito.',
-  cultpop:'la historia de UN tatuaje icónico de cultura pop con datos REALES y VERIFICABLES. Rota entre personas y obras completamente diferentes: los tatuajes de Johnny Depp y cómo borró el de Winona Ryder, el tatuaje de Lady Gaga en el brazo y su conexión con Rilke, los tatuajes de Amy Winehouse y su relación con su música, el tatuaje facial de Mike Tyson — la historia real del artista maorí que lo diseñó, David Beckham y cómo sus tatuajes cambiaron la percepción del atleta tatuado, el tatuaje tribal de Dwayne Johnson y la cultura samoana de su familia, los tatuajes de Ozzy Osbourne y la historia del heavy metal en la piel. Solo datos verídicos.',
-  sabias:'un "¿Sabías que...?" VERIFICABLE y sorprendente sobre tatuajes. Rota el ángulo completamente cada vez: (A) ARQUEOLOGÍA: la momia más antigua con tatuajes conocidos del mundo y dónde fue encontrada. (B) GEOGRAFÍA: el país con más tatuados per cápita del mundo según estudios. (C) BIOLOGÍA: por qué los tatuajes son permanentes — la respuesta de los macrófagos. (D) RÉCORD: personas con tatuajes que cubren porcentaje extremo de su cuerpo. (E) LEGAL: países y regiones donde ciertos tatuajes están prohibidos por ley. (F) HISTORIA: el primer libro de tatuajes publicado en la historia occidental. (G) SOCIOLOGÍA: estudios que contradicen la percepción laboral negativa de los tatuajes. NUNCA UV ni tintas fluorescentes.',
-  interactivo:'una pregunta directa que invite a responder con una sola frase. Rota la pregunta cada vez con ángulos completamente diferentes: ¿Cuál fue el primer tatuaje que quisiste y nunca te hiciste? / ¿Qué palabra llevarías tatuada para siempre? / ¿Qué animal te representa hoy, no ayer? / ¿Qué coordenadas tatúarías en tu piel? / ¿Qué parte de tu historia merece tinta? / ¿Qué símbolo define quién eres hoy? / ¿Cuántos tatuajes tienes en mente que nunca has confesado? / ¿Qué tatuaría de tu ciudad natal? / ¿Qué le tatuarías a tu yo de hace 10 años? La pregunta debe ser específica e inesperada, nunca genérica.',
-  inspiracion:'una historia real o arquetípica de transformación relacionada con un tatuaje. Rota el ángulo cada vez: (A) Personas que tatuaron cicatrices de cirugías cardíacas o mastectomías y las convirtieron en arte. (B) El tatuaje como primer acto de autonomía corporal a los 18 años. (C) Personas que tatuaron la fecha en que superaron una adicción. (D) Madres que tatuaron el latido del corazón de su bebé registrado en el hospital. (E) Veteranos de guerra que procesaron trauma con tatuajes en lugar de terapia convencional. (F) Personas que tatuaron el nombre de alguien que perdieron y encontraron cierre. (G) El tatuaje como acto de amor propio después de años de inseguridad corporal. Que sea real, nunca cursi.',
-  curiosidad:'un hecho COMPLETAMENTE DESCONOCIDO sobre tatuajes que ninguna otra cuenta comparte. Busca ángulos únicos: arqueología (tatuajes en momias de Paracas en Perú, 2000 años de antigüedad), medicina forense (casos reales donde tatuajes ayudaron a identificar personas), biología molecular (la proteína que hace permanente el tatuaje), historia del arte (pintores del Renacimiento que tenían tatuajes), economía (el tatuaje como industria de 3 mil millones de dólares anuales solo en EE.UU.), sociología (el único estudio que mide si los tatuados ganan menos — resultado: depende del sector). Que sea ÚNICO y específico.',
-  proceso:'el proceso de HACERSE un tatuaje desde la perspectiva del cliente. Elige un aspecto diferente cada vez: (1) Por qué la consulta previa es más importante que el tatuaje mismo. (2) Cómo el artista adapta el diseño a la curva y movimiento del cuerpo. (3) Por qué el boceto digital nunca es igual al tatuaje real en piel viva. (4) Las 4 etapas de cicatrización y lo que sientes en cada una. (5) Por qué los retoques son parte del proceso y no un error del artista. (6) Cómo la piel absorbe el pigmento diferente según zona, edad y tono. Sin tecnicismos de tintas. Siempre desde la experiencia del cliente.',
-  ritual:'el ritual personal o cultural alrededor de tatuarse. Elige un ángulo diferente cada vez: (A) Por qué mucha gente se tatúa sola en silencio sin decírselo a nadie — la intimidad del proceso. (B) El ayuno y preparación espiritual de los Sak Yant en Tailandia. (C) Cómo grupos de amigos crean rituales de tatuajes compartidos como marcas de momento. (D) El código de los marineros del siglo XIX — qué significaba cada nuevo tatuaje en su cuerpo. (E) Por qué en algunas culturas el dolor del tatuaje ES el ritual, no el diseño. (F) El ritual de mirarse al espejo con el tatuaje nuevo por primera vez. Íntimo y cultural.',
-  significado:'el significado OCULTO de un diseño muy común en tatuajes. Rota el diseño cada vez: la rosa con espinas (no amor romántico — luto en la tradición victoriana), el reloj detenido (origen en Great Expectations de Dickens), la mariposa monarca (migración y patria para los mexicanos del norte), el diente de león que se dispersa (dejar ir, no optimismo banal), la semicolón (movimiento de salud mental iniciado en 2013 por Amy Bleuel), el unalome budista (el camino imperfecto hacia la iluminación — la espiral es el caos de la juventud), el compás náutico (no aventura — dirección cuando estás perdido). Siempre origen cultural real.',
-  comparacion:'una comparación fascinante entre DOS formas de vivir el tatuaje. Rota el enfoque: tatuaje con significado vs tatuaje solo estético — cuál resiste mejor el tiempo emocional. Tatuaje visible vs tatuaje oculto — qué dice de la persona según estudios. Tatuaje único de artista vs flash sheet — la economía y la democratización del arte. Tatuaje en jóvenes vs adultos mayores de 50 — qué cambia en la motivación. Tatuaje en culturas occidentales vs culturas asiáticas — diferencias históricas en la aceptación. Sesión única vs proyecto multi-año — diferentes formas de vivir el arte corporal.',
-  filosofia:'reflexión filosófica sobre los tatuajes. Elige un ángulo diferente: (1) El tatuaje como la única forma de arte que muere contigo. (2) Por qué marcar el cuerpo es un acto político en ciertas culturas y épocas. (3) La paradoja del tatuaje: lo permanente en un cuerpo que cambia. (4) Por qué el tatuaje es el único arte donde el proceso duele. (5) La diferencia entre decorar el cuerpo y habitar el cuerpo. (6) Por qué los tatuajes son autobiografía visible que el tiempo reescribe. (7) El tatuaje como forma de resistirse al olvido. Profunda sin ser pesada ni pretenciosa.',
-  colores:'la historia y significado de los COLORES en los tatuajes. Rota el color cada vez: el negro — por qué el negro es el color más universal del tatuaje y qué representa en culturas distintas. El rojo carmesí — su uso en el Irezumi japonés y su simbolismo de vida y sangre. El blanco — el color más difícil técnicamente y por qué se usa en pieles oscuras. El verde — los tatuajes celtas y druidas y por qué el verde era sagrado. El azul marino — origen en los marineros del siglo XIX y su código de navegación. El dorado en tatuajes — su asociación con la realeza en Tailandia. Sin mencionar tintas UV ni fluorescentes.',
-  dolor:'un aspecto específico del dolor en tatuajes. Rota completamente: (1) El mapa real del dolor corporal — qué partes duelen más según la densidad de terminaciones nerviosas. (2) Por qué el mismo tatuaje duele diferente en personas con la misma tolerancia al dolor. (3) La psicología del dolor en tatuajes — por qué muchos lo describen como adictivo y liberador. (4) Por qué tatuarse en una zona ya tatuada duele diferente la segunda vez. (5) Los tatuadores que usan música y ritmo para manejar el umbral de dolor. (6) La diferencia entre el dolor agudo inicial y el ardor continuo y qué indica cada uno. Sin drama, con datos reales.'
+  dato:'un dato curioso REAL, sorprendente y verificable sobre tatuajes que casi nadie conoce. REGLA DE ORO: cada vez elige un ángulo COMPLETAMENTE distinto del último. Categorías para rotar (NUNCA dos veces la misma seguidas): leyes raras por país, costumbres laborales, récords mundiales documentados, datos médicos verificables, datos de la industria del tatuaje en cifras, anécdotas históricas reales con personajes nombrados, datos sobre tatuadores famosos vivos, estadísticas de arrepentimiento o satisfacción según estudios reales. PROHIBIDO: tintas UV, rayos X, propiedades ópticas, datos genéricos. Que sorprenda de verdad.',
+  estilo:'explica UN estilo de tatuaje concreto de forma visual y emocionante. Cada generación un estilo DIFERENTE. Rota entre: blackwork geométrico, realismo fotográfico, irezumi japonés, fineline minimalista, acuarela, old school americano, maorí, biomecánico, pointillism, chicano black and grey, trash polka, ornamental hindú, illustrative moderno, neo-japonés, dotwork sagrado, brushstroke caligráfico, single needle, hyper-realismo, anime/manga, surrealista pop, sticker tattoo, blackout, micro-paisajes, retrato hiperrealista a color. Para cada uno: dónde nació, qué lo hace único visualmente, qué tipo de persona lo elige.',
+  historia:'una historia ESPECÍFICA, dramática y casi desconocida del mundo del tatuaje, con personajes reales nombrados y fechas. Rota entre épocas y geografías muy distintas: Samuel O\'Reilly y la primera máquina eléctrica (1891), las mujeres tatuadas del circo siglo XIX (Nora Hildebrandt, Maud Wagner), los marineros y supersticiones, los gulags soviéticos y su lenguaje secreto en piel, samuráis tatuados del Edo, las guerreras maoríes y el tā moko, la corte de Birmania, los tatuajes en la Roma de Constantino, Capitán Cook trayendo la palabra "tatau" a Europa en 1769, el caso del Hombre de Hielo Ötzi (5300 años, 61 tatuajes), la prohibición Meiji en Japón. Que sea cinematográfica.',
+  mito:'desmiente un mito MUY ESPECÍFICO sobre tatuajes con datos contundentes. Cada generación un mito completamente DIFERENTE. Rota: los negros envejecen peor — falso. Tatuar sobre cicatriz es imposible — falso. Limón borra tatuajes — falso y peligroso. Afecta análisis de sangre — falso. Embarazo y tatuaje — matizado. Tatuarse mismo lugar dos veces destruye piel — falso. Alcohol antes de tatuarse — verdadero adelgaza la sangre. El tatuaje se ve igual toda la vida — falso, evoluciona. Alergias raras — falso. Donar sangre tras tatuarse — depende del país. Resonancia magnética y tatuajes — matizado. Tatuajes y ejercicio post-sesión — riesgo real. Datos verificables.',
+  simbolo:'el significado profundo de UN símbolo en tatuajes con origen mitológico exacto. Cada vez DIFERENTE: ouroboros (eternidad alquímica), loto (renacimiento desde el barro), ojo de Horus, calavera mexicana, ancla, reloj sin manecillas, luna creciente, lobo solitario, Ganesha, cuervo nórdico Huginn y Muninn, rosa negra, tigre Baekho coreano, fénix renaciendo, Hannya japonés, Quetzalcóatl mesoamericano, jaguar maya, colibrí mexica, ouija como símbolo de límite, semicolon de Amy Bleuel, unalome budista, hamsa árabe, ankh egipcio, triskelion celta, valknut nórdico, dragón chino vs dragón japonés. Origen y por qué la gente lo elige en momentos clave.',
+  famoso:'historia ESPECÍFICA con datos VERÍDICOS sobre el tatuaje de una celebridad REAL — actual o histórica. Rota entre personas COMPLETAMENTE distintas cada vez (jamás dos veces la misma persona seguida): LeBron James, Rihanna, Post Malone, Angelina Jolie, Tupac, Harry Styles, Robbie Williams, Kat Von D, Travis Barker, Megan Fox, David Beckham, Dwayne Johnson y su pe\'a samoano real, Justin Bieber, Bad Bunny, Peso Pluma y sus tatuajes regionales, Christian Nodal, Adele, Cardi B, Lana del Rey, Maluma, Ricky Martin, Anuel AA, Kanye West (sin tatuajes — la historia detrás), Marilyn Monroe (mancha de nacimiento que parecía tat), Frida Kahlo (sin tatuajes pero su iconografía hoy es la más tatuada del mundo). Solo datos verificables.',
+  region:'la tradición ANCESTRAL del tatuaje en UNA región o cultura específica con datos arqueológicos. Cada vez una distinta: Sak Yant tailandés (monjes con barras de acero), Kakau hawaiano (extinto y revivido por Keone Nunes), Tā Moko maorí, Kalinga filipino (Whang Od, 100+ años), Tebori japonés a mano, coptos egipcios cristianos (cruz en muñeca), código del Gulag, Shuar amazónicos, Yakuza japoneses y su irezumi prohibido, Inuit del Ártico, Picts escoceses pintados de azul, Beréberes del Atlas marroquí, escitas de las estepas, Dayak de Borneo, Kayan Lahwi de Birmania (mujeres jirafa que también se tatúan), Atayal de Taiwán, Apache y Comanche en EE.UU. Datos culturales precisos.',
+  idea:'una idea de tatuaje ESPECÍFICA, original y con significado profundo. NUNCA repitas. Rota categorías muy distintas: (A) NATURALEZA: constelación de tu fecha exacta, animal espíritu ancestral, árbol con raíces=fechas y ramas=nombres. (B) MEMORIA: coordenadas GPS, ECG real, huella dactilar de un familiar. (C) IDENTIDAD: frase en náhuatl, latín o sánscrito, símbolo del signo griego original, retrato de mascota fallecida. (D) ARTE: fragmento de Klimt, arquitectura de tu ciudad, compás musical de tu canción. (E) VIAJE: silueta de la montaña que escalaste, mapa del barrio. (F) MEXICANO: corazón sagrado mexica, ofrenda de día de muertos miniatura, alebrije original tuyo, fragmento del códice Mendoza, cempasúchil estilizado, Catrina de José Guadalupe Posada. (G) PERSONAL DARK: tu mayor cicatriz tatuada como decoración, fecha en romano de algo que superaste. Especifica zona del cuerpo y por qué.',
+  consejo:'un consejo CONCRETO para quien va a tatuarse por primera vez. Cada vez uno DIFERENTE: (1) Espera 2 semanas entre decidir y tatuar. (2) Regla del puño para tamaño. (3) La zona importa más que el diseño. (4) Hidratación, sueño y azúcar el día antes. (5) No lleves referencia cerrada — confía en el artista. (6) Qué preguntar en la consulta. (7) Por qué barato sale caro. (8) Cuidados post 14 días. (9) Por qué no debes "regalarle" la idea a tu artista — pide cotización. (10) Qué hacer si en la sesión sientes que algo está mal. (11) Por qué nunca debes tatuarte borracho ni cruzando duelo activo. (12) Cómo elegir tu primer artista (portafolio vs precio). (13) Por qué el dolor que imaginas es peor que el real. Práctico y honesto.',
+  cliente:'la experiencia EMOCIONAL específica de tatuarse. Cada vez un ángulo diferente: el momento exacto en que decides que ESTE diseño es; las horas antes de entrar al estudio; el antes/después emocional; por qué algunas personas lloran (liberación, no dolor); ver tu piel tatuada por primera vez en el espejo; explicarle a tu mamá; amar un tatuaje que nadie entiende; el silencio raro de las primeras 2 horas; sentir orgullo en la calle por algo invisible; tocar el tatuaje cicatrizado por primera vez con la palma; la primera vez que te lo elogian un extraño. Real, sin clichés.',
+  tendencia:'una tendencia ACTUAL del tatuaje con nombre técnico. Rota: Ignorant Style, Botanical Fine Line, Micro-Realism, Geometric Blackwork, Anatomical Art Nouveau, Anime Realism, Vintage Flash Revival, Dark Surrealism, Lettering tipográfico, Color Bombing, Sticker Tattoo (parche imitando stickers), Patchwork (mezcla aleatoria de flash), Hand-poke revival, Tattoo Heritage (réplica de tats antiguos de tus abuelos), Cursive en mexicano-chicano nuevo, Body suit de una sola sesión maratón, AI-generated designs y la polémica, tatuajes que cambian con luz solar, white-on-black ink reverso, tatuajes ephemeral (1.5 años, Ephemeral Tattoo). Por qué crece y quién la adopta primero.',
+  tribu:'la historia de UNA tribu ancestral con tatuajes verificables y épicos. Rota: Dayak de Borneo (cabezas tomadas como trofeos), Inuit (mentón = mayoría de edad), Cherokee, Amunet del Antiguo Egipto, Pictos azules de Escocia, Escitas de las estepas con animales míticos en momias, Haida del Pacífico canadiense, Mentawai de Indonesia, Maoris guerreros, Iban de Sarawak, Atayal de Taiwán (boca tatuada=adulta), Apatani de la India, Berberes del Atlas, Beduinos del Sinaí, Hawaianos antiguos, Kalinga, Yakuza como tribu urbana moderna, Pachuco-cholo en EE.UU.-México como tribu identitaria. Datos verificables.',
+  psicologia:'aspecto ESPECÍFICO de la psicología del tatuaje con base en estudios reales. Rota ángulo: tatuajes y ansiedad social, coleccionismo positivo, terapia de exposición, predictores de arrepentimiento, arquetipos dominantes (león/águila/serpiente), tolerancia al riesgo, la piel como lienzo único, el efecto identidad post-tatuaje (estudios de Anne Velliquette), la dopamina de tatuarse y por qué es adictivo sin ser droga, autoestima y tatuaje en mujeres mayores de 40 (estudio Galway 2017), tatuajes después de duelo y sus efectos en cierre psicológico documentado.',
+  encuesta:'encuesta con DOS opciones OPUESTAS, divertidas e interesantes. Cada vez tema DIFERENTE: ¿5 min o 8 hrs? / ¿Diseño del artista o tu idea? / ¿Joven-pasado o adulto-presente? / ¿Solo tú lo ves o todos lo ven? / ¿Negro sólido o full color? / ¿Uno enorme o diez pequeños? / ¿Con fecha o sin fecha? / ¿Único de artista o flash? / ¿Primero arte o primero artista? / ¿Tatúate ya o esperas 6 meses? / ¿En español o en otro idioma? / ¿Algo de tu mamá o algo tuyo? / ¿Dolor concentrado en 1 hora o esparcido en 5? / ¿Algo místico o algo terrenal? / ¿Color rojo o color negro? / ¿Algo prehispánico o algo japonés? Las dos opciones con emoji.',
+  confiesa:'invitación íntima a confesar algo sobre tatuajes. Cada vez ángulo DIFERENTE: ¿Le ocultaste tu primer tatuaje? / ¿Tienes uno que ya no eres tú? / ¿Cuántas horas te tomó decidirte? / ¿Cancelaste citas? cuántas / ¿Tienes uno secreto en zona oculta? / ¿Tu familia aún no sabe? / ¿Tatuaste a alguien que ya no está en tu vida? / ¿Tu más barato es tu favorito? / ¿Tienes un boceto guardado más de un año? / ¿Le mentiste a tu mamá sobre uno? / ¿Te tatuaste a escondidas a los 17? / ¿Te arrepientes pero no lo borrarías? / ¿Tienes un dueño moral del tatuaje aunque sea tuyo? Sin juicio.',
+  mitoregional:'creencia popular sobre tatuajes en una cultura específica, MUY MEXICANA cuando sea posible. Rota: México: tatuar nombre de pareja trae mala suerte (origen y veracidad estadística). Japón: prohibición en onsen y templos. Tailandia: Sak Yant pierden poder con mala conducta. Colombia: Semana Santa. Brasil: tatuajes asociados a grupos. México pueblerino: tatuarse en luna llena vs nueva. Veracruz: leyenda local sobre tatuajes en marineros. Norte de México: tatuajes y narcocultura — el mito vs la realidad. Centroamérica: marcas del MS-13 y por qué cualquier civil con esos diseños arriesga la vida. Yucatán: tatuajes mayas y permiso ancestral. Origen del mito y dato real.',
+  cultpop:'historia de UN tatuaje icónico de cultura pop con datos REALES y VERIFICABLES. Rota personas y obras DISTINTAS: Johnny Depp y cómo borró el de Winona Ryder, Lady Gaga y el verso de Rilke, Amy Winehouse, Mike Tyson y el artista maorí real (S. Victor Whitmill), David Beckham, Dwayne Johnson y su pe\'a samoano, Ozzy, Justin Bieber y los 90+ tatuajes, Bad Bunny y los tatuajes que cubrió, Peso Pluma y lo que tatúa de su carrera, Christian Nodal y los tatuajes faciales que polarizan México, Ariana Grande y sus errores ortográficos en japonés (la historia del 七輪), 50 Cent, Eminem, Drake, Cardi B y la rosa de la espalda. Solo verificables.',
+  sabias:'un "¿Sabías que...?" VERIFICABLE y sorprendente. Rota ángulo COMPLETO cada vez: (A) ARQUEOLOGÍA: Ötzi y sus 61 tatuajes (5300 años), momias Chinchorro, Paracas. (B) GEOGRAFÍA: país con más tatuados (Italia o EE.UU. dependiendo del estudio). (C) BIOLOGÍA: macrófagos y permanencia. (D) RÉCORD: récords Guinness verificables (Lucky Diamond Rich, Etienne Dumont). (E) LEGAL: prohibiciones en Irán, Corea del Norte, ciertas ramas militares. (F) HISTORIA: primer libro de tatuajes occidental. (G) SOCIOLOGÍA: estudios de empleabilidad recientes. (H) MEXICANA: el primer tatuador profesional documentado en México y la fecha. (I) ANIMAL: que el tatuaje no es solo humano — pesca regulada con peces marcados. NUNCA UV.',
+  interactivo:'pregunta DIRECTA que invite a responder en una frase. Rota cada vez con ángulos completamente diferentes: ¿Cuál fue el primer tat que quisiste y nunca te hiciste? / ¿Qué palabra llevarías toda la vida? / ¿Qué animal te representa hoy, no ayer? / ¿Qué coordenadas? / ¿Qué parte de tu historia merece tinta? / ¿Qué le tatuarías a tu yo de hace 10 años? / ¿En qué idioma tatuarías una frase? / ¿Tatuaje en zona visible o escondida? / ¿Si pudieras borrar uno cuál sería? / ¿Qué fecha llevas o llevarías? / ¿Qué canción tatuarías como letra? / ¿Qué te impide tatuarte hoy mismo? / ¿Cuál es tu próximo tat ya pensado? Inesperada, no genérica.',
+  inspiracion:'historia REAL o arquetípica de transformación a través de un tatuaje. Rota ángulo: (A) cicatrices de cirugía cardíaca o mastectomía convertidas en arte. (B) primer acto de autonomía a los 18. (C) fecha de superar adicción. (D) madres que tatúan ECG del bebé. (E) veteranos procesando trauma en piel. (F) nombre de quien perdiste. (G) amor propio post-inseguridad. (H) tatuaje como cierre de duelo migratorio (mexicanos en EE.UU. tatuándose la patria). (I) supervivientes de violencia que retoman su cuerpo con tinta. (J) personas trans que estrenan piel con tatuaje afirmativo. Real, jamás cursi.',
+  curiosidad:'hecho COMPLETAMENTE DESCONOCIDO sobre tatuajes que ninguna cuenta repite. Ángulos únicos: arqueología (momias Paracas, Chinchorro, Pazyryk con tatuaje de venado), forense (casos donde tats identificaron víctimas — caso Adam de la Torre del Támesis), biología molecular (proteína responsable), historia del arte (Renacentistas con tatuajes ocultos), economía (industria 3 mil M USD en EE.UU.), sociología (estudio de salario), geografía (la isla con la mayor densidad de tatuadores per cápita), antropología (los pueblos donde NUNCA hubo tradición de tatuaje y por qué). Único y específico.',
+  proceso:'el proceso de hacerse un tatuaje desde la perspectiva del cliente. Cada vez aspecto DIFERENTE: (1) la consulta previa y por qué importa más que el tatuaje. (2) cómo el artista adapta el diseño a tu curva. (3) por qué el boceto digital nunca es igual al real. (4) las 4 etapas de cicatrización. (5) los retoques no son error. (6) cómo la piel absorbe pigmento según zona, edad y tono. (7) qué pasa en tu cabeza minuto a minuto en una sesión de 4 horas. (8) por qué la postura del cuerpo afecta el resultado. (9) los tatuadores que usan stencil digital vs los que dibujan a mano libre encima. (10) por qué la sangre que sale durante el tatuaje es buena señal. Sin tecnicismos, desde el cliente.',
+  ritual:'el ritual personal o cultural alrededor de tatuarse. Rota: (A) por qué muchos se tatúan en silencio sin avisar. (B) ayuno espiritual de Sak Yant. (C) grupos de amigos con rituales compartidos. (D) marineros del XIX y código de tatuajes por cada océano cruzado. (E) en algunas culturas el dolor ES el ritual. (F) mirarse al espejo por primera vez. (G) el ritual mexicano de tatuarse el día del cumpleaños como renacimiento. (H) tatuarse después de un duelo como ritual de cierre. (I) tatuarse al cumplir 50 años como segunda juventud. (J) los rituales con copal, sahumerio o tabaco antes de tatuarse en culturas indígenas. Íntimo y cultural.',
+  significado:'el significado OCULTO de un diseño común. Rota: rosa con espinas (luto victoriano, no amor), reloj detenido (Dickens), mariposa monarca (migración México-EE.UU.), diente de león que se dispersa (dejar ir), semicolon (Amy Bleuel, 2013, salud mental), unalome budista, brújula náutica (perdido, no aventura), corazón sagrado mexicano (no romántico — devoción cristiana), calavera mexicana sonriente (no muerte — celebración), ancla con cuerda rota (libertad, no estabilidad), llave sin candado (esperanza), mariposa en general (no transformación banal — alma de los muertos en culturas mayas), olas japonesas (no mar — la impermanencia budista), peonía japonesa (riqueza, no belleza). Origen cultural real.',
+  comparacion:'comparación FASCINANTE entre dos formas de vivir el tatuaje. Rota: con significado vs estético — cuál envejece mejor emocionalmente. Visible vs oculto — qué dice según estudios. Único de artista vs flash. Joven vs +50. Occidente vs Asia. Sesión única vs proyecto multi-año. Tatuajes en hombre vs mujer en estudios sociológicos. Tatuajes en zonas dolorosas vs zonas suaves — quién elige qué. Tatuaje en pareja vs tatuaje individual — tasa de arrepentimiento real. Tatuaje espontáneo (en vacaciones) vs planeado años — cuál se ama más con el tiempo. Tatuaje grande primero vs pequeño primero — psicología de cada uno.',
+  filosofia:'reflexión filosófica sobre tatuajes. Rota: (1) la única forma de arte que muere contigo. (2) marcar el cuerpo como acto político. (3) lo permanente en un cuerpo que cambia — la paradoja. (4) el único arte cuyo proceso duele. (5) decorar vs habitar el cuerpo. (6) autobiografía visible que el tiempo reescribe. (7) resistencia al olvido. (8) el cuerpo como museo curado por uno mismo. (9) tatuarse es responder a la pregunta "¿qué quiero recordar cuando ya no recuerde nada más?". (10) por qué nadie se tatúa "para nadie" — siempre es un mensaje a algo o alguien, aunque sea uno mismo. Profunda sin ser pretenciosa.',
+  colores:'historia y simbolismo de UN color en tatuajes. Rota: negro (universal, la base), rojo carmesí (irezumi japonés, vida y sangre), blanco (técnicamente difícil, pieles oscuras), verde (celta y druida, sagrado), azul marino (marineros XIX), dorado (realeza tailandesa), morado (lealtad y luto en algunas culturas), naranja (sol en culturas mexicas), turquesa (chamanismo navajo y huichol), amarillo (oro maya y dificultad en piel), gris (todos los gris-wash y cómo se logra), rosa (su connotación moderna en tatuajes feministas). Sin tintas UV ni fluorescentes.',
+  dolor:'aspecto específico del dolor en tatuajes. Rota: (1) mapa real del dolor según densidad nerviosa (zonas peor: costillas, esternón, ingle, codo interno). (2) por qué el mismo tat duele distinto en personas con misma tolerancia. (3) por qué muchos lo describen como adictivo y liberador. (4) tatuarse sobre zona ya tatuada duele diferente. (5) tatuadores que usan música y respiración. (6) dolor agudo inicial vs ardor continuo y qué indica. (7) por qué los hombres no aguantan más que las mujeres (ginecólogos confirman umbral femenino mayor por evolución). (8) cómo el ciclo menstrual cambia el dolor. (9) por qué dormir mal duplica la sensación de dolor. Sin drama.',
+
+  // ── 12 NUEVOS TEMAS MUCHO MÁS INTERESANTES ───────────────────────────
+  mexico:'una historia del MÉXICO TATUADOR profundo y poco contado, con datos reales. Rota: el primer estudio formal de tatuaje en México (Tinta Mortal en CDMX, años 90), Mister Cartoon y la conexión chicana México-LA, los tatuajes de Tijuana en los 70 y los marines de San Diego, el chicano black and grey nacido en cárceles californianas con presos mexicanos, los tatuajes en Ciudad Juárez como cicatriz de la guerra al narco, la escena del tatuaje en Mérida vs CDMX vs Tijuana, los tatuajes huicholes de peyote en San Luis Potosí, las mujeres tatuadoras pioneras mexicanas (Kat Von D nació en Monterrey), la lucha de los tatuadores mexicanos por ser arte y no estigma. NUNCA generalidades — datos, lugares, nombres reales.',
+  prehispanico:'el mundo del tatuaje y la marca corporal en las culturas PREHISPÁNICAS de Mesoamérica con datos arqueológicos verificables. Rota: los olmecas y sus modificaciones corporales documentadas en figurillas, los mayas y la práctica del "ch\'ah" (escarificación ritual con punzones de hueso), los mexicas con guerreros águila y jaguar marcados, los códices que muestran sacerdotes con marcas en cara, los huicholes y sus tatuajes con peyote como puente con Tatewari, los teotihuacanos con marcas faciales documentadas en murales, los zapotecas, los purépechas, las prácticas de cráneo deformado y su relación con el tatuaje como "marca del cuerpo elegido". Cita códices, sitios arqueológicos y fuentes (Sahagún, Códice Florentino). Que sea épico y verificable.',
+  narcocultura:'el mundo de los tatuajes en la NARCOCULTURA mexicana, sin glorificar ni demonizar — solo el dato real. Rota: el santo informal Jesús Malverde y sus tatuajes en Sinaloa, la Santa Muerte y el código de colores tatuados (rojo amor, dorado dinero, blanco protección), los tatuajes de "M" para los Zetas y por qué portarlos hoy es sentencia de muerte si el grupo cambió, los corridos hechos tatuaje (verses de Chalino Sánchez tatuados), la diferencia entre tatuaje narco real y estética narco que adopta civiles que no entienden el riesgo, por qué un tatuaje del 7-7 puede confundirse con afiliación, las reglas tácitas de qué un civil NO debe tatuarse en zonas calientes de México. Sin moralizar, datos puros y útiles para entender riesgo cultural real.',
+  luchalibre:'el mundo de los tatuajes inspirados en la LUCHA LIBRE MEXICANA. Rota: las máscaras tatuadas (El Santo, Blue Demon, Mil Máscaras, Místico, Rey Mysterio, Pentagón, Psycho Clown, La Parka), por qué tatuarse máscara de luchador desenmascarado es tabú en la cultura lucha-libre, la historia del Santo y por qué su tatuaje es el más popular en hombres mexicanos +40, los tatuajes de las arenas (México, Coliseo, Naucalpan), la conexión entre lucha libre y tatuaje chicano en LA, las luchadoras tatuadas y la resistencia femenina en el ring (Sexy Star, Lady Apache), los códigos de respeto: nunca tatuar la máscara de un luchador activo sin permiso. Datos reales con nombres y arenas.',
+  leyenda:'una LEYENDA URBANA o histórica mexicana relacionada al tatuaje o que se tatúa hoy. Rota: La Llorona y por qué su tatuaje creció en mujeres post-2010, El Charro Negro de Guanajuato, el Nahual y los tatuadores indígenas que aún hoy hacen "tatuajes nahuales" en Oaxaca, la leyenda del Tlahuelpuchi en Tlaxcala, el Sombrerón yucateco, la leyenda de la Mulata de Córdoba (Veracruz) y por qué se tatúa en el puerto, el Cadejo, el Cipitío, la Siguanaba salvadoreña que llega tatuada a México, la Leyenda del Popocatépetl e Iztaccíhuatl como tatuaje de pareja en CDMX. Cita la región exacta y el origen del relato.',
+  prison:'el mundo del tatuaje CARCELARIO con códigos visuales reales y verificables. Rota: el lenguaje de los puntos en los nudillos rusos, las telarañas en el codo y qué significa según el país (México vs EE.UU. vs Rusia: distinto), los lágrimas tatuadas y por qué su lectura ha cambiado, el código de la EME (Mexican Mafia) y por qué es peligroso copiarlo en libertad, los tatuajes con tinta improvisada (ceniza, máquinas con motor de cassette), la historia de Norman Reedus en cárcel-tatuajes para Walking Dead vs los tatuajes carcelarios reales, los tatuajes de cristianismo carcelario en México (Cristo coronado, manos rezando con rosario), por qué ningún tatuador profesional copia un diseño claramente carcelario sin avisar al cliente del riesgo. Datos verificables.',
+  oscuro:'el LADO OSCURO del mundo del tatuaje que casi nadie cuenta. Rota: tatuadores estafadores y cómo detectarlos antes (luces, banner, redes sociales), las máquinas y tintas de Wish y la epidemia de infecciones graves en México 2022-2023, casos reales de tatuajes hechos a la fuerza (víctimas de trata marcadas), la mafia china de las tintas adulteradas con metales pesados, los "tatuadores fantasma" que hacen casas itinerantes sin licencia sanitaria, casos verificables de hepatitis C contraída por aguja sin esterilizar en Latinoamérica, el debate ético de tatuar a alguien obviamente borracho o drogado, el caso del tatuador que tatuó "Devast8" en la frente de un cliente menor de edad en Nueva Zelanda y la responsabilidad legal posterior. Útil y verificable, no morboso.',
+  amor:'una historia ESPECÍFICA sobre tatuajes y AMOR o PÉRDIDA. Rota: las parejas que se tatuaron y siguen juntos 30 años después (tasa real: 16% según estudios), las que se tatuaron y se borraron (Johnny Depp-Winona, Angelina-Billy Bob, Marc Anthony-Jennifer Lopez), tatuajes para hijos perdidos en parto (las constelaciones del día exacto), tatuajes para abuelas con su receta a mano del recetario, tatuajes para mascotas fallecidas y la psicología detrás, los gemelos que se tatúan iguales en el mismo cumpleaños, las amistades de 20 años que se tatúan algo solo entre ellas, tatuajes para alguien que ya no te habla pero a quien decides honrar, el primer tatuaje después de un divorcio como acto de re-fundación. Real y emocional, no cursi.',
+  cuerpo:'cómo el TATUAJE INTERACTÚA con el cuerpo vivo. Rota: tatuajes en el embarazo y cómo se estiran después (zonas seguras y zonas que casi siempre se deforman), tatuajes en zonas que pierden grasa con la edad (mejillas, mano, antebrazo interno), tatuajes y ejercicio extremo (powerlifters y la deformación por hipertrofia), tatuajes y pérdida de peso radical (qué pasa con un tat de 30cm si pierdes 40 kg), tatuajes en piel con cicatrices de acné severo (puede mejorarlas o empeorarlas según técnica), cómo cambia un tatuaje a los 5, 10, 20 y 40 años, qué zonas casi nunca pierden detalle (hombro, gemelo) vs qué zonas siempre se ven mal a los 15 años (dedos, palma, planta del pie), tatuajes en personas con vitíligo y la decisión ética del artista. Datos clínicos reales.',
+  dinero:'el DINERO real del mundo del tatuaje, con cifras MX y verificables. Rota: cuánto cuesta una hora con los mejores tatuadores de México vs internacionales (Mister Cartoon $1500-$3000 USD/hora, mexicanos top $2000-$8000 MXN/hora), por qué el precio sube exponencialmente con el portafolio y no con la habilidad técnica únicamente, cuánto gana realmente un tatuador en un estudio compartido en CDMX (la cifra menos sexy de lo que parece), el costo real de abrir un estudio legal en México (Cofepris, registro, equipo, $300-$500 mil MXN), los tatuajes más caros del mundo cobrados (el "Diamond Tattoo" con 612 diamantes incrustados, $924 mil USD), por qué nunca hay que negociar precio en tatuaje (impacto en calidad), el modelo de negocio "guest spot" y cómo viven los tatuadores que viajan, propinas en tatuaje: 15-25% es estándar global, en México aún se debate. Cifras y nombres reales.',
+  ciencia:'CIENCIA VERIFICABLE detrás de los tatuajes. Rota: por qué los tatuajes son permanentes (macrófagos atrapados con tinta para siempre, descubrimiento de Sandrine Henri 2018), por qué el láser de remoción funciona (fragmenta partículas a tamaño que el cuerpo finalmente puede limpiar), la composición real de la tinta negra (carbón, no "tinta china" como se cree), tintas con metales pesados y los estudios de la EU 2022 que prohibieron 4000 sustancias, por qué la piel del antebrazo retiene más tinta que la del codo, el sistema linfático y por qué los ganglios de personas tatuadas pueden mostrar pigmento años después (estudio publicado en Nature 2017), por qué los tatuajes blancos eventualmente se ven amarillos (oxidación del dióxido de titanio), la genética y por qué algunas personas cicatrizan con queloide. Sin pseudociencia.',
+  errores:'ERRORES REALES en el mundo del tatuaje, contados como advertencia útil. Rota: el "No Ragrets" de We\'re the Millers como meme pero existe: hay un caso real de Brian Lambert con error similar permanente. Los tatuajes en chino que dicen otra cosa (Britney Spears con 異 que significa "extraño" en lugar de "místico"), los tatuajes en árabe que están al revés porque el artista no sabe el sentido de la lectura, las firmas en cursiva donde sobra una letra, los retratos de mascotas que terminan parecidos a un primate, los nombres con acento ortográfico equivocado, los tatuajes en latín que copian Google Translate y dicen otra cosa (estudios de la U. de Cambridge documentan 22% de errores en tatuajes en latín), las coordenadas tatuadas que en realidad apuntan al océano. Sin burlarse — útil.',
+  primero:'PRIMERAS VECES épicas y documentadas en el mundo del tatuaje. Rota: el primer tatuaje del que hay evidencia humana (Ötzi, 5300 años, descubierto 1991 en los Alpes), la primera mujer tatuadora occidental documentada (Maud Wagner, 1907), el primer estudio de tatuaje en Estados Unidos (Martin Hildebrandt, NYC 1846), el primer tatuaje de máquina eléctrica (Samuel O\'Reilly, 1891, basado en una pluma de Edison), la primera convención de tatuaje del mundo (Houston, 1976), el primer mexicano en ganar un primer lugar en convención mundial, la primera vez que un presidente de un país tuvo tatuaje visible reconocido (Theodore Roosevelt con escudo familiar en el pecho), el primer tatuaje en mostrarse en TV abierta sin censura, la primera mujer presidenta con tatuaje visible. Fechas, nombres y lugares reales verificables.'
 };
 var toneMap={storytelling:'narrativo, evocador',educativo:'informativo y claro',personal:'en primera persona, cercano',misterioso:'intrigante y poético'};
 var bgList=['photo','ink','fire','smoke','sakura','geo','lightning','matrix','blood','neon','stars','waves','lava','circuit','aurora','vortex','ink2','tribal','galaxy','sandstorm','glitch','dragonscale','bokeh','redmoon'];
@@ -764,9 +805,36 @@ function drawAsianSVG(el,W,H){
   var lx=W-m-30,ly=m+36;el.appendChild(mk('rect',{x:lx-5,y:ly,width:10,height:13,rx:'3',fill:'none',stroke:c,'stroke-width':'0.7','stroke-opacity':'0.45'}));el.appendChild(mk('line',{x1:lx,y1:ly-2,x2:lx,y2:ly,stroke:c,'stroke-width':'0.7','stroke-opacity':'0.45'}));el.appendChild(mk('line',{x1:lx,y1:ly+13,x2:lx,y2:ly+17,stroke:c,'stroke-width':'0.7','stroke-opacity':'0.45'}));
 }
 
+// ── FEEDBACK MEMORY ── persists what the user liked/disliked so AI learns
+var feedbackMem={liked:{},disliked:{},recentBodies:[],likedBodies:{},dislikedBodies:{}};
+
 // ── SAVE/LOAD ─────────────────────────────────────────
-function loadSaved(){try{var s=JSON.parse(localStorage.getItem('inkbot_pro')||'{}');if(s.key)document.getElementById('api-key').value=s.key;if(s.prov)document.getElementById('api-provider').value=s.prov;if(s.handle){document.getElementById('handle').value=s.handle;document.getElementById('s-hdl').textContent=s.handle;}if(s.ctx)document.getElementById('ctx').value=s.ctx;if(s.logo){logoUrl=s.logo;applyLogo(s.logo);}if(s.bank)bank=s.bank;}catch(e){}renderBank();}
-function save(){try{localStorage.setItem('inkbot_pro',JSON.stringify({key:document.getElementById('api-key').value,prov:document.getElementById('api-provider').value,handle:document.getElementById('handle').value,ctx:document.getElementById('ctx').value,logo:logoUrl,bank:bank}));}catch(e){}}
+function loadSaved(){
+  try{
+    var s=JSON.parse(localStorage.getItem('inkbot_pro')||'{}');
+    if(s.key)document.getElementById('api-key').value=s.key;
+    if(s.prov)document.getElementById('api-provider').value=s.prov;
+    if(s.handle){document.getElementById('handle').value=s.handle;document.getElementById('s-hdl').textContent=s.handle;}
+    if(s.ctx)document.getElementById('ctx').value=s.ctx;
+    if(s.logo){logoUrl=s.logo;applyLogo(s.logo);}
+    if(s.bank)bank=s.bank;
+    if(s.feedbackMem)feedbackMem=Object.assign({liked:{},disliked:{},recentBodies:[],likedBodies:{},dislikedBodies:{}},s.feedbackMem);
+  }catch(e){}
+  renderBank();
+}
+function save(){
+  try{
+    localStorage.setItem('inkbot_pro',JSON.stringify({
+      key:document.getElementById('api-key').value,
+      prov:document.getElementById('api-provider').value,
+      handle:document.getElementById('handle').value,
+      ctx:document.getElementById('ctx').value,
+      logo:logoUrl,
+      bank:bank,
+      feedbackMem:feedbackMem
+    }));
+  }catch(e){}
+}
 ['api-key','api-provider','handle','ctx'].forEach(function(id){document.getElementById(id).addEventListener('change',save);document.getElementById(id).addEventListener('input',function(){save();if(id==='handle')document.getElementById('s-hdl').textContent=this.value;});});
 
 // ── TABS ──────────────────────────────────────────────
@@ -1195,21 +1263,66 @@ function genStory(){
   var key=getKey();if(!key){setSt('st-gen','Ingresa API Key primero','err');return;}
   var handle=document.getElementById('handle').value||'@victortip',ctxTxt=document.getElementById('ctx').value;
   document.getElementById('btn-gen').disabled=true;setSt('st-gen','Generando...','ld');document.getElementById('sloader').style.display='flex';
-  callAI(key,buildPrompt(selType,handle,ctxTxt)).then(function(raw){
+  resetFeedbackBar();
+  // Resolve actual type used (handles "random" without changing the pill UI)
+  var actualType=selType;
+  if(actualType==='random'){
+    var realTypes=Object.keys(typeMap).filter(function(k){return k!=='random';});
+    var recentTypes=(feedbackMem.recentBodies||[]).slice(-6).map(function(b){return b.type;});
+    var fresh=realTypes.filter(function(t){return recentTypes.indexOf(t)===-1;});
+    var pool=fresh.length>0?fresh:realTypes;
+    actualType=pool[Math.floor(Math.random()*pool.length)];
+  }
+  callAI(key,buildPrompt(actualType,handle,ctxTxt)).then(function(raw){
     var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());
     currentStory=c;renderStoryDOM(c,handle);
-    bank.unshift({id:Date.now(),type:selType,content:c,date:new Date().toLocaleDateString('es-MX'),handle:handle,bg:selBg});
-    if(bank.length>200)bank=bank.slice(0,200);save();renderBank();setSt('st-gen','✓ Lista y guardada','ok');
+    if(!feedbackMem.recentBodies)feedbackMem.recentBodies=[];
+    feedbackMem.recentBodies.push({type:actualType,body:c.body||''});
+    if(feedbackMem.recentBodies.length>40)feedbackMem.recentBodies=feedbackMem.recentBodies.slice(-40);
+    // Save the actualType in the bank entry so future feedback maps correctly
+    bank.unshift({id:Date.now(),type:actualType,content:c,date:new Date().toLocaleDateString('es-MX'),handle:handle,bg:selBg});
+    if(bank.length>200)bank=bank.slice(0,200);save();renderBank();
+    setSt('st-gen','✓ Lista — dale 👍 o 👎 abajo','ok');
     document.getElementById('btn-regen').style.display='block';document.getElementById('dl-btn-area').style.display='flex';
-
+    // Track the actual type used so feedback works correctly
+    window._lastUsedType=actualType;
     if(selBg==='photo'&&photos.length){pidx=Math.floor(Math.random()*photos.length);startBg('photo');}
   }).catch(function(e){setSt('st-gen','Error: '+(e.message||'Intenta'),'err');}).finally(function(){document.getElementById('sloader').style.display='none';document.getElementById('btn-gen').disabled=false;});
 }
 function buildPrompt(type,handle,ctxTxt){
-  var antiRepeat='IMPORTANTE: Esta historia debe ser COMPLETAMENTE DIFERENTE a cualquier historia anterior. Usa un ángulo, dato, cultura o enfoque que no hayas usado antes. Nunca repitas el mismo dato, símbolo o historia.';
-  var clientFocus='ENFOQUE: El contenido es para personas interesadas en tatuajes como clientes. No hables del tatuador ni de su técnica. Habla de lo que le interesa, emociona o educa al cliente. Que sea relevante para su vida.';
-  var rules='REGLAS DE ESCRITURA:\n- Texto directo, claro y apasionante\n- Nada de frases mamónas ni de autoexaltación\n- Primera oración: gancho que detenga el scroll\n- Segunda oración: el dato, historia o idea principal\n- Sin mencionar al tatuador\n- El body puede tener hasta 160 caracteres\n- El título debe ser corto e impactante (máx 5 palabras entre las dos líneas)';
-  var prompt='Eres un experto en cultura del tatuaje y comunicación para redes sociales. Crea contenido cautivador para Instagram Stories.\n\n'+antiRepeat+'\n\n'+clientFocus+'\n\nTema específico: '+typeMap[type]+'\n\n'+rules+'\n\nResponde SOLO con JSON válido sin markdown:\n{"eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas y apasionantes. Primera: gancho. Segunda: el dato o idea. Máximo 160 caracteres total.","cta":"llamada a acción corta con emoji, orientada al cliente"}';
+  // ── RANDOM: si el usuario eligió "random", escoge un tipo real al azar
+  // que NO haya sido usado recientemente para garantizar variedad real
+  if(type==='random'){
+    var realTypes=Object.keys(typeMap).filter(function(k){return k!=='random';});
+    var recentTypes=(feedbackMem.recentBodies||[]).slice(-6).map(function(b){return b.type;});
+    var fresh=realTypes.filter(function(t){return recentTypes.indexOf(t)===-1;});
+    var pool=fresh.length>0?fresh:realTypes;
+    type=pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  var antiRepeat='REGLA ABSOLUTA DE VARIEDAD: Esta historia debe ser RADICALMENTE DIFERENTE a cualquier historia anterior. Cambia el ángulo, la cultura, el dato, el siglo, la geografía, el personaje y el enfoque emocional. Si la historia anterior habló de Japón, ahora habla de México o Egipto o Rusia. Si habló de muerte, ahora habla de amor o de dinero o de ciencia. NUNCA repitas el mismo símbolo, nombre, fecha, dato, cultura o ángulo. Si percibes que estás por escribir algo similar — DETENTE y elige el ángulo MÁS DIFERENTE POSIBLE.';
+  var clientFocus='ENFOQUE: Contenido para personas interesadas en tatuajes como clientes/aficionados. No hables del tatuador ni de su técnica. Habla de lo que le interesa, emociona o educa al cliente.';
+  var rules='REGLAS DE ESCRITURA:\n- Texto directo, claro y apasionante\n- Nada de frases mamonas, ni autoexaltación, ni lugares comunes\n- Primera oración: gancho que detenga el scroll\n- Segunda oración: el dato, historia o idea con ESPECIFICIDAD (nombres, fechas, lugares, cifras)\n- Sin mencionar al tatuador\n- Body máximo 160 caracteres\n- Título corto e impactante (máx 5 palabras entre las dos líneas)\n- PROHIBIDO el cliché: "el tatuaje es arte", "el dolor vale la pena", "tu piel cuenta una historia". SIEMPRE datos concretos.';
+
+  // ── APRENDIZAJE POR FEEDBACK ──────────────────────────────────────────────
+  var learnBlock='';
+  var globalRecent=(feedbackMem.recentBodies||[]).slice(-10).map(function(b){return b.body;});
+  if(globalRecent.length){
+    learnBlock+='\n\nÚLTIMAS HISTORIAS GENERADAS (PROHIBIDO repetir ángulo, dato, cultura, símbolo, personaje, fecha o enfoque emocional similar):\n';
+    globalRecent.forEach(function(b){learnBlock+='- '+b+'\n';});
+  }
+  var dislikedB=(feedbackMem.dislikedBodies||{})[type]||[];
+  if(dislikedB.length){
+    learnBlock+='\n\nESTOS ÁNGULOS FUERON MARCADOS COMO REPETITIVOS (PROHIBIDO usarlos, elige algo radicalmente diferente):\n';
+    dislikedB.slice(-8).forEach(function(b){learnBlock+='- '+b+'\n';});
+  }
+  var likedB=(feedbackMem.likedBodies||{})[type]||[];
+  if(likedB.length){
+    learnBlock+='\n\nESTOS ÁNGULOS GUSTARON MUCHO (inspírate SOLO en el ESTILO y profundidad — el contenido debe ser COMPLETAMENTE diferente):\n';
+    likedB.slice(-4).forEach(function(b){learnBlock+='- '+b+'\n';});
+  }
+
+  var prompt='Eres un experto en cultura del tatuaje, antropología, historia y comunicación para redes sociales. Creas contenido cautivador para Instagram Stories que sorprende, educa y se siente fresco siempre.\n\n'+antiRepeat+'\n\n'+clientFocus+'\n\nTema específico: '+typeMap[type]+'\n\n'+rules+learnBlock+'\n\nResponde SOLO con JSON válido sin markdown:\n{"eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas y apasionantes con datos concretos. Primera: gancho. Segunda: el dato o idea con nombres/fechas/lugares específicos. Máximo 160 caracteres total.","cta":"llamada a acción corta con emoji, orientada al cliente"}';
   return prompt;
 }
 function renderStoryDOM(c,handle){
@@ -1220,6 +1333,54 @@ function renderStoryDOM(c,handle){
   document.getElementById('s-bod').textContent=c.body||'';document.getElementById('s-bod').style.color='rgba(255,255,255,.88)';
   document.getElementById('s-hdl').textContent=handle;
 }
+
+// ── LIKE / DISLIKE FEEDBACK ───────────────────────────
+function resetFeedbackBar(){
+  var lb=document.getElementById('btn-like'),db=document.getElementById('btn-dislike'),msg=document.getElementById('feedback-msg');
+  if(!lb||!db||!msg)return;
+  lb.style.background='transparent';lb.style.color='#4ade80';lb.style.borderColor='#2a5c2a';lb.disabled=false;
+  db.style.background='transparent';db.style.color='#f87171';db.style.borderColor='#5c2a2a';db.disabled=false;
+  msg.style.display='none';msg.textContent='';
+}
+document.getElementById('btn-like').addEventListener('click',function(){
+  if(!currentStory)return;
+  var t=window._lastUsedType||selType;
+  var body=currentStory.body||'';
+  if(!feedbackMem.likedBodies)feedbackMem.likedBodies={};
+  if(!feedbackMem.likedBodies[t])feedbackMem.likedBodies[t]=[];
+  if(feedbackMem.likedBodies[t].indexOf(body)===-1){
+    feedbackMem.likedBodies[t].push(body);
+    if(feedbackMem.likedBodies[t].length>12)feedbackMem.likedBodies[t]=feedbackMem.likedBodies[t].slice(-12);
+  }
+  for(var i=0;i<bank.length;i++){if(bank[i].content&&bank[i].content.body===body){bank[i].likes=(bank[i].likes||0)+1;break;}}
+  save();
+  this.style.background='#14532d';this.style.color='#4ade80';this.style.borderColor='#4ade80';
+  this.disabled=true;document.getElementById('btn-dislike').disabled=true;
+  var msg=document.getElementById('feedback-msg');
+  msg.style.display='block';msg.style.color='#4ade80';
+  msg.textContent='✓ Aprendido — generaré más con este estilo';
+  setSt('st-gen','👍 Guardado — próximas serán más así','ok');
+});
+document.getElementById('btn-dislike').addEventListener('click',function(){
+  if(!currentStory)return;
+  var t=window._lastUsedType||selType;
+  var body=currentStory.body||'';
+  if(!feedbackMem.dislikedBodies)feedbackMem.dislikedBodies={};
+  if(!feedbackMem.dislikedBodies[t])feedbackMem.dislikedBodies[t]=[];
+  if(feedbackMem.dislikedBodies[t].indexOf(body)===-1){
+    feedbackMem.dislikedBodies[t].push(body);
+    if(feedbackMem.dislikedBodies[t].length>20)feedbackMem.dislikedBodies[t]=feedbackMem.dislikedBodies[t].slice(-20);
+  }
+  save();
+  this.style.background='#450a0a';this.style.color='#f87171';this.style.borderColor='#f87171';
+  this.disabled=true;document.getElementById('btn-like').disabled=true;
+  var msg=document.getElementById('feedback-msg');
+  msg.style.display='block';msg.style.color='#f87171';
+  msg.textContent='👎 Registrada — generando una nueva...';
+  setSt('st-gen','Generando otra distinta...','ld');
+  // Auto-regenerate after short delay
+  setTimeout(function(){ genStory(); }, 700);
+});
 // Note: Chrome records as WebM but we name it .mp4 — Instagram accepts both
 // For true MP4 we use the webm file renamed; most platforms accept it
 
@@ -1507,5 +1668,6 @@ function goTab(name){document.querySelectorAll('.tab').forEach(function(b){b.cla
   });
 })();
 </script>
+
 </body>
 </html>
