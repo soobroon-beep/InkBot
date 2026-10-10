@@ -1,11 +1,13 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v1';
+const CACHE = 'inkbot-v2';
 const ASSETS = [
   './',
   './index.html',
-  './manifest.webmanifest',
+  './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './icon-maskable-192.png',
+  './icon-maskable-512.png'
 ];
 
 // Instala y precachea los archivos clave de la app
