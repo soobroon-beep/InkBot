@@ -443,6 +443,11 @@ transition:transform .15s;
   <div class="sp-api-block">
     <div class="sp-api-label">IA gratuita · modelo abierto — sin API key</div>
     <div class="sp-api-hint" id="sp-ai-status">Ya no necesitas configurar nada: la IA (Mistral, Llama, Qwen, DeepSeek…) es gratis y aprende de tus 👍 / 👎.</div>
+    <div class="sp-api-hint">Sin llave: 1 respuesta cada ~45 s (la app espera sola). Opcional: pega una llave gratis de <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">enter.pollinations.ai</a> para quitar la espera.</div>
+    <div class="sp-api-row">
+      <input class="sp-api-inp" id="sp-pollen-key" type="password" autocomplete="off" placeholder="Llave Pollinations (opcional) · sk_… / pk_…">
+      <button class="sp-api-sel" id="sp-pollen-save" type="button">GUARDAR</button>
+    </div>
   </div>
   <div class="sp-cards">
     <div class="sp-card c1" id="sp-inkbot">
@@ -2042,14 +2047,45 @@ var INKAI=(function(){
     +'- Solo hechos reales y específicos (nombres, fechas, lugares, cifras). Si no estás seguro de un dato, elige otro que sí conozcas bien.\n\n'
     +'FORMATO: cuando se te pida JSON, responde ÚNICAMENTE con el objeto JSON válido: sin texto antes ni después, sin bloques ``` y con comillas dobles normales.';
   var cache=null,lastModel='';
+  // ── Llave opcional (enter.pollinations.ai). Sin llave: límite gratis ~1 respuesta / 45 s por IP
+  var KEY_LS='inkbot_pollen_key';
+  function key(){try{return (localStorage.getItem(KEY_LS)||'').trim();}catch(e){return '';}}
+  function setKey(k){try{k=String(k||'').trim();if(k)localStorage.setItem(KEY_LS,k);else localStorage.removeItem(KEY_LS);}catch(e){}cache=null;nextAt=0;status();}
+  function chatUrl(){return key()?'https://gen.pollinations.ai/v1/chat/completions':CHAT_URL;}
+  function modelsUrl(){return key()?'https://gen.pollinations.ai/v1/models':MODELS_URL;}
+  function headers(){var h={'Content-Type':'application/json'},k=key();if(k)h.Authorization='Bearer '+k;return h;}
+  // ── Cola: una sola petición a la vez, respetando el espacio entre respuestas
+  var FREE_GAP=46000,KEY_GAP=1500,nextAt=0,queue=Promise.resolve();
+  function gap(){return key()?KEY_GAP:FREE_GAP;}
+  function waitLabel(s){return '⏳ IA gratuita: 1 respuesta cada 45 s · faltan '+s+' s';}
+  function waitTurn(){
+    return new Promise(function(res){
+      (function tick(){
+        var ms=nextAt-Date.now();
+        if(ms<=0){status();return res();}
+        var s=Math.ceil(ms/1000),b=document.getElementById('ai-badge');
+        if(b)b.textContent='⏳ IA · '+s+' s';
+        document.querySelectorAll('.st.ld').forEach(function(el){el.textContent=waitLabel(s);});
+        setTimeout(tick,Math.min(1000,ms));
+      })();
+    });
+  }
+  // Pone la llamada en la cola: espera turno, llama y marca el siguiente turno
+  function queued(fn){
+    var p=queue.then(waitTurn).then(fn).finally(function(){nextAt=Math.max(nextAt,Date.now()+gap());});
+    queue=p.catch(function(){});return p;
+  }
+  // Lee "1 reply every 45 seconds" del error para saber cuánto esperar
+  function limitSecs(tx){var m=/every\s+(\d+)\s*s/i.exec(tx||'')||/retry[^\d]{0,20}(\d+)/i.exec(tx||'');return m?Math.min(+m[1],120):45;}
   function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
   function err(msg,kind){var e=new Error(msg);e.kind=kind||'other';return e;}
   function isVision(m){return !!(m&&m.vision===true)||(!(m&&m.vision===false)&&VISION.test(String(m&&m.name||'')));}
   function models(){
     if(cache&&Date.now()-cache.t<30*60000)return Promise.resolve(cache.list);
     var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},7000);
-    return fetch(MODELS_URL,{signal:ctl.signal}).then(function(r){return r.ok?r.json():[];}).then(function(j){
-      var list=(Array.isArray(j)?j:[]).map(function(x){return typeof x==='string'?{name:x}:x;}).filter(function(x){return x&&x.name;});
+    return fetch(modelsUrl(),{headers:key()?{Authorization:'Bearer '+key()}:{},signal:ctl.signal}).then(function(r){return r.ok?r.json():[];}).then(function(j){
+      var arr=Array.isArray(j)?j:(j&&Array.isArray(j.data)?j.data:[]);
+      var list=arr.map(function(x){return typeof x==='string'?{name:x}:(x&&!x.name&&x.id?Object.assign({name:x.id},x):x);}).filter(function(x){return x&&x.name;});
       if(list.length)cache={t:Date.now(),list:list};return list;
     }).catch(function(){return cache?cache.list:[];}).finally(function(){clearTimeout(t);});
   }
@@ -2070,10 +2106,20 @@ var INKAI=(function(){
   function call(model,messages,o){
     var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},o.timeout||90000);
     var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:o.maxTokens||800,seed:Math.floor(Math.random()*1e9),private:true};
-    return fetch(CHAT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl.signal})
+    return fetch(chatUrl(),{method:'POST',headers:headers(),body:JSON.stringify(body),signal:ctl.signal})
       .catch(function(e){throw err(e&&e.name==='AbortError'?'La IA tardó demasiado':'Sin conexión con la IA gratuita. Revisa tu internet.',e&&e.name==='AbortError'?'abort':'network');})
       .then(function(r){
-        if(!r.ok)return r.text().then(function(tx){var k=r.status===429?'rate':r.status>=500?'server':'model';throw err(r.status===429?'La IA gratuita está saturada, espera unos segundos.':('Error '+r.status+' '+String(tx||'').slice(0,120)),k);});
+        if(!r.ok)return r.text().then(function(tx){
+          tx=String(tx||'');
+          // 429 o 402 FREE_LIMIT = límite gratis por IP → esperar y reintentar el MISMO modelo
+          if(r.status===429||(r.status===402&&/FREE_LIMIT|limit|every\s+\d+\s*s/i.test(tx))){
+            var s=limitSecs(tx);nextAt=Math.max(nextAt,Date.now()+s*1000+1500);
+            throw err('Límite gratis: 1 respuesta cada '+s+' s. Esperando turno…','rate');
+          }
+          if(r.status===401||r.status===403)throw err('La llave de Pollinations no es válida. Bórrala o pega otra en el inicio.','auth');
+          if(r.status===402)throw err('Tu llave de Pollinations se quedó sin saldo (pollen). Bórrala para usar el modo gratis.','auth');
+          throw err('Error '+r.status+' '+tx.slice(0,120),r.status>=500?'server':'model');
+        });
         return r.text().then(function(raw){var tx;try{tx=textOf(JSON.parse(raw));}catch(e){tx=raw;}
           tx=String(tx||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim();if(!tx)throw err('El modelo no devolvió texto.','server');return tx;});
       }).finally(function(){clearTimeout(t);});
@@ -2084,13 +2130,18 @@ var INKAI=(function(){
     var user=img?{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:'data:'+(o.image.mime||'image/jpeg')+';base64,'+o.image.b64}}]}:{role:'user',content:prompt};
     var messages=[{role:'system',content:SYSTEM},user];
     return models().then(function(list){
-      var cand=pick(list,!!img).slice(0,4),i=0,last=null;
+      var cand=pick(list,!!img).slice(0,4),i=0,last=null,rateTries=0;
+      function attempt(m){
+        return queued(function(){return call(m,messages,o);}).then(function(tx){lastModel=m;status();return tx;}).catch(function(e){
+          last=e;if(e.kind==='network'||e.kind==='auth')throw e;
+          // Límite por IP: cambiar de modelo no sirve; la cola ya espera el tiempo indicado
+          if(e.kind==='rate'){if(++rateTries<=4)return attempt(m);throw err('La IA gratuita sigue limitada. Intenta en un minuto.','rate');}
+          return next();
+        });
+      }
       function next(){
         if(i>=cand.length)return Promise.reject(last||err('La IA gratuita no respondió. Intenta otra vez.','server'));
-        var m=cand[i++];
-        return call(m,messages,o).then(function(tx){lastModel=m;status();return tx;}).catch(function(e){
-          last=e;if(e.kind==='network')throw e;return (e.kind==='rate'?sleep(2500):Promise.resolve()).then(next);
-        });
+        return attempt(cand[i++]);
       }
       return next();
     });
@@ -2106,13 +2157,25 @@ var INKAI=(function(){
   // json(prompt,o) → objeto; si el formato sale mal, lo vuelve a pedir (hasta 3 intentos)
   function json(prompt,o){
     var tries=0;
-    function go(){tries++;return chat(prompt,o).then(parse).catch(function(e){if((e.kind==='format'||e.kind==='server'||e.kind==='rate')&&tries<3)return go();throw e;});}
+    function go(){tries++;return chat(prompt,o).then(parse).catch(function(e){if((e.kind==='format'||e.kind==='server')&&tries<3)return go();throw e;});}
     return go();
   }
-  function status(){var b=document.getElementById('ai-badge');if(b)b.textContent='🟢 IA GRATIS · '+(lastModel||'open source');var s=document.getElementById('sp-ai-status');if(s&&lastModel)s.textContent='Conectada · modelo abierto: '+lastModel+' · aprende de tus 👍 / 👎';}
-  return {chat:chat,json:json,parse:parse,models:models,pick:pick,SYSTEM:SYSTEM,get model(){return lastModel;}};
+  function status(){var b=document.getElementById('ai-badge');if(b)b.textContent='🟢 IA '+(key()?'· LLAVE':'GRATIS')+' · '+(lastModel||'open source');var s=document.getElementById('sp-ai-status');if(s&&lastModel)s.textContent='Conectada · modelo abierto: '+lastModel+' · aprende de tus 👍 / 👎';}
+  return {chat:chat,json:json,parse:parse,models:models,pick:pick,key:key,setKey:setKey,status:status,SYSTEM:SYSTEM,get model(){return lastModel;}};
 })();
 window.INKAI=INKAI;
+// Campo de llave opcional en el inicio
+(function(){
+  var inp=document.getElementById('sp-pollen-key'),btn=document.getElementById('sp-pollen-save');if(!inp||!btn)return;
+  inp.value=INKAI.key();btn.textContent=INKAI.key()?'BORRAR':'GUARDAR';
+  inp.addEventListener('input',function(){btn.textContent=inp.value.trim()&&inp.value.trim()!==INKAI.key()?'GUARDAR':(INKAI.key()?'BORRAR':'GUARDAR');});
+  btn.addEventListener('click',function(){
+    if(btn.textContent==='BORRAR'){inp.value='';INKAI.setKey('');btn.textContent='GUARDAR';}
+    else{INKAI.setKey(inp.value);btn.textContent=INKAI.key()?'BORRAR':'GUARDAR';}
+    var s=document.getElementById('sp-ai-status');if(s)s.textContent=INKAI.key()?'Llave guardada · sin espera entre respuestas':'Modo gratis · 1 respuesta cada ~45 s (la app espera sola)';
+  });
+  INKAI.status();
+})();
 function getKey(){return 'free';} // ya no se necesita API key
 // Devuelve el JSON como texto para que el resto de la app siga igual (JSON.parse(raw...))
 function callAI(key,prompt,image,maxTokens){return INKAI.json(prompt,{image:image||null,maxTokens:maxTokens||700}).then(function(o){return JSON.stringify(o);});}
