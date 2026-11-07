@@ -1,7 +1,7 @@
 {
   "name": "inkbot-pro",
   "version": "1.0.0",
-  "description": "INKBOT PRO - Generador de historias para Instagram",
+  "description": "INKBOT PRO - Generador de historias para Instagram (IA gratuita con modelos abiertos, sin API key)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
