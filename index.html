@@ -442,7 +442,7 @@ transition:transform .15s;
   <div class="sp-tagline">Sistema de contenido · V.SOBRONTT</div>
   <div class="sp-api-block">
     <div class="sp-api-label">IA gratuita · modelo abierto — sin API key</div>
-    <div class="sp-api-hint" id="sp-ai-status">Ya no necesitas configurar nada: la IA (Mistral, Llama, Qwen, DeepSeek…) es gratis y aprende de tus 👍 / 👎.</div>
+    <div class="sp-api-hint" id="sp-ai-status">Ya no necesitas configurar nada: la IA (GPT-OSS, modelo abierto) es gratis y aprende de tus 👍 / 👎.</div>
     <div class="sp-api-hint">Sin llave: 1 respuesta cada ~45 s (la app espera sola). Opcional: pega una llave gratis de <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">enter.pollinations.ai</a> para quitar la espera.</div>
     <div class="sp-api-row">
       <input class="sp-api-inp" id="sp-pollen-key" type="password" autocomplete="off" placeholder="Llave Pollinations (opcional) · sk_… / pk_…">
@@ -1230,7 +1230,7 @@ function applyLogo(url){document.getElementById('logo-prev').src=url;document.ge
 // ── ANALYZE ───────────────────────────────────────────
 document.getElementById('btn-analyze').addEventListener('click',function(){var key=getKey();if(!photos.length)return;setSt('st-gen','Analizando...','ld');analyzeImg(key,photos[pidx].split(',')[1],'image/jpeg').then(function(d){document.getElementById('tat-desc').value=d;goTab('caption');setSt('st-gen','✓ Listo','ok');}).catch(function(){setSt('st-gen','Error','err');});});
 document.getElementById('cap-photo').addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){var url=ev.target.result;capB64=url.split(',')[1];capMime=f.type;document.getElementById('cap-prev').src=url;document.getElementById('cap-prev').style.display='block';document.getElementById('cap-ptxt').textContent='✓ Cargada';var key=getKey();if(!key)return;document.getElementById('abox').style.display='block';document.getElementById('ares').textContent='Analizando...';analyzeImg(key,capB64,f.type).then(function(d){document.getElementById('ares').textContent=d;document.getElementById('tat-desc').value=d;}).catch(function(e){document.getElementById('ares').textContent='No se pudo analizar: '+(e.message||'intenta otra vez');});};r.readAsDataURL(f);});
-function analyzeImg(key,b64,mime){return INKAI.chat('Analiza este tatuaje. Describe: estilo, elementos, colores, zona del cuerpo. Máximo 3 oraciones. Solo la descripción, en español.',{image:{b64:b64,mime:mime||'image/jpeg'},maxTokens:300,temperature:.4});}
+function analyzeImg(key,b64,mime){return INKAI.chat('Analiza este tatuaje. Describe: estilo, elementos, colores, zona del cuerpo. Máximo 3 oraciones. Solo la descripción, en español.',{image:{b64:b64,mime:mime||'image/jpeg'},maxTokens:300,temperature:.4,requireVision:true});}
 
 // ── CANVAS BG PREVIEW ────────────────────────────────
 var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
@@ -1656,7 +1656,7 @@ function genStory(){
       return c;
     });
   }
-  attemptGen(3).then(function(c){
+  attemptGen(1).then(function(c){
     currentStory=c;renderStoryDOM(c,handle);
     if(!feedbackMem.recentBodies)feedbackMem.recentBodies=[];
     feedbackMem.recentBodies.push({type:actualType,body:c.body||''});
@@ -2033,10 +2033,11 @@ function buildSchedule(){var days=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 // saturado, prueba el siguiente. Para analizar fotos usa un modelo con visión.
 var INKAI=(function(){
   var CHAT_URL='https://text.pollinations.ai/openai',MODELS_URL='https://text.pollinations.ai/models';
-  var OPEN=/mistral|llama|qwen|deepseek|gemma|phi|glm|gpt-oss|kimi|olmo|nemotron|smol|minimax/i;
+  var OPEN=/mistral|llama|qwen|deepseek|gemma|phi|glm|gpt-oss|oss|kimi|olmo|nemotron|smol|minimax/i;
+  function txt(x){return [x.name,x.description||'',(x.aliases||[]).join(' ')].join(' ');}
   var VISION=/vision|(^|[-_:\s])vl([-_:\s]|$)|llava|pixtral|gemma-?3|llama-?4|llama-3\.2-(11|90)|minicpm-v|molmo|internvl|moondream|qwen.*vl|gpt-4o|gemini/i;
   var BAD=/uncensored|roblox|unity|midijourney|rtist|evil|audio/i;
-  var FALLBACK=['mistral','llama','qwen-coder','deepseek'],FALLBACK_VISION=['openai','mistral'];
+  var FALLBACK=['openai-fast'],FALLBACK_VISION=[]; // hoy el único modelo gratis sin llave es openai-fast = GPT-OSS 20B (open source)
   // Instrucción permanente: la IA aprende de sí misma con la memoria que le manda la app
   var SYSTEM='Eres la IA creativa de INKBOT PRO, el sistema de contenido para Instagram de un tatuador profesional. Escribes siempre en español de México, claro, directo y apasionante.\n\n'
     +'APRENDES DE TI MISMA: en cada pedido recibes tu propia memoria — tus últimas historias generadas, lo que al usuario le GUSTÓ (👍) y lo que RECHAZÓ (👎). Úsala así:\n'
@@ -2062,10 +2063,11 @@ var INKAI=(function(){
     return new Promise(function(res){
       (function tick(){
         var ms=nextAt-Date.now();
-        if(ms<=0){status();return res();}
+        if(ms<=0){status();['#sloader p','#d-loader p'].forEach(function(q){var el=document.querySelector(q);if(el&&el.dataset.orig)el.textContent=el.dataset.orig;});return res();}
         var s=Math.ceil(ms/1000),b=document.getElementById('ai-badge');
         if(b)b.textContent='⏳ IA · '+s+' s';
         document.querySelectorAll('.st.ld').forEach(function(el){el.textContent=waitLabel(s);});
+        ['#sloader p','#d-loader p'].forEach(function(q){var el=document.querySelector(q);if(el){if(!el.dataset.orig)el.dataset.orig=el.textContent;el.textContent='Esperando turno de la IA · '+s+' s';}});
         setTimeout(tick,Math.min(1000,ms));
       })();
     });
@@ -2076,7 +2078,7 @@ var INKAI=(function(){
     queue=p.catch(function(){});return p;
   }
   // Lee "1 reply every 45 seconds" del error para saber cuánto esperar
-  function limitSecs(tx){var m=/every\s+(\d+)\s*s/i.exec(tx||'')||/retry[^\d]{0,20}(\d+)/i.exec(tx||'');return m?Math.min(+m[1],120):45;}
+  function limitSecs(tx){var m=/retry after\s+(\d+)\s*s/i.exec(tx||'')||/every\s+(\d+)\s*s/i.exec(tx||'');return m?Math.min(+m[1],120):45;}
   function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
   function err(msg,kind){var e=new Error(msg);e.kind=kind||'other';return e;}
   function isVision(m){return !!(m&&m.vision===true)||(!(m&&m.vision===false)&&VISION.test(String(m&&m.name||'')));}
@@ -2091,21 +2093,22 @@ var INKAI=(function(){
   }
   function pick(list,needVision){
     list=list.filter(function(x){return !BAD.test(x.name+' '+(x.description||''));});
-    if(!list.length)return needVision?FALLBACK_VISION.slice():FALLBACK.slice();
-    var open=list.filter(function(x){return OPEN.test(x.name);});
-    if(needVision){ // primero modelos abiertos con visión; si no hay, cualquier modelo gratuito con visión
-      var ov=open.filter(isVision).map(function(x){return x.name;}),av=list.filter(isVision).map(function(x){return x.name;});
-      var out=ov.concat(av.filter(function(n){return ov.indexOf(n)===-1;}));
+    // sin llave solo sirven los modelos del nivel "anonymous" (los demás dan 404 y gastan el turno de 45 s)
+    if(!key()){var anon=list.filter(function(x){return !x.tier||x.tier==='anonymous';});if(anon.length)list=anon;}
+    if(needVision){
+      list=list.filter(isVision);
+      var ov=list.filter(function(x){return OPEN.test(txt(x));}).map(function(x){return x.name;});
+      var out=ov.concat(list.map(function(x){return x.name;}).filter(function(n){return ov.indexOf(n)===-1;}));
       return out.length?out:FALLBACK_VISION.slice();
     }
-    if(!open.length)return FALLBACK.slice();
-    function score(x){return (/mistral|llama|qwen|gemma|deepseek/i.test(x.name)?20:0)-x.name.length/100;}
-    return open.slice().sort(function(a,b){return score(b)-score(a);}).map(function(x){return x.name;});
+    if(!list.length)return FALLBACK.slice();
+    function score(x){return (OPEN.test(txt(x))?40:0)+(/mistral|llama|qwen|gemma|deepseek|gpt-oss/i.test(txt(x))?20:0)-x.name.length/100;}
+    return list.slice().sort(function(a,b){return score(b)-score(a);}).map(function(x){return x.name;});
   }
   function textOf(j){var c=j&&j.choices&&j.choices[0];if(!c)return '';var m=c.message||{};return typeof m.content==='string'?m.content:Array.isArray(m.content)?m.content.map(function(p){return p.text||'';}).join(''):(c.text||'');}
   function call(model,messages,o){
     var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},o.timeout||90000);
-    var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:o.maxTokens||800,seed:Math.floor(Math.random()*1e9),private:true};
+    var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:Math.max(o.maxTokens||0,2500),seed:Math.floor(Math.random()*1e9),private:true};
     return fetch(chatUrl(),{method:'POST',headers:headers(),body:JSON.stringify(body),signal:ctl.signal})
       .catch(function(e){throw err(e&&e.name==='AbortError'?'La IA tardó demasiado':'Sin conexión con la IA gratuita. Revisa tu internet.',e&&e.name==='AbortError'?'abort':'network');})
       .then(function(r){
@@ -2130,7 +2133,11 @@ var INKAI=(function(){
     var user=img?{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:'data:'+(o.image.mime||'image/jpeg')+';base64,'+o.image.b64}}]}:{role:'user',content:prompt};
     var messages=[{role:'system',content:SYSTEM},user];
     return models().then(function(list){
-      var cand=pick(list,!!img).slice(0,4),i=0,last=null,rateTries=0;
+      if(img&&!pick(list,true).length){ // sin modelo con visión gratis: seguir solo con texto
+        if(o.requireVision)return Promise.reject(err('La IA gratis no puede ver fotos. Escribe la descripción del tatuaje.','vision'));
+        img=null;messages=[{role:'system',content:SYSTEM},{role:'user',content:prompt}];
+      }
+      var cand=pick(list,!!img).slice(0,2),i=0,last=null,rateTries=0;
       function attempt(m){
         return queued(function(){return call(m,messages,o);}).then(function(tx){lastModel=m;status();return tx;}).catch(function(e){
           last=e;if(e.kind==='network'||e.kind==='auth')throw e;
