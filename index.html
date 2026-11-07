@@ -2108,7 +2108,7 @@ var INKAI=(function(){
   function textOf(j){var c=j&&j.choices&&j.choices[0];if(!c)return '';var m=c.message||{};return typeof m.content==='string'?m.content:Array.isArray(m.content)?m.content.map(function(p){return p.text||'';}).join(''):(c.text||'');}
   function call(model,messages,o){
     var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},o.timeout||90000);
-    var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:Math.max(o.maxTokens||0,2500),seed:Math.floor(Math.random()*1e9),private:true};
+    var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:Math.max(o.maxTokens||0,4000),reasoning_effort:'low',seed:Math.floor(Math.random()*1e9),private:true};
     return fetch(chatUrl(),{method:'POST',headers:headers(),body:JSON.stringify(body),signal:ctl.signal})
       .catch(function(e){throw err(e&&e.name==='AbortError'?'La IA tardó demasiado':'Sin conexión con la IA gratuita. Revisa tu internet.',e&&e.name==='AbortError'?'abort':'network');})
       .then(function(r){
@@ -2121,6 +2121,7 @@ var INKAI=(function(){
           }
           if(r.status===401||r.status===403)throw err('La llave de Pollinations no es válida. Bórrala o pega otra en el inicio.','auth');
           if(r.status===402)throw err('Tu llave de Pollinations se quedó sin saldo (pollen). Bórrala para usar el modo gratis.','auth');
+          if(/output token limit|max_tokens/i.test(tx))throw err('La IA se quedó sin espacio para responder. Reintentando…','server');
           throw err('Error '+r.status+' '+tx.slice(0,120),r.status>=500?'server':'model');
         });
         return r.text().then(function(raw){var tx;try{tx=textOf(JSON.parse(raw));}catch(e){tx=raw;}
