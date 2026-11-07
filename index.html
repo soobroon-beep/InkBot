@@ -441,18 +441,8 @@ transition:transform .15s;
   <div class="sp-brand">INK<b>BOT</b></div>
   <div class="sp-tagline">Sistema de contenido · V.SOBRONTT</div>
   <div class="sp-api-block">
-    <div class="sp-api-label">API Key — requerida para generar contenido</div>
-    <div class="sp-api-row">
-      <select class="sp-api-sel" id="sp-provider">
-        <option value="anthropic">Anthropic</option>
-        <option value="gemini">Gemini</option>
-      </select>
-      <input type="password" class="sp-api-inp" id="sp-key" placeholder="sk-ant-... / fe_oa_... / AIza...">
-    </div>
-    <div class="sp-api-hint">
-      Anthropic: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> &nbsp;·&nbsp;
-      Gemini: <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>
-    </div>
+    <div class="sp-api-label">IA gratuita · modelo abierto — sin API key</div>
+    <div class="sp-api-hint" id="sp-ai-status">Ya no necesitas configurar nada: la IA (Mistral, Llama, Qwen, DeepSeek…) es gratis y aprende de tus 👍 / 👎.</div>
   </div>
   <div class="sp-cards">
     <div class="sp-card c1" id="sp-inkbot">
@@ -646,8 +636,7 @@ transition:transform .15s;
     <button class="tab" data-tab="bank">🗂 Banco</button>
   </div>
   <div class="api-area">
-    <select class="api-sel" id="api-provider"><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option></select>
-    <input type="password" class="api-inp" id="api-key" placeholder="API Key...">
+    <span class="api-sel" id="ai-badge" title="IA gratuita con modelos abiertos, sin API key">🟢 IA GRATIS · open source</span>
   </div>
 </div>
 
@@ -1195,8 +1184,6 @@ window.normalizeTxt=normalizeTxt;window.textSimilarity=textSimilarity;window.isT
 function loadSaved(){
   try{
     var s=JSON.parse(localStorage.getItem('inkbot_pro')||'{}');
-    if(s.key)document.getElementById('api-key').value=s.key;
-    if(s.prov)document.getElementById('api-provider').value=s.prov;
     if(s.handle){document.getElementById('handle').value=s.handle;document.getElementById('s-hdl').textContent=s.handle;}
     if(s.ctx)document.getElementById('ctx').value=s.ctx;
     if(s.logo){logoUrl=s.logo;applyLogo(s.logo);}
@@ -1208,8 +1195,6 @@ function loadSaved(){
 function save(){
   try{
     localStorage.setItem('inkbot_pro',JSON.stringify({
-      key:document.getElementById('api-key').value,
-      prov:document.getElementById('api-provider').value,
       handle:document.getElementById('handle').value,
       ctx:document.getElementById('ctx').value,
       logo:logoUrl,
@@ -1218,7 +1203,7 @@ function save(){
     }));
   }catch(e){}
 }
-['api-key','api-provider','handle','ctx'].forEach(function(id){document.getElementById(id).addEventListener('change',save);document.getElementById(id).addEventListener('input',function(){save();if(id==='handle')document.getElementById('s-hdl').textContent=this.value;});});
+['handle','ctx'].forEach(function(id){document.getElementById(id).addEventListener('change',save);document.getElementById(id).addEventListener('input',function(){save();if(id==='handle')document.getElementById('s-hdl').textContent=this.value;});});
 
 // ── TABS ──────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');document.querySelectorAll('.pane').forEach(function(p){p.classList.remove('active');});document.getElementById('pane-'+btn.dataset.tab).classList.add('active');});});
@@ -1238,13 +1223,9 @@ document.getElementById('logo-input').addEventListener('change',function(e){var 
 function applyLogo(url){document.getElementById('logo-prev').src=url;document.getElementById('logo-prev').style.display='block';document.getElementById('logo-txt').textContent='✓ Logo cargado';logoImg=new Image();logoImg.onload=function(){document.getElementById('s-logo').src=url;document.getElementById('s-logo').style.display='block';};logoImg.src=url;}
 
 // ── ANALYZE ───────────────────────────────────────────
-// FreeModel.dev usa keys con prefijo fe_oa_ y habla el mismo protocolo
-// (Anthropic Messages API) pero en cc.freemodel.dev en vez de api.anthropic.com
-function anthropicEndpoint(key){return (key&&key.indexOf('fe_oa_')===0)?'https://cc.freemodel.dev/v1/messages':'https://api.anthropic.com/v1/messages';}
-window.anthropicEndpoint=anthropicEndpoint;
-document.getElementById('btn-analyze').addEventListener('click',function(){var key=getKey();if(!key){setSt('st-gen','Ingresa API Key','err');return;}if(!photos.length)return;setSt('st-gen','Analizando...','ld');analyzeImg(key,photos[pidx].split(',')[1],'image/jpeg').then(function(d){document.getElementById('tat-desc').value=d;goTab('caption');setSt('st-gen','✓ Listo','ok');}).catch(function(){setSt('st-gen','Error','err');});});
-document.getElementById('cap-photo').addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){var url=ev.target.result;capB64=url.split(',')[1];capMime=f.type;document.getElementById('cap-prev').src=url;document.getElementById('cap-prev').style.display='block';document.getElementById('cap-ptxt').textContent='✓ Cargada';var key=getKey();if(!key)return;document.getElementById('abox').style.display='block';document.getElementById('ares').textContent='Analizando...';analyzeImg(key,capB64,f.type).then(function(d){document.getElementById('ares').textContent=d;document.getElementById('tat-desc').value=d;}).catch(function(){document.getElementById('ares').textContent='No se pudo analizar.';});};r.readAsDataURL(f);});
-function analyzeImg(key,b64,mime){if(document.getElementById('api-provider').value==='gemini')return callGemini(key,null,b64,mime,'Analiza este tatuaje. Describe: estilo, elementos, colores, zona del cuerpo. Máximo 3 oraciones. Solo la descripción.');return fetch(anthropicEndpoint(key),{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:280,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:'Analiza este tatuaje. Describe: estilo, elementos, colores, zona del cuerpo. Máximo 3 oraciones. Solo la descripción.'}]}]})}).then(function(r){return r.json();}).then(function(d){if(d.error)throw new Error(d.error.message);return d.content[0].text;});}
+document.getElementById('btn-analyze').addEventListener('click',function(){var key=getKey();if(!photos.length)return;setSt('st-gen','Analizando...','ld');analyzeImg(key,photos[pidx].split(',')[1],'image/jpeg').then(function(d){document.getElementById('tat-desc').value=d;goTab('caption');setSt('st-gen','✓ Listo','ok');}).catch(function(){setSt('st-gen','Error','err');});});
+document.getElementById('cap-photo').addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){var url=ev.target.result;capB64=url.split(',')[1];capMime=f.type;document.getElementById('cap-prev').src=url;document.getElementById('cap-prev').style.display='block';document.getElementById('cap-ptxt').textContent='✓ Cargada';var key=getKey();if(!key)return;document.getElementById('abox').style.display='block';document.getElementById('ares').textContent='Analizando...';analyzeImg(key,capB64,f.type).then(function(d){document.getElementById('ares').textContent=d;document.getElementById('tat-desc').value=d;}).catch(function(e){document.getElementById('ares').textContent='No se pudo analizar: '+(e.message||'intenta otra vez');});};r.readAsDataURL(f);});
+function analyzeImg(key,b64,mime){return INKAI.chat('Analiza este tatuaje. Describe: estilo, elementos, colores, zona del cuerpo. Máximo 3 oraciones. Solo la descripción, en español.',{image:{b64:b64,mime:mime||'image/jpeg'},maxTokens:300,temperature:.4});}
 
 // ── CANVAS BG PREVIEW ────────────────────────────────
 var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
@@ -1647,7 +1628,7 @@ function getWrappedLines(c,text,maxW,fontSize){c.font='400 '+fontSize+'px "Cinze
 document.getElementById('btn-gen').addEventListener('click',genStory);
 document.getElementById('btn-regen').addEventListener('click',genStory);
 function genStory(){
-  var key=getKey();if(!key){setSt('st-gen','Ingresa API Key primero','err');return;}
+  var key=getKey();
   var handle=document.getElementById('handle').value||'@victortip',ctxTxt=document.getElementById('ctx').value;
   document.getElementById('btn-gen').disabled=true;setSt('st-gen','Generando...','ld');document.getElementById('sloader').style.display='flex';
   resetFeedbackBar();
@@ -1944,7 +1925,7 @@ document.getElementById('bfilter').addEventListener('change',function(){renderBa
 function buildWeek(){var g=document.getElementById('wgrid');g.innerHTML='';DAYS.forEach(function(day,di){var row=document.createElement('div');row.className='drow';row.innerHTML='<div class="dcol">'+day.slice(0,3).toUpperCase()+'</div><div class="dslots" id="ds-'+di+'"></div>';g.appendChild(row);var ds=document.getElementById('ds-'+di);TIMES.forEach(function(time,ti){var s=document.createElement('div');s.className='dslot';s.id='sl-'+di+'-'+ti;s.innerHTML='<div class="dst">'+time+'</div><div class="dempty">Sin generar</div>';ds.appendChild(s);});});}
 
 document.getElementById('btn-gen-week').addEventListener('click',function(){
-  var key=getKey();if(!key){setSt('st-week','Ingresa API Key primero','err');return;}
+  var key=getKey();
   var handle=document.getElementById('handle').value,ctxTxt=document.getElementById('ctx').value;
   var btn=this;btn.disabled=true;weekData=[];
   // Build 21 types — weight by likes from bank
@@ -1959,7 +1940,7 @@ document.getElementById('btn-gen-week').addEventListener('click',function(){
   var wb=bgList.filter(function(b){return b!=='photo';});for(var i=wb.length-1;i>0;i--){var j3=Math.floor(Math.random()*(i+1));var tb=wb[i];wb[i]=wb[j3];wb[j3]=tb;}
   var weekBgs=[];for(var i=0;i<21;i++)weekBgs.push(photos.length&&i%3===0?'photo':wb[i%wb.length]);
   var chain=Promise.resolve(),idx=0;
-  DAYS.forEach(function(day,di){TIMES.forEach(function(time,ti){(function(di2,ti2,type,bg){chain=chain.then(function(){var slot=document.getElementById('sl-'+di2+'-'+ti2);slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dempty" style="color:var(--gold)">Generando...</div>';setSt('st-week','Día '+(di2+1)+'/7 · '+(ti2+1)+'/3...','ld');return callAI(key,buildPrompt(type,handle,ctxTxt)).then(function(raw){var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());weekData.push({day:di2,time:ti2,type:type,bg:bg,content:c});slot.className='dslot filled';slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dtype">'+type.toUpperCase()+' · '+bg+'</div><div class="dtxt">'+(c.title1||'')+' '+(c.title2||'')+'</div><div class="dtxt" style="opacity:.55;margin-top:2px">'+((c.body||'').slice(0,55))+'...</div>';}).catch(function(){slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dempty" style="color:var(--red)">Error</div>';}).then(function(){return new Promise(function(r){setTimeout(r,300);});});});})(di,ti,wt[idx%wt.length],weekBgs[idx]);idx++;});});
+  DAYS.forEach(function(day,di){TIMES.forEach(function(time,ti){(function(di2,ti2,type,bg){chain=chain.then(function(){var slot=document.getElementById('sl-'+di2+'-'+ti2);slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dempty" style="color:var(--gold)">Generando...</div>';setSt('st-week','Día '+(di2+1)+'/7 · '+(ti2+1)+'/3...','ld');return callAI(key,buildPrompt(type,handle,ctxTxt)).then(function(raw){var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());weekData.push({day:di2,time:ti2,type:type,bg:bg,content:c});if(!feedbackMem.recentBodies)feedbackMem.recentBodies=[];feedbackMem.recentBodies.push({type:type,body:c.body||''});if(feedbackMem.recentBodies.length>40)feedbackMem.recentBodies=feedbackMem.recentBodies.slice(-40);slot.className='dslot filled';slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dtype">'+type.toUpperCase()+' · '+bg+'</div><div class="dtxt">'+(c.title1||'')+' '+(c.title2||'')+'</div><div class="dtxt" style="opacity:.55;margin-top:2px">'+((c.body||'').slice(0,55))+'...</div>';}).catch(function(){slot.innerHTML='<div class="dst">'+TIMES[ti2]+'</div><div class="dempty" style="color:var(--red)">Error</div>';}).then(function(){return new Promise(function(r){setTimeout(r,300);});});});})(di,ti,wt[idx%wt.length],weekBgs[idx]);idx++;});});
   chain.then(function(){setSt('st-week','✓ '+weekData.length+' historias listas','ok');document.getElementById('btn-export-week').disabled=false;document.getElementById('btn-export-week-mp4').disabled=false;var dw=document.getElementById('btn-drive-week');dw.disabled=false;dw.style.opacity='1';btn.disabled=false;});
 });
 
@@ -2034,16 +2015,108 @@ document.getElementById('btn-export-week-mp4').addEventListener('click',function
   });
 });
 
-document.getElementById('btn-gen-cap').addEventListener('click',function(){var key=getKey();if(!key){setSt('st-cap','Ingresa API Key','err');return;}var desc=document.getElementById('tat-desc').value.trim();if(!desc){setSt('st-cap','Describe el tatuaje primero','err');return;}var handle=document.getElementById('handle').value,ctxTxt=document.getElementById('ctx').value;var btn=this;btn.disabled=true;setSt('st-cap','Generando...','ld');var prompt='Eres experto en marketing de Instagram para tatuadores.\n\nDescripción: '+desc+'\nArtista: '+handle+'\nEstilo: '+ctxTxt+'\nTono: '+toneMap[selTone]+'\n\nResponde SOLO con JSON válido sin markdown:\n{"caption":"Caption 180-300 palabras. Primeras 2 líneas = gancho. Habla del diseño, significado o proceso. Emojis. CTA al final. Incluye '+handle+'.","hashtags":"30 hashtags por espacios. Mix: 5 populares, 10 medianos, 10 nicho, 5 locales. Español e inglés."}';var prov=document.getElementById('api-provider').value;var call=prov==='gemini'&&capB64?callGemini(key,prompt,capB64,capMime,null):callAI(key,prompt);call.then(function(raw){var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());document.getElementById('cap-out').textContent=c.caption;document.getElementById('hash-out').textContent=c.hashtags;var cr=document.getElementById('cap-result');cr.style.display='flex';cr.style.flexDirection='column';setSt('st-cap','✓ Listo','ok');}).catch(function(e){setSt('st-cap','Error: '+(e.message||'Intenta'),'err');}).finally(function(){btn.disabled=false;});});
+document.getElementById('btn-gen-cap').addEventListener('click',function(){var key=getKey();var desc=document.getElementById('tat-desc').value.trim();if(!desc){setSt('st-cap','Describe el tatuaje primero','err');return;}var handle=document.getElementById('handle').value,ctxTxt=document.getElementById('ctx').value;var btn=this;btn.disabled=true;setSt('st-cap','Generando...','ld');var prompt='Eres experto en marketing de Instagram para tatuadores.\n\nDescripción: '+desc+'\nArtista: '+handle+'\nEstilo: '+ctxTxt+'\nTono: '+toneMap[selTone]+'\n\nResponde SOLO con JSON válido sin markdown:\n{"caption":"Caption 180-300 palabras. Primeras 2 líneas = gancho. Habla del diseño, significado o proceso. Emojis. CTA al final. Incluye '+handle+'.","hashtags":"30 hashtags por espacios. Mix: 5 populares, 10 medianos, 10 nicho, 5 locales. Español e inglés."}';var call=callAI(key,prompt,capB64?{b64:capB64,mime:capMime||'image/jpeg'}:null,900);call.then(function(raw){var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());document.getElementById('cap-out').textContent=c.caption;document.getElementById('hash-out').textContent=c.hashtags;var cr=document.getElementById('cap-result');cr.style.display='flex';cr.style.flexDirection='column';setSt('st-cap','✓ Listo','ok');}).catch(function(e){setSt('st-cap','Error: '+(e.message||'Intenta'),'err');}).finally(function(){btn.disabled=false;});});
 ['cap','hash'].forEach(function(id){document.getElementById('copy-'+id).addEventListener('click',function(){var src=id==='cap'?'cap-out':'hash-out';navigator.clipboard.writeText(document.getElementById(src).textContent);var b=this;b.textContent='✓ Copiado';b.classList.add('ok');setTimeout(function(){b.textContent='Copiar';b.classList.remove('ok');},2000);});});
 
 // ── SCHEDULE ─────────────────────────────────────────
 function buildSchedule(){var days=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];var data=[[[7,45,'Antes del trabajo'],[12,62,'Descanso'],[19,95,'ÓPTIMO post-trabajo'],[21,78,'Noche']],[[8,50,'Mañana laboral'],[13,65,'Comer'],[19,90,'ÓPTIMO'],[22,68,'Noche']],[[8,48,'Mañana'],[12,60,'Mediodía'],[18,85,'Noche'],[21,72,'']],[[9,52,'Mañana'],[13,68,'Activo'],[19,88,'ÓPTIMO'],[21,70,'']],[[8,55,'Mañana'],[12,70,'Mediodía'],[17,93,'ÓPTIMO pre-finde'],[20,85,'Noche']],[[10,75,'Mañana'],[14,88,'ÓPTIMO tarde'],[18,96,'PICO sabatino'],[22,78,'']],[[11,82,'Mañana'],[15,90,'ÓPTIMO'],[17,76,'Tarde'],[20,68,'']]];var g=document.getElementById('sgrid');g.innerHTML='';days.forEach(function(day,di){var col=document.createElement('div');col.className='sday';col.innerHTML='<div class="sdname">'+day+'</div>';data[di].forEach(function(row){var hr=row[0],score=row[1],tip=row[2]||'';var cls=score>=85?'best':score>=65?'good':'low',color=score>=85?'var(--red)':score>=65?'var(--gold)':'var(--b2)';var s=document.createElement('div');s.className='sslot '+cls;s.innerHTML=(score>=85?'<div class="sbadge">BEST</div>':'')+'<div class="shr">'+hr+':00</div><div class="sbar"><div class="sbarf" style="width:'+score+'%;background:'+color+'"></div></div><div class="stip">'+tip+'</div>';col.appendChild(s);});g.appendChild(col);});var ins=document.getElementById('insights');ins.innerHTML='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:14px;letter-spacing:3px;margin-bottom:12px;color:var(--mut2)">Insights para tatuadores</div>';[{i:'🔴',t:'Viernes y Sábado son tus mejores días',b:'El engagement sube 40% los viernes después de las 5PM y el sábado de 2-9PM.'},{i:'⏰',t:'Las 7PM entre semana es clave',b:'Tu audiencia sale del trabajo y abre Instagram. 2x más vistas que a las 2PM.'},{i:'📅',t:'Consistencia sobre cantidad',b:'3 historias diarias a la misma hora entrenan el algoritmo de Instagram.'},{i:'🌙',t:'Evita publicar de madrugada',b:'De 12AM a 6AM el alcance inicial es mínimo. Las primeras 2 horas son clave.'}].forEach(function(item){ins.innerHTML+='<div style="display:flex;gap:11px;align-items:flex-start;margin-bottom:4px"><span style="font-size:15px;flex-shrink:0">'+item.i+'</span><div><div style="font-size:12px;font-weight:500;margin-bottom:3px">'+item.t+'</div><div style="font-size:11px;color:var(--mut2);line-height:1.5">'+item.b+'</div></div></div>';});}
 
 // ── API ───────────────────────────────────────────────
-function getKey(){return document.getElementById('api-key').value.trim();}
-function callAI(key,prompt){var prov=document.getElementById('api-provider').value;if(prov==='gemini')return callGemini(key,prompt,null,null,null);return fetch(anthropicEndpoint(key),{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:700,messages:[{role:'user',content:prompt}]})}).then(function(r){return r.json();}).then(function(d){if(d.error)throw new Error(d.error.message);return d.content[0].text;});}
-function callGemini(key,prompt,imgB64,imgMime,alt){var txt=prompt||alt;var parts=[];if(imgB64)parts.push({inlineData:{mimeType:imgMime,data:imgB64}});parts.push({text:txt});return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:parts}]})}).then(function(r){return r.json();}).then(function(d){if(d.error)throw new Error(d.error.message);return d.candidates[0].content.parts[0].text;});}
+// ── IA GRATUITA · MODELOS ABIERTOS (sin API key) ──────────────────────────
+// Igual que en VORTEX: servicio gratuito de Pollinations (API compatible con OpenAI)
+// con modelos open source (Mistral, Llama, Qwen, DeepSeek…). Si un modelo falla o está
+// saturado, prueba el siguiente. Para analizar fotos usa un modelo con visión.
+var INKAI=(function(){
+  var CHAT_URL='https://text.pollinations.ai/openai',MODELS_URL='https://text.pollinations.ai/models';
+  var OPEN=/mistral|llama|qwen|deepseek|gemma|phi|glm|gpt-oss|kimi|olmo|nemotron|smol|minimax/i;
+  var VISION=/vision|(^|[-_:\s])vl([-_:\s]|$)|llava|pixtral|gemma-?3|llama-?4|llama-3\.2-(11|90)|minicpm-v|molmo|internvl|moondream|qwen.*vl|gpt-4o|gemini/i;
+  var BAD=/uncensored|roblox|unity|midijourney|rtist|evil|audio/i;
+  var FALLBACK=['mistral','llama','qwen-coder','deepseek'],FALLBACK_VISION=['openai','mistral'];
+  // Instrucción permanente: la IA aprende de sí misma con la memoria que le manda la app
+  var SYSTEM='Eres la IA creativa de INKBOT PRO, el sistema de contenido para Instagram de un tatuador profesional. Escribes siempre en español de México, claro, directo y apasionante.\n\n'
+    +'APRENDES DE TI MISMA: en cada pedido recibes tu propia memoria — tus últimas historias generadas, lo que al usuario le GUSTÓ (👍) y lo que RECHAZÓ (👎). Úsala así:\n'
+    +'- NUNCA repitas un tema, dato, cultura, símbolo, personaje, fecha, ángulo o enfoque emocional que ya usaste o que fue rechazado, ni con otras palabras, ni adaptado, ni parecido.\n'
+    +'- De lo que gustó, aprende SOLO el estilo, el tono y la profundidad que prefiere el usuario; el contenido siempre debe ser nuevo.\n'
+    +'- De lo que rechazó, aprende qué NO le interesa y aléjate de esa zona temática.\n'
+    +'- Si notas que estás por escribir algo similar a algo anterior, DETENTE y elige el ángulo más diferente posible.\n'
+    +'- Solo hechos reales y específicos (nombres, fechas, lugares, cifras). Si no estás seguro de un dato, elige otro que sí conozcas bien.\n\n'
+    +'FORMATO: cuando se te pida JSON, responde ÚNICAMENTE con el objeto JSON válido: sin texto antes ni después, sin bloques ``` y con comillas dobles normales.';
+  var cache=null,lastModel='';
+  function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+  function err(msg,kind){var e=new Error(msg);e.kind=kind||'other';return e;}
+  function isVision(m){return !!(m&&m.vision===true)||(!(m&&m.vision===false)&&VISION.test(String(m&&m.name||'')));}
+  function models(){
+    if(cache&&Date.now()-cache.t<30*60000)return Promise.resolve(cache.list);
+    var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},7000);
+    return fetch(MODELS_URL,{signal:ctl.signal}).then(function(r){return r.ok?r.json():[];}).then(function(j){
+      var list=(Array.isArray(j)?j:[]).map(function(x){return typeof x==='string'?{name:x}:x;}).filter(function(x){return x&&x.name;});
+      if(list.length)cache={t:Date.now(),list:list};return list;
+    }).catch(function(){return cache?cache.list:[];}).finally(function(){clearTimeout(t);});
+  }
+  function pick(list,needVision){
+    list=list.filter(function(x){return !BAD.test(x.name+' '+(x.description||''));});
+    if(!list.length)return needVision?FALLBACK_VISION.slice():FALLBACK.slice();
+    var open=list.filter(function(x){return OPEN.test(x.name);});
+    if(needVision){ // primero modelos abiertos con visión; si no hay, cualquier modelo gratuito con visión
+      var ov=open.filter(isVision).map(function(x){return x.name;}),av=list.filter(isVision).map(function(x){return x.name;});
+      var out=ov.concat(av.filter(function(n){return ov.indexOf(n)===-1;}));
+      return out.length?out:FALLBACK_VISION.slice();
+    }
+    if(!open.length)return FALLBACK.slice();
+    function score(x){return (/mistral|llama|qwen|gemma|deepseek/i.test(x.name)?20:0)-x.name.length/100;}
+    return open.slice().sort(function(a,b){return score(b)-score(a);}).map(function(x){return x.name;});
+  }
+  function textOf(j){var c=j&&j.choices&&j.choices[0];if(!c)return '';var m=c.message||{};return typeof m.content==='string'?m.content:Array.isArray(m.content)?m.content.map(function(p){return p.text||'';}).join(''):(c.text||'');}
+  function call(model,messages,o){
+    var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},o.timeout||90000);
+    var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:o.maxTokens||800,seed:Math.floor(Math.random()*1e9),private:true};
+    return fetch(CHAT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl.signal})
+      .catch(function(e){throw err(e&&e.name==='AbortError'?'La IA tardó demasiado':'Sin conexión con la IA gratuita. Revisa tu internet.',e&&e.name==='AbortError'?'abort':'network');})
+      .then(function(r){
+        if(!r.ok)return r.text().then(function(tx){var k=r.status===429?'rate':r.status>=500?'server':'model';throw err(r.status===429?'La IA gratuita está saturada, espera unos segundos.':('Error '+r.status+' '+String(tx||'').slice(0,120)),k);});
+        return r.text().then(function(raw){var tx;try{tx=textOf(JSON.parse(raw));}catch(e){tx=raw;}
+          tx=String(tx||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim();if(!tx)throw err('El modelo no devolvió texto.','server');return tx;});
+      }).finally(function(){clearTimeout(t);});
+  }
+  // chat(prompt,{image:{b64,mime},maxTokens,temperature}) → texto
+  function chat(prompt,o){
+    o=o||{};var img=o.image&&o.image.b64;
+    var user=img?{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:'data:'+(o.image.mime||'image/jpeg')+';base64,'+o.image.b64}}]}:{role:'user',content:prompt};
+    var messages=[{role:'system',content:SYSTEM},user];
+    return models().then(function(list){
+      var cand=pick(list,!!img).slice(0,4),i=0,last=null;
+      function next(){
+        if(i>=cand.length)return Promise.reject(last||err('La IA gratuita no respondió. Intenta otra vez.','server'));
+        var m=cand[i++];
+        return call(m,messages,o).then(function(tx){lastModel=m;status();return tx;}).catch(function(e){
+          last=e;if(e.kind==='network')throw e;return (e.kind==='rate'?sleep(2500):Promise.resolve()).then(next);
+        });
+      }
+      return next();
+    });
+  }
+  // Saca el objeto JSON de la respuesta aunque el modelo agregue texto o ```
+  function parse(raw){
+    var t=String(raw||'').replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```(?:json)?/gi,'').replace(/[“”]/g,'"').trim();
+    var a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<=a)throw err('La IA no respondió en el formato esperado.','format');
+    var j=t.slice(a,b+1);
+    try{return JSON.parse(j);}catch(e){}
+    try{return JSON.parse(j.replace(/,\s*([}\]])/g,'$1').replace(/[\u0000-\u001f]+/g,' '));}catch(e){throw err('La IA no respondió en el formato esperado.','format');}
+  }
+  // json(prompt,o) → objeto; si el formato sale mal, lo vuelve a pedir (hasta 3 intentos)
+  function json(prompt,o){
+    var tries=0;
+    function go(){tries++;return chat(prompt,o).then(parse).catch(function(e){if((e.kind==='format'||e.kind==='server'||e.kind==='rate')&&tries<3)return go();throw e;});}
+    return go();
+  }
+  function status(){var b=document.getElementById('ai-badge');if(b)b.textContent='🟢 IA GRATIS · '+(lastModel||'open source');var s=document.getElementById('sp-ai-status');if(s&&lastModel)s.textContent='Conectada · modelo abierto: '+lastModel+' · aprende de tus 👍 / 👎';}
+  return {chat:chat,json:json,parse:parse,models:models,pick:pick,SYSTEM:SYSTEM,get model(){return lastModel;}};
+})();
+window.INKAI=INKAI;
+function getKey(){return 'free';} // ya no se necesita API key
+// Devuelve el JSON como texto para que el resto de la app siga igual (JSON.parse(raw...))
+function callAI(key,prompt,image,maxTokens){return INKAI.json(prompt,{image:image||null,maxTokens:maxTokens||700}).then(function(o){return JSON.stringify(o);});}
+window.callAI=callAI;window.getKey=getKey;
 function setSt(id,msg,cls){var e=document.getElementById(id);if(e){e.textContent=msg;e.className='st '+cls;}}
 
 
@@ -2108,20 +2181,7 @@ var splash=document.getElementById('splash');
 var inkbotApp=document.getElementById('inkbot-app');
 var dictApp=document.getElementById('dict-app');
 var btnBack=document.getElementById('btn-back');
-var spKey=document.getElementById('sp-key');
-var spProv=document.getElementById('sp-provider');
-var inkKey=document.getElementById('api-key');
-var inkProv=document.getElementById('api-provider');
-
-// Cargar key guardada
-(function(){
-  try{var s=JSON.parse(localStorage.getItem('inkbot_pro')||'{}');if(s.key){spKey.value=s.key;inkKey.value=s.key;}if(s.prov){spProv.value=s.prov;inkProv.value=s.prov;}}catch(e){}
-})();
-function syncKey(){inkKey.value=spKey.value;try{var s=JSON.parse(localStorage.getItem('inkbot_pro')||'{}');s.key=spKey.value;s.prov=spProv.value;localStorage.setItem('inkbot_pro',JSON.stringify(s));}catch(e){}}
-spKey.addEventListener('input',syncKey);
-spProv.addEventListener('change',function(){inkProv.value=this.value;syncKey();});
-
-function requireKey(){if(!spKey.value.trim()){spKey.style.borderColor='#CC0000';spKey.focus();setTimeout(function(){spKey.style.borderColor='';},1500);return false;}return true;}
+function requireKey(){return true;} // la IA ya es gratuita: no hace falta API key
 
 function goSplash(){splash.classList.remove('hide');inkbotApp.style.display='none';dictApp.classList.remove('show');btnBack.classList.remove('show');document.getElementById('d-mob-toggle').style.display='none';var ds=document.querySelector('.d-sidebar');if(ds)ds.classList.remove('d-mob-open');}
 function goInkbot(){if(!requireKey())return;splash.classList.add('hide');inkbotApp.style.display='block';dictApp.classList.remove('show');btnBack.classList.add('show');document.getElementById('d-mob-toggle').style.display='none';}
@@ -2310,21 +2370,7 @@ function resetDFB(){
   l.style.cssText='';d.style.cssText='';l.disabled=false;d.disabled=false;m.style.display='none';
 }
 
-function callDictAPI(prompt){
-  var key=spKey.value.trim();
-  if(!key)return Promise.reject(new Error('Sin API Key'));
-  if(spProv.value==='gemini'){
-    return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+key,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
-    }).then(function(r){return r.json();}).then(function(d){if(d.error)throw new Error(d.error.message);return d.candidates[0].content.parts[0].text;});
-  }
-  return fetch(anthropicEndpoint(key),{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,messages:[{role:'user',content:prompt}]})
-  }).then(function(r){return r.json();}).then(function(d){if(d.error)throw new Error(d.error.message);return d.content[0].text;});
-}
+function callDictAPI(prompt){return callAI('free',prompt,null,900);}
 
 function genDict(){
   document.getElementById('d-loader').classList.add('show');
