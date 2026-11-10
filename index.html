@@ -2065,6 +2065,14 @@ var INKAI=(function(){
     +'- De lo que rechazó, aprende qué NO le interesa y aléjate de esa zona temática.\n'
     +'- Si notas que estás por escribir algo similar a algo anterior, DETENTE y elige el ángulo más diferente posible.\n'
     +'- Solo hechos reales y específicos (nombres, fechas, lugares, cifras). Si no estás seguro de un dato, elige otro que sí conozcas bien.\n\n'
+    +'VERACIDAD (REGLA MÁXIMA, por encima de la variedad y la creatividad):\n'
+    +'- TODO dato debe ser VERÍDICO y comprobable en fuentes serias (historia, antropología, museos, medicina, prensa reconocida). Nada inventado, exagerado ni "dicen que".\n'
+    +'- PROHIBIDO inventar nombres, fechas, cifras, estudios, citas, porcentajes, leyes o anécdotas. Si no conoces la cifra exacta, no pongas cifra.\n'
+    +'- No presentes mitos, leyendas o creencias populares como hechos: si hablas de una leyenda, dilo claramente ("según la leyenda…").\n'
+    +'- Sobre celebridades: solo tatuajes que realmente tienen y que son públicos y conocidos.\n'
+    +'- Salud y cuidados: solo información aceptada por dermatólogos y profesionales; nada de remedios caseros ni promesas.\n'
+    +'- TODO el contenido debe estar relacionado con el TATUAJE (su historia, cultura, significado, símbolos, técnica, cuidado, personas tatuadas, decisiones del cliente). Si un dato no tiene relación clara con los tatuajes, no lo uses.\n'
+    +'- Ante la duda entre un dato llamativo pero dudoso y uno seguro, SIEMPRE elige el seguro.\n\n'
     +'FORMATO: cuando se te pida JSON, responde ÚNICAMENTE con el objeto JSON válido: sin texto antes ni después, sin bloques ``` y con comillas dobles normales.';
   var cache=null,lastModel='';
   // ── Llave opcional (enter.pollinations.ai). Sin llave: límite gratis ~1 respuesta / 45 s por IP
@@ -2127,7 +2135,7 @@ var INKAI=(function(){
   function textOf(j){var c=j&&j.choices&&j.choices[0];if(!c)return '';var m=c.message||{};return typeof m.content==='string'?m.content:Array.isArray(m.content)?m.content.map(function(p){return p.text||'';}).join(''):(c.text||'');}
   function call(model,messages,o){
     var ctl=new AbortController(),t=setTimeout(function(){ctl.abort();},o.timeout||90000);
-    var body={model:model,messages:messages,temperature:o.temperature==null?.95:o.temperature,max_tokens:Math.max(o.maxTokens||0,4000),reasoning_effort:'low',seed:Math.floor(Math.random()*1e9),private:true};
+    var body={model:model,messages:messages,temperature:o.temperature==null?.7:o.temperature,max_tokens:Math.max(o.maxTokens||0,4000),reasoning_effort:'low',seed:Math.floor(Math.random()*1e9),private:true};
     return fetch(chatUrl(),{method:'POST',headers:headers(),body:JSON.stringify(body),signal:ctl.signal})
       .catch(function(e){throw err(e&&e.name==='AbortError'?'La IA tardó demasiado':'Sin conexión con la IA gratuita. Revisa tu internet.',e&&e.name==='AbortError'?'abort':'network');})
       .then(function(r){
@@ -2182,10 +2190,30 @@ var INKAI=(function(){
     try{return JSON.parse(j.replace(/,\s*([}\]])/g,'$1').replace(/[\u0000-\u001f]+/g,' '));}catch(e){throw err('La IA no respondió en el formato esperado.','format');}
   }
   // json(prompt,o) → objeto; si el formato sale mal, lo vuelve a pedir (hasta 3 intentos)
+  // Después, una segunda pasada de la IA revisa que los datos sean verídicos y sobre tatuajes
   function json(prompt,o){
-    var tries=0;
+    o=o||{};var tries=0;
     function go(){tries++;return chat(prompt,o).then(parse).catch(function(e){if((e.kind==='format'||e.kind==='server')&&tries<3)return go();throw e;});}
-    return go();
+    return go().then(function(obj){return o.verify===false?obj:verify(prompt,obj,o);});
+  }
+  // ── REVISOR DE VERACIDAD: revisa el contenido generado y corrige lo dudoso o no relacionado
+  function verify(prompt,obj,o){
+    var keys=Object.keys(obj||{});if(!keys.length)return Promise.resolve(obj);
+    var q='TAREA: eres el VERIFICADOR DE DATOS de INKBOT PRO. Revisa el contenido que se generó para este pedido.\n\n'
+      +'PEDIDO ORIGINAL (respeta TODAS sus reglas de formato, tono, longitud y enfoque):\n<<<\n'+String(prompt).slice(0,6000)+'\n>>>\n\n'
+      +'CONTENIDO GENERADO:\n'+JSON.stringify(obj)+'\n\n'
+      +'REVISA cada afirmación, nombre, fecha, lugar, cifra y cita:\n'
+      +'1. ¿Es VERÍDICA y comprobable? Si es falsa, inventada, exagerada, dudosa o un mito presentado como hecho → corrígela con un dato real que conozcas con certeza, o cambia el contenido por otro dato verídico del mismo tema.\n'
+      +'2. ¿Está relacionada con el TATUAJE? Si no tiene relación clara → reemplázala por algo verídico y relacionado con tatuajes.\n'
+      +'3. Si todo es correcto, devuelve el contenido igual, sin cambiar nada.\n'
+      +'No cambies la descripción del tatuaje propio del usuario ni su handle. Conserva el estilo, el tono, los emojis y la longitud pedida.\n\n'
+      +'Responde SOLO con el JSON final, con EXACTAMENTE las mismas claves: '+keys.join(', ')+'.';
+    var st=document.querySelectorAll('.st.ld,#d-st.ld');st.forEach(function(el){el.textContent='🔎 Verificando que los datos sean verídicos…';});
+    return chat(q,{maxTokens:o.maxTokens,temperature:.2}).then(parse).then(function(v){
+      // Solo se usa la versión revisada si conserva todas las claves; si no, queda la original
+      var ok=keys.every(function(k){return v&&v[k]!=null&&String(v[k]).trim()!=='';});
+      return ok?Object.assign({},obj,v):obj;
+    }).catch(function(){return obj;});
   }
   function status(){var b=document.getElementById('ai-badge');if(b)b.textContent='🟢 IA '+(key()?'· LLAVE':'GRATIS')+' · '+(lastModel||'open source');var s=document.getElementById('sp-ai-status');if(s&&lastModel)s.textContent='Conectada · modelo abierto: '+lastModel+' · aprende de tus 👍 / 👎';}
   return {chat:chat,json:json,parse:parse,models:models,pick:pick,key:key,setKey:setKey,status:status,SYSTEM:SYSTEM,get model(){return lastModel;}};
