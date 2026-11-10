@@ -2818,21 +2818,47 @@ document.getElementById('d-btn-dl-mp4').addEventListener('click',function(){
 <script>
 // Ajustes → Icono de la app: elige entre el original y el de fondo negro
 (function(){
-  var wrap=document.getElementById('appicon-pills'); if(!wrap) return;
-  var msg=document.getElementById('appicon-msg');
   var cur='original'; try{cur=localStorage.getItem('inkbot-icon')||'original';}catch(e){}
-  function mark(v){wrap.querySelectorAll('.pill').forEach(function(p){p.classList.toggle('on',p.dataset.val===v);});}
+  var MSG='✓ Icono aplicado. En el celular el icono de inicio se actualiza al reabrir la app (si no cambia, reinstálala).';
+
+  // Ventana de Ajustes para el menú principal (el ⚙️ del menú abre esta ventana)
+  var modal=document.createElement('div');
+  modal.id='appicon-modal';
+  modal.style.cssText='display:none;position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,.8);align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML='<div style="background:#0d0d0d;border:1px solid #252525;padding:18px 20px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:20px;letter-spacing:4px;color:#f0ebe3">AJUSTES</div>'
+    +'<button type="button" id="appicon-close" style="background:transparent;border:1px solid #252525;color:#f0ebe3;width:32px;height:32px;font-size:14px;cursor:pointer">✕</button></div>'
+    +'<div style="font-family:\'Space Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#777">Icono de la app</div>'
+    +'<div class="appicon-opts" style="display:flex;gap:10px">'
+    +'<button type="button" data-val="original" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;background:#060606;border:1px solid #252525;color:#f0ebe3;font-family:\'Space Mono\',monospace;font-size:10px;cursor:pointer"><img src="icon-192.png" alt="" style="width:56px;height:56px">Original</button>'
+    +'<button type="button" data-val="dark" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;background:#060606;border:1px solid #252525;color:#f0ebe3;font-family:\'Space Mono\',monospace;font-size:10px;cursor:pointer"><img src="icon-dark-192.png" alt="" style="width:56px;height:56px">Fondo negro</button>'
+    +'</div><div class="appicon-msg2" style="font-family:\'Space Mono\',monospace;font-size:9px;color:#4ade80;line-height:1.5"></div></div>';
+  document.body.appendChild(modal);
+  function openModal(){modal.style.display='flex';}
+  function closeModal(){modal.style.display='none';}
+  modal.addEventListener('click',function(e){if(e.target===modal)closeModal();});
+  document.getElementById('appicon-close').addEventListener('click',closeModal);
+
+  // En el menú principal, el ⚙️ abre Ajustes (antes no hacía nada ahí)
+  document.addEventListener('click',function(e){
+    var t=e.target.closest&&e.target.closest('#d-mob-toggle,#mob-toggle');
+    var sp=document.getElementById('splash');
+    if(t&&sp&&!sp.classList.contains('hide')){e.preventDefault();e.stopPropagation();openModal();}
+  },true);
+
+  function mark(v){
+    document.querySelectorAll('#appicon-pills .pill').forEach(function(p){p.classList.toggle('on',p.dataset.val===v);});
+    modal.querySelectorAll('.appicon-opts button').forEach(function(bt){var on=bt.dataset.val===v;bt.style.borderColor=on?'#CC0000':'#252525';bt.style.color=on?'#CC0000':'#f0ebe3';});
+  }
   function saveForSW(v){
     // El Service Worker lee esta elección para servir el manifest con el icono correcto
     if(!('caches' in window)) return Promise.resolve();
     return caches.open('inkbot-settings').then(function(c){return c.put('./__app-icon',new Response(v));}).catch(function(){});
   }
-  mark(cur); saveForSW(cur);
-  wrap.querySelectorAll('.pill').forEach(function(p){
-    p.addEventListener('click',function(){
-      var v=p.dataset.val; if(v===cur) return; cur=v;
+  function choose(v){
+    if(v!==cur){
+      cur=v;
       try{localStorage.setItem('inkbot-icon',v);}catch(e){}
-      mark(v);
       if(window.__applyAppIcon) window.__applyAppIcon(v);
       saveForSW(v).then(function(){
         // Fuerza a que el navegador vuelva a leer el manifest con el icono nuevo
@@ -2840,9 +2866,14 @@ document.getElementById('d-btn-dl-mp4').addEventListener('click',function(){
         if(old){var n=old.cloneNode();n.href='manifest.json';old.parentNode.replaceChild(n,old);}
         if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration){navigator.serviceWorker.getRegistration().then(function(r){if(r)r.update();});}
       });
-      if(msg) msg.textContent='✓ Icono aplicado. En el celular el icono de inicio se actualiza al reabrir la app (si no cambia, reinstálala).';
-    });
-  });
+    }
+    mark(v);
+    var m1=document.getElementById('appicon-msg'); if(m1) m1.textContent=MSG;
+    var m2=modal.querySelector('.appicon-msg2'); if(m2) m2.textContent=MSG;
+  }
+  mark(cur); saveForSW(cur);
+  document.querySelectorAll('#appicon-pills .pill').forEach(function(p){p.addEventListener('click',function(){choose(p.dataset.val);});});
+  modal.querySelectorAll('.appicon-opts button').forEach(function(bt){bt.addEventListener('click',function(){choose(bt.dataset.val);});});
 })();
 </script>
 
