@@ -1,5 +1,5 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v6';
+const CACHE = 'inkbot-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,11 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-192.png',
-  './icon-maskable-512.png'
+  './icon-maskable-512.png',
+  './icon-dark-192.png',
+  './icon-dark-512.png',
+  './icon-dark-maskable-192.png',
+  './icon-dark-maskable-512.png'
 ];
 
 // Instala y precachea los archivos clave de la app
@@ -21,7 +25,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'inkbot-settings').map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -31,6 +35,13 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+
+  // Manifest: usa el icono elegido en Ajustes (original o fondo negro)
+  const url = new URL(req.url);
+  if (url.origin === self.location.origin && url.pathname.endsWith('/manifest.json')) {
+    e.respondWith(manifestConIcono(req));
+    return;
+  }
 
   e.respondWith(
     caches.match(req).then((cached) => {
@@ -51,3 +62,19 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
+
+// Devuelve el manifest con los iconos según la elección guardada por la app
+function manifestConIcono(req) {
+  return caches.open('inkbot-settings')
+    .then((c) => c.match('./__app-icon'))
+    .then((r) => (r ? r.text() : 'original'))
+    .catch(() => 'original')
+    .then((choice) =>
+      fetch(req).catch(() => caches.match('./manifest.json')).then((res) => res.json().then((m) => {
+        if (choice === 'dark' && Array.isArray(m.icons)) {
+          m.icons = m.icons.map((i) => Object.assign({}, i, { src: i.src.replace(/^(\.\/)?icon-/, '$1icon-dark-') }));
+        }
+        return new Response(JSON.stringify(m), { headers: { 'Content-Type': 'application/manifest+json' } });
+      }))
+    );
+}
