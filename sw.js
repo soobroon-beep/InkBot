@@ -1,5 +1,5 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v8';
+const CACHE = 'inkbot-v9';
 const ASSETS = [
   './',
   './index.html',
