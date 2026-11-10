@@ -15,6 +15,18 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <script>
+// Icono de la app elegido en Ajustes ('original' | 'dark')
+(function(){
+  var ic='original'; try{ic=localStorage.getItem('inkbot-icon')||'original';}catch(e){}
+  window.__applyAppIcon=function(choice){
+    var p=choice==='dark'?'icon-dark-':'icon-';
+    document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(function(l){l.href=p+'maskable-'+(l.getAttribute('sizes')||'192x192').split('x')[0]+'.png';});
+    document.querySelectorAll('link[rel="icon"]').forEach(function(l){l.href=p+'192.png';});
+  };
+  if(ic==='dark') window.__applyAppIcon('dark');
+})();
+</script>
+<script>
 // Registro del Service Worker real (requiere servir por HTTPS o localhost)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
@@ -743,6 +755,13 @@ transition:transform .15s;
     <div class="upz"><input type="file" id="logo-input" accept=".png,.svg,.webp"><img id="logo-prev" style="display:none;max-height:34px;max-width:100px;object-fit:contain;margin:0 auto 5px"><p id="logo-txt">↑ Sube tu logo</p></div>
   </div>
   <div class="sb"><div class="lbl">Handle de Instagram</div><input type="text" class="inp" id="handle" value="V.SOBRONTT ❘ INKBOT" placeholder="V.SOBRONTT ❘ INKBOT"></div>
+  <div class="sb"><div class="lbl">Icono de la app</div>
+    <div class="pills" id="appicon-pills">
+      <div class="pill" data-val="original" style="display:flex;align-items:center;gap:6px"><img src="icon-192.png" alt="" style="width:22px;height:22px">Original</div>
+      <div class="pill" data-val="dark" style="display:flex;align-items:center;gap:6px"><img src="icon-dark-192.png" alt="" style="width:22px;height:22px">Fondo negro</div>
+    </div>
+    <div class="st" id="appicon-msg" style="text-align:left;padding:5px 0"></div>
+  </div>
   <textarea id="ctx" style="display:none">Japonés neotradicional. Rojo carmesí, negro, dorado, verde jade. 10 años de experiencia. Veracruz, México.</textarea>
   <div class="sb" style="display:flex;flex-direction:column;gap:7px;padding-bottom:40px">
     <div class="lbl" style="margin-bottom:4px">🎨 Tema libre <span style="background:#CC0000;color:#fff;font-size:7px;padding:1px 5px;letter-spacing:1px;margin-left:4px">NUEVO</span></div>
@@ -2793,6 +2812,37 @@ document.getElementById('d-btn-dl-mp4').addEventListener('click',function(){
   }
 });
 
+})();
+</script>
+
+<script>
+// Ajustes → Icono de la app: elige entre el original y el de fondo negro
+(function(){
+  var wrap=document.getElementById('appicon-pills'); if(!wrap) return;
+  var msg=document.getElementById('appicon-msg');
+  var cur='original'; try{cur=localStorage.getItem('inkbot-icon')||'original';}catch(e){}
+  function mark(v){wrap.querySelectorAll('.pill').forEach(function(p){p.classList.toggle('on',p.dataset.val===v);});}
+  function saveForSW(v){
+    // El Service Worker lee esta elección para servir el manifest con el icono correcto
+    if(!('caches' in window)) return Promise.resolve();
+    return caches.open('inkbot-settings').then(function(c){return c.put('./__app-icon',new Response(v));}).catch(function(){});
+  }
+  mark(cur); saveForSW(cur);
+  wrap.querySelectorAll('.pill').forEach(function(p){
+    p.addEventListener('click',function(){
+      var v=p.dataset.val; if(v===cur) return; cur=v;
+      try{localStorage.setItem('inkbot-icon',v);}catch(e){}
+      mark(v);
+      if(window.__applyAppIcon) window.__applyAppIcon(v);
+      saveForSW(v).then(function(){
+        // Fuerza a que el navegador vuelva a leer el manifest con el icono nuevo
+        var old=document.querySelector('link[rel="manifest"]');
+        if(old){var n=old.cloneNode();n.href='manifest.json';old.parentNode.replaceChild(n,old);}
+        if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration){navigator.serviceWorker.getRegistration().then(function(r){if(r)r.update();});}
+      });
+      if(msg) msg.textContent='✓ Icono aplicado. En el celular el icono de inicio se actualiza al reabrir la app (si no cambia, reinstálala).';
+    });
+  });
 })();
 </script>
 
