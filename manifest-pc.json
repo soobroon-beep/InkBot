@@ -1,0 +1,30 @@
+{
+  "name": "INKBOT PRO",
+  "short_name": "INKBOT",
+  "description": "INKBOT PRO — aplicación web instalable.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#060606",
+  "theme_color": "#CC0000",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "icon-pc-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-pc-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

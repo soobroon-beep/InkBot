@@ -21,9 +21,12 @@
   window.__applyAppIcon=function(choice){
     var p=choice==='dark'?'icon-dark-':'icon-';
     document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(function(l){l.href=p+'maskable-'+(l.getAttribute('sizes')||'192x192').split('x')[0]+'.png';});
-    document.querySelectorAll('link[rel="icon"]').forEach(function(l){l.href=p+'192.png';});
+    document.querySelectorAll('link[rel="icon"]').forEach(function(l){l.href=window.__INK_PC?'icon-pc-192.png':p+'192.png';});
   };
   if(ic==='dark') window.__applyAppIcon('dark');
+  // En PC (igual que VORTEX): al instalar, en el dock/barra de tareas y en la pestaña sale solo el símbolo blanco, sin fondo y más grande. En celular todo sigue igual.
+  window.__INK_PC=(function(){try{var u=navigator.userAgent||'',m=/Android|iPhone|iPad|iPod|Mobile/i.test(u)||(navigator.userAgentData&&navigator.userAgentData.mobile)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1);return !m&&matchMedia('(pointer: fine)').matches;}catch(e){return false;}})();
+  if(window.__INK_PC){var mf=document.querySelector('link[rel="manifest"]');if(mf)mf.href='manifest-pc.json';window.__applyAppIcon(ic);}
 })();
 </script>
 <script>
@@ -2891,7 +2894,7 @@ document.getElementById('d-btn-dl-mp4').addEventListener('click',function(){
       saveForSW(v).then(function(){
         // Fuerza a que el navegador vuelva a leer el manifest con el icono nuevo
         var old=document.querySelector('link[rel="manifest"]');
-        if(old){var n=old.cloneNode();n.href='manifest.json';old.parentNode.replaceChild(n,old);}
+        if(old){var n=old.cloneNode();n.href=window.__INK_PC?'manifest-pc.json':'manifest.json';old.parentNode.replaceChild(n,old);}
         if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration){navigator.serviceWorker.getRegistration().then(function(r){if(r)r.update();});}
       });
     }
