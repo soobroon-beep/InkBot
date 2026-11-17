@@ -1,5 +1,5 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v13';
+const CACHE = 'inkbot-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -44,6 +44,20 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin && url.pathname.endsWith('/manifest.json')) {
     e.respondWith(manifestConIcono(req));
+    return;
+  }
+
+  // Estudio: las llamadas a Google/Firebase (datos, login, Calendar, Drive) van directo a la red, sin caché
+  if (/(^|\.)googleapis\.com$|(^|\.)firebaseapp\.com$|^accounts\.google\.com$|^apis\.google\.com$|(^|\.)firebaseio\.com$/.test(url.hostname)) return;
+
+  // Librerías externas (SDK de Firebase, JSZip, fuentes): se guardan para que la app abra sin conexión
+  if ((url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) || url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'fonts.gstatic.com') {
+    e.respondWith(
+      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+        if (res.ok || res.type === 'opaque') { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
+        return res;
+      }))
+    );
     return;
   }
 
