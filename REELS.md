@@ -4,7 +4,8 @@ Botón **«Reels Virales»** en el menú principal. Todo el código está en `re
 
 ## Cómo se usa
 1. Sube los clips del tatuaje y la foto final (se ordenan solos por fecha de grabación).
-2. Elige un formato viral o deja **«Que la IA elija»**. También puedes **clonar un viral**: pegas el link y describes qué pasa.
+2. Elige un formato viral o deja **«Que la IA elija»**.
+   - **Clonar un viral:** guarda en tu celular el video que te gustó (TikTok: Compartir → Guardar video; Instagram: grabadora de pantalla) y súbelo. La app copia sus **cortes exactos**, su **ritmo** y su **audio**, y los usa con tus clips. El link es opcional (la app no puede bajar videos desde un link).
 3. Gancho: automático, generado con IA o el tuyo (`*palabra*` sale resaltada en dorado).
 4. Audio: **en tendencia** (lo eliges en IG/TikTok al subir), **tu audio** (detecta el ritmo y el drop) o **Beat INKBOT** (libre de derechos).
 5. **Crear** → MP4 1080×1920 listo, con caption, hashtags, día/hora y qué audio buscar. «Compartir» lo manda directo a Instagram/TikTok.

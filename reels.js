@@ -73,7 +73,8 @@ function getTpl(key) {
   var b = TPL[c.base] || TPL.revelacion;
   return Object.assign({}, b, { key: c.id, base: c.base in TPL ? c.base : 'revelacion', name: c.name, emoji: '⭐', desc: c.notes || b.desc,
     hooks: [c.hook].concat(b.hooks).filter(Boolean), voice: c.voice != null ? !!c.voice : b.voice,
-    dur: c.seconds ? [Math.max(8, c.seconds - 4), c.seconds + 6] : b.dur, bpm: c.pace === 'rapido' ? b.bpm + 14 : c.pace === 'lento' ? b.bpm - 14 : b.bpm, lines: c.lines || [], custom: true });
+    dur: c.seconds ? [Math.max(8, c.seconds - 4), c.seconds + 6] : b.dur, bpm: c.pace === 'rapido' ? b.bpm + 14 : c.pace === 'lento' ? b.bpm - 14 : b.bpm, lines: c.lines || [], custom: true,
+    cuts: c.cuts || null, cloneDur: c.dur || 0, hasAudio: !!c.hasAudio, voice: c.cuts ? false : (c.voice != null ? !!c.voice : b.voice) });
 }
 function fillVars(s, extra) {
   var horas = (extra && extra.horas) || 6;
@@ -297,6 +298,14 @@ function buildEDL(o) {
   var R0 = snap(g, T - revealLen); if (R0 > T - 1.6) R0 = T - 2.2; if (R0 < 2) R0 = Math.min(T - 1.5, 2);
   var hookEnd = snap(g, base === 'pov' ? 3.2 : base === 'asmr' ? 3 : base === 'encuesta' ? 1.6 : 2.4);
   if (hookEnd >= R0) hookEnd = Math.max(0.8, R0 * .3);
+  // Plantilla clonada de un video viral: se copian sus cortes exactos
+  var cloneBody = null;
+  if (tpl.cuts && tpl.cuts.length >= 3 && vids.length) {
+    var cs = tpl.cuts.slice(), ri = cs.length - 1, acc = 0, tot = cs.reduce(function (a, b) { return a + b; }, 0);
+    if (cs[ri] < 1 && cs.length > 3) { var tail = 0; while (ri > 2 && tail < tot * .15) { tail += cs[ri]; ri--; } ri++; }
+    for (var ci = 0; ci < ri; ci++) acc += cs[ci];
+    hookEnd = cs[0]; R0 = acc; cloneBody = cs.slice(1, ri);
+  }
   function push(list, role) { list.forEach(function (s) { if (s) { s.role = role; shots.push(s); } }); }
 
   if (vids.length) {
@@ -304,7 +313,7 @@ function buildEDL(o) {
     var hk = bestShot(vids, hookEnd, base === 'asmr' ? .85 : 1.2, base === 'asmr' ? 'detail' : 'hook', st, used, r);
     if (hk) { hk.zoomA = 1.14; hk.zoomB = 1.04; push([hk], 'hook'); }
     var body = [];
-    if (base === 'etapas') {
+    if (base === 'etapas' && !cloneBody) {
       var stages = vids.slice(0, 5), span = (R0 - hookEnd) / stages.length, t0 = hookEnd, prevB = hookEnd;
       var labels = (plan.lines && plan.lines.length >= stages.length ? plan.lines : defaultStages(stages.length));
       stages.forEach(function (c, i) {
@@ -315,6 +324,9 @@ function buildEDL(o) {
         push(sh, 'process');
         overlays.push({ type: 'label', text: labels[i] || ('PASO ' + (i + 1)), from: a, to: b, n: i + 1, of: stages.length });
       });
+    } else if (cloneBody) {
+      body = chronoShots(cloneBody.map(function (d) { return { outDur: d, speed: d < .5 ? 2.2 : 1.6, mode: 'action' }; }), vids, st, used, r);
+      push(body, 'process');
     } else {
       var k = base === 'asmr' ? 3 : (base === 'narrado' || base === 'significado' || base === 'marca') ? 2 : base === 'pov' ? 2 : beatsPer;
       var speed = base === 'asmr' ? .8 : base === 'narrado' ? 2.6 : base === 'significado' || base === 'marca' ? 2 : base === 'encuesta' ? 2.2 : 1.6;
@@ -883,6 +895,90 @@ async function aiClone(link, what) {
     pace: String(j.ritmo || 'medio'), voice: !!j.voz, seconds: clamp(+j.segundos || 15, 8, 60), notes: String(j.notas || ''), link: link || '' };
 }
 
+/* ═══════════════ 7b · CLONAR DESDE EL VIDEO VIRAL (cortes + audio) ═══════════════ */
+var IDB = {
+  db: function () { if (this._p) return this._p; this._p = new Promise(function (res, rej) { var r = indexedDB.open('inkbot-reels', 1); r.onupgradeneeded = function () { r.result.createObjectStore('audio'); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; }); return this._p; },
+  op: function (mode, fn) { return this.db().then(function (db) { return new Promise(function (res, rej) { var t = db.transaction('audio', mode), q = fn(t.objectStore('audio')); t.oncomplete = function () { res(q && q.result); }; t.onerror = function () { rej(t.error); }; }); }); },
+  get: function (k) { return this.op('readonly', function (s) { return s.get(k); }); },
+  set: function (k, v) { return this.op('readwrite', function (s) { return s.put(v, k); }); },
+  del: function (k) { return this.op('readwrite', function (s) { return s.delete(k); }).catch(function () {}); }
+};
+function toWav(buf, maxSec) {
+  var n = Math.min(buf.length, Math.floor((maxSec || 90) * buf.sampleRate)), ch = Math.min(2, buf.numberOfChannels), sr = buf.sampleRate;
+  var ab = new ArrayBuffer(44 + n * ch * 2), v = new DataView(ab);
+  function str(o, t) { for (var i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); }
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  var cd = []; for (var c = 0; c < ch; c++) cd.push(buf.getChannelData(c));
+  for (var i = 0, o = 44; i < n; i++) for (var k = 0; k < ch; k++, o += 2) { var x = clamp(cd[k][i], -1, 1); v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return ab;
+}
+// Reproduce el viral (sin sonido) y detecta cada corte comparando cuadro contra cuadro
+function detectCuts(file, onp) {
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(file), v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.src = url;
+    var cv = document.createElement('canvas'), cw = 48, chh = 86; cv.width = cw; cv.height = chh;
+    var ctx = cv.getContext('2d', { willReadFrequently: true }), prevH = null, prevG = null, diffs = [], done = false;
+    function frame() {
+      ctx.drawImage(v, 0, 0, cw, chh);
+      var d = ctx.getImageData(0, 0, cw, chh).data, hst = new Float32Array(48), g = new Float32Array(cw * chh);
+      for (var i = 0, j = 0; i < d.length; i += 4, j++) { hst[d[i] >> 4]++; hst[16 + (d[i + 1] >> 4)]++; hst[32 + (d[i + 2] >> 4)]++; g[j] = (d[i] + d[i + 1] + d[i + 2]) / 3; }
+      if (prevH) {
+        var hd = 0, pd = 0, N = cw * chh;
+        for (var k = 0; k < 48; k++) hd += Math.abs(hst[k] - prevH[k]); hd /= (N * 6);
+        for (var q = 0; q < N; q++) pd += Math.abs(g[q] - prevG[q]); pd /= (N * 255);
+        diffs.push({ t: v.currentTime, d: hd * .6 + pd * 1.4 });
+      }
+      prevH = hst; prevG = g;
+    }
+    function finish() {
+      if (done) return; done = true; v.pause(); URL.revokeObjectURL(url);
+      var dur = v.duration || (diffs.length ? diffs[diffs.length - 1].t : 0);
+      var vals = diffs.map(function (x) { return x.d; }), med = pct(vals, .5), hi = pct(vals, .97);
+      var thr = Math.max(.09, med * 4, Math.min(hi * .6, .25)), cuts = [0], last = 0;
+      diffs.forEach(function (x, i) {
+        var prev = diffs[i - 1] ? diffs[i - 1].d : 0, next = diffs[i + 1] ? diffs[i + 1].d : 0;
+        if (x.d > thr && x.d >= prev && x.d >= next && x.t - last > .28) { cuts.push(x.t); last = x.t; }
+      });
+      var shots = []; for (var c = 1; c <= cuts.length; c++) { var end = c < cuts.length ? cuts[c] : dur; if (end - cuts[c - 1] > .05) shots.push(+(end - cuts[c - 1]).toFixed(3)); }
+      resolve({ dur: dur, shots: shots });
+    }
+    v.onloadedmetadata = function () {
+      if (!isFinite(v.duration) || v.duration <= 0) { reject(new Error('No se pudo leer el video')); return; }
+      if (v.duration > 90) { reject(new Error('El video viral debe durar menos de 90 s')); return; }
+      v.playbackRate = 2;
+      var useR = 'requestVideoFrameCallback' in v;
+      function loop() { if (done) return; frame(); if (onp) onp(v.currentTime / v.duration); if (v.ended) return finish(); if (useR) v.requestVideoFrameCallback(loop); else setTimeout(loop, 20); }
+      v.onended = function () { setTimeout(finish, 100); };
+      v.play().then(function () { if (useR) v.requestVideoFrameCallback(loop); else loop(); }).catch(function () { reject(new Error('El navegador no dejó reproducir el video')); });
+    };
+    v.onerror = function () { reject(new Error('El navegador no pudo abrir ese video')); };
+    setTimeout(function () { if (!done) finish(); }, 200000);
+  });
+}
+async function cloneFromVideo(file, link, what, onp) {
+  onp && onp('Copiando los cortes del viral…');
+  var cut = await detectCuts(file, function (f) { onp && onp('Copiando los cortes del viral… ' + Math.round(f * 100) + '%'); });
+  if (cut.shots.length < 3) {
+    // pocos cortes detectados: arma el ritmo con el beat del audio
+    cut.fewCuts = true;
+  }
+  onp && onp('Copiando el audio y el ritmo…');
+  var buf = null, beats = null;
+  try { buf = await decode(await file.arrayBuffer()); beats = detectBeats(buf); } catch (e) { buf = null; }
+  if (cut.fewCuts) {
+    var bi = beats ? 60 / beats.bpm : .6, t = 0, sh = []; while (t < cut.dur - .1) { var d = Math.min(bi * 2, cut.dur - t); sh.push(d); t += d; } cut.shots = sh;
+  }
+  var id = 'c_' + uid(), info = { name: '', base: 'revelacion', hook: '', lines: [], notes: '' };
+  if (what && ai()) { try { var t2 = await aiClone(link, what); info = { name: t2.name, base: t2.base, hook: t2.hook, lines: t2.lines, notes: t2.notes }; } catch (e) {} }
+  if (buf) await IDB.set(id, toWav(buf, cut.dur + .5));
+  var n = cut.shots.length;
+  return { id: id, name: info.name || ('Viral · ' + n + ' cortes · ' + Math.round(cut.dur) + ' s'), base: BASES.indexOf(info.base) >= 0 ? info.base : 'revelacion',
+    hook: info.hook, lines: info.lines, notes: info.notes || ('Copia los ' + n + ' cortes exactos' + (buf ? ' y el audio' : '') + ' del viral' + (beats ? ' (' + Math.round(beats.bpm) + ' BPM)' : '') + '.'),
+    cuts: cut.shots, dur: +cut.dur.toFixed(2), hasAudio: !!buf, voice: false, link: link || '' };
+}
+
 /* ═══════════════════════ 8 · ORQUESTA: crear el reel ═══════════════════════ */
 function autoTemplate(exclude) {
   var keys = BASES.concat(customTpls().map(function (c) { return c.id; })).filter(function (k) { return exclude.indexOf(k) < 0; });
@@ -913,7 +1009,7 @@ async function prepareMusic() {
   return S.music;
 }
 async function createOne(tplKey, idx, step) {
-  var tpl = getTpl(tplKey), voiceWanted = CFG.voz === 'off' ? false : (tpl.voice || CFG.voz === 'siempre');
+  var tpl = getTpl(tplKey), voiceWanted = tpl.cuts ? false : CFG.voz === 'off' ? false : (tpl.voice || CFG.voz === 'siempre');
   step('plan', 'La IA está escribiendo el gancho, textos y caption…');
   var hookChoice = S.hook && idx === 0 ? S.hook : '';
   var plan = await aiPlan(tpl, voiceWanted, hookChoice);
@@ -927,7 +1023,12 @@ async function createOne(tplKey, idx, step) {
   var T = clamp(plan.seconds || tpl.dur[0], tpl.dur[0], tpl.dur[1]), voiceStart = .35;
   if (voice) T = clamp(voice.dur + voiceStart + 2.6, 12, 75);
   if (!vids.length) T = Math.min(T, 12);
+  if (tpl.cuts && vids.length) T = tpl.cloneDur;
   var music = null, grid, bpm = tpl.bpm, offset = 0, beat = null;
+  if (S.audio === 'clone' && tpl.hasAudio) {
+    var ab = await IDB.get(tpl.key);
+    if (ab) { var cb = await decode(ab); music = { buffer: cb, beats: detectBeats(cb) }; bpm = music.beats.bpm; grid = music.beats.beats.slice(); if (!grid.length || grid[0] > .05) grid.unshift(0); }
+  }
   if (S.audio === 'mine') {
     music = await prepareMusic();
     if (music) {
@@ -1064,10 +1165,11 @@ function build() {
     // 2 formato
     + '<div class="rv-sec"><div class="rv-h"><b>2</b> FORMATO VIRAL</div><div class="rv-tpls" id="rv-tpls"></div>'
     + '<details class="rv-det" style="margin-top:12px"><summary>＋ CLONAR UN VIDEO VIRAL</summary>'
-    + '<div class="rv-sub" style="margin-top:8px">¿Viste un reel que explotó? Pega el link y cuenta en una frase qué pasa en el video. La IA lo convierte en una plantilla tuya.</div>'
-    + '<div class="rv-f"><input class="rv-in" id="rv-cl-link" placeholder="Link del reel o TikTok (opcional)"></div>'
+    + '<div class="rv-sub" style="margin-top:8px">Copia los <b>cortes exactos</b> y el <b>audio</b> de un reel que explotó y los usa con tus clips.<br>1) Guarda el video viral en tu celular (en TikTok: Compartir → Guardar video; en Instagram: grábalo con la grabadora de pantalla).<br>2) Súbelo aquí. El link y la descripción son opcionales, solo ayudan a la IA con los textos.</div>'
+    + '<label class="rv-drop" for="rv-cl-file" style="padding:14px"><strong style="font-size:18px">＋ SUBIR EL VIDEO VIRAL</strong><span id="rv-cl-fname">Toca para elegirlo</span></label><input type="file" id="rv-cl-file" accept="video/*" hidden>'
+    + '<div class="rv-f"><div class="rv-row"><input class="rv-in" id="rv-cl-link" placeholder="Link del reel o TikTok (opcional)"><button class="rv-small" id="rv-cl-open" title="Abrir link">↗</button></div></div>'
     + '<div class="rv-f"><input class="rv-in" id="rv-cl-what" placeholder="Ej. empieza con texto POV, cortes rápidos y al final gira el brazo con un golpe"></div>'
-    + '<button class="rv-btn s" id="rv-cl-go">CREAR PLANTILLA</button></details>'
+    + '<button class="rv-btn s" id="rv-cl-go">CREAR PLANTILLA</button><div class="rv-msg" id="rv-cl-st"></div></details>'
     + '</div>'
     // 3 gancho
     + '<div class="rv-sec"><div class="rv-h"><b>3</b> TEXTO GANCHO</div><div class="rv-sub">Lo que se lee en el primer segundo. Déjalo en automático o elige uno.</div>'
@@ -1077,6 +1179,7 @@ function build() {
     + '<div class="rv-sec"><div class="rv-h"><b>4</b> AUDIO</div><div class="rv-opts" id="rv-audio">'
     + '<div class="rv-opt" data-a="trend"><div class="e">🔥</div><div><b>Audio en tendencia <i class="rv-tag">RECOMENDADO</i></b><span>El video sale con los cortes al ritmo y la voz. Al subirlo, eliges en Instagram o TikTok el audio que está pegando. Así el algoritmo te mete en la tendencia.</span></div></div>'
     + '<div class="rv-opt" data-a="mine"><div class="e">📁</div><div><b>Mi audio</b><span>Sube una canción o audio guardado. Detecta el ritmo, corta en cada golpe y hace coincidir el drop con la revelación.</span></div></div>'
+    + '<div class="rv-opt" data-a="clone" id="rv-a-clone" style="display:none"><div class="e">🔁</div><div><b>Audio del viral</b><span>Usa el mismo audio del video que clonaste, con los cortes justo donde caían en el original. Si prefieres, en Instagram toca «Usar audio» en el reel original: también cuenta para la tendencia.</span></div></div>'
     + '<div class="rv-opt" data-a="beat"><div class="e">🥁</div><div><b>Beat INKBOT</b><span>Música japonesa (taiko + koto) creada al momento, libre de derechos, con subida y golpe en el resultado final.</span></div></div>'
     + '</div><input type="file" id="rv-music" accept="audio/*,video/mp4" hidden><div class="rv-msg" id="rv-music-st"></div>'
     + '<div class="rv-f"><label>VOZ NARRANDO</label><div class="rv-seg" id="rv-voz"><button data-v="auto">Según formato</button><button data-v="siempre">Siempre</button><button data-v="off">Sin voz</button></div></div>'
@@ -1136,12 +1239,14 @@ function wire() {
   segWire('#rv-c-motor', 'e', function (v) { CFG.motor = v; saveCfg(); }, function () { return CFG.motor || 'auto'; });
   $('#rv-go').onclick = createAll;
   $('#rv-cl-go').onclick = function () {
-    var what = $('#rv-cl-what').value.trim(), link = $('#rv-cl-link').value.trim(), b = this;
-    if (!what) return toast('Cuenta en una frase qué pasa en el video viral');
+    var what = $('#rv-cl-what').value.trim(), link = $('#rv-cl-link').value.trim(), b = this, file = S.cloneFile, st = $('#rv-cl-st');
+    if (!file && !what) return toast('Sube el video viral (o al menos describe qué pasa en él)');
     b.disabled = true; b.textContent = 'CREANDO PLANTILLA…';
-    aiClone(link, what).then(function (t) { var c = customTpls(); c.unshift(t); lsSet(LS.tpl, c.slice(0, 30)); S.tpl = t.id; renderTpls(); renderHooks(); toast('Plantilla «' + t.name + '» lista'); $('#rv-cl-what').value = ''; $('#rv-cl-link').value = ''; })
+    (file ? cloneFromVideo(file, link, what, function (m) { st.textContent = m; }) : aiClone(link, what)).then(function (t) { if (t.hasAudio) S.audio = 'clone'; S.cloneFile = null; $('#rv-cl-fname').textContent = 'Toca para elegirlo'; st.textContent = t.cuts ? '✓ ' + t.cuts.length + ' cortes copiados' + (t.hasAudio ? ' + audio' : '') : ''; renderAudio(); return t; }).then(function (t) { var c = customTpls(); c.unshift(t); lsSet(LS.tpl, c.slice(0, 30)); S.tpl = t.id; renderTpls(); renderHooks(); toast('Plantilla «' + t.name + '» lista'); $('#rv-cl-what').value = ''; $('#rv-cl-link').value = ''; })
       .catch(function (e) { toast('No se pudo: ' + e.message); }).then(function () { b.disabled = false; b.textContent = 'CREAR PLANTILLA'; });
   };
+  $('#rv-cl-file').onchange = function (e) { var f = e.target.files[0]; if (!f) return; S.cloneFile = f; $('#rv-cl-fname').textContent = '✓ ' + f.name; e.target.value = ''; };
+  $('#rv-cl-open').onclick = function () { var u = $('#rv-cl-link').value.trim(); if (/^https?:\/\//.test(u)) window.open(u, '_blank', 'noopener'); else toast('Pega primero el link'); };
   ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
   $('#rv-c-eleven').value = CFG.elevenKey || '';
   $('#rv-c-save').onclick = function () {
@@ -1183,13 +1288,15 @@ function renderClips() {
 function renderTpls() {
   var box = $('#rv-tpls'), cs = customTpls();
   var items = [{ key: 'auto', emoji: '🎲', name: 'Que la IA elija', desc: 'Elige el formato según tu material y lo que mejor te ha funcionado.' }]
-    .concat(cs.map(function (c) { return { key: c.id, emoji: '⭐', name: c.name, desc: c.notes || 'Plantilla clonada', custom: true }; }))
+    .concat(cs.map(function (c) { return { key: c.id, emoji: c.cuts ? '🔁' : '⭐', name: c.name, desc: c.notes || 'Plantilla clonada', custom: true }; }))
     .concat(BASES.map(function (k) { return { key: k, emoji: TPL[k].emoji, name: TPL[k].name, desc: TPL[k].desc }; }));
   box.innerHTML = items.map(function (t) { return '<div class="rv-tpl' + (S.tpl === t.key ? ' on' : '') + '" data-k="' + t.key + '"><div class="e">' + t.emoji + '</div><div class="nm">' + esc(t.name) + '</div><div class="d">' + esc(t.desc) + '</div>' + (t.custom ? '<button class="x" data-del="' + t.key + '">✕</button>' : '') + '</div>'; }).join('');
   $$('.rv-tpl', box).forEach(function (el) {
     el.onclick = function (e) {
-      if (e.target.dataset.del) { lsSet(LS.tpl, customTpls().filter(function (c) { return c.id !== e.target.dataset.del; })); if (S.tpl === e.target.dataset.del) S.tpl = 'auto'; renderTpls(); return; }
-      S.tpl = el.dataset.k; S.hooksAI = []; S.hook = ''; renderTpls(); renderHooks();
+      if (e.target.dataset.del) { IDB.del(e.target.dataset.del); lsSet(LS.tpl, customTpls().filter(function (c) { return c.id !== e.target.dataset.del; })); if (S.tpl === e.target.dataset.del) S.tpl = 'auto'; renderTpls(); return; }
+      S.tpl = el.dataset.k; S.hooksAI = []; S.hook = ''; var tt = S.tpl !== 'auto' && getTpl(S.tpl);
+      if (tt && tt.hasAudio) S.audio = 'clone'; else if (S.audio === 'clone') S.audio = 'trend';
+      renderTpls(); renderHooks(); renderAudio();
     };
   });
 }
@@ -1200,7 +1307,7 @@ function renderHooks() {
   box.innerHTML = '<button class="rv-chip' + (!S.hook ? ' on' : '') + '" data-h="">🎲 Automático</button>' + list.map(function (h) { return '<button class="rv-chip' + (S.hook === h ? ' on' : '') + '" data-h="' + esc(h) + '">' + hookHTML(h) + '</button>'; }).join('');
   $$('.rv-chip', box).forEach(function (c) { c.onclick = function () { S.hook = c.dataset.h; $$('.rv-chip', box).forEach(function (x) { x.classList.toggle('on', x === c); }); }; });
 }
-function renderAudio() { $$('.rv-opt', $('#rv-audio')).forEach(function (o) { o.classList.toggle('on', o.dataset.a === S.audio); }); if ($('#rv-music-st')) $('#rv-music-st').style.display = S.audio === 'mine' ? 'block' : 'none'; }
+function renderAudio() { var tt = S.tpl !== 'auto' && getTpl(S.tpl), ca = $('#rv-a-clone'); if (ca) ca.style.display = tt && tt.hasAudio ? 'flex' : 'none'; $$('.rv-opt', $('#rv-audio')).forEach(function (o) { o.classList.toggle('on', o.dataset.a === S.audio); }); if ($('#rv-music-st')) $('#rv-music-st').style.display = S.audio === 'mine' ? 'block' : 'none'; }
 function setBusy(b) { var g = $('#rv-go'); g.disabled = b; g.textContent = b ? '⏳ CREANDO…' : (S.versions > 1 ? '⚡ CREAR ' + S.versions + ' REELS' : '⚡ CREAR MI REEL'); $('#rv-live').style.display = b ? 'block' : 'none'; }
 function progress() {
   var box = $('#rv-prog'), bar = $('#rv-bar'), msg = $('#rv-msg'); box.classList.add('show');
@@ -1281,5 +1388,5 @@ function aiBadge() {
 R.open = function () { build(); root.classList.add('show'); aiBadge(); renderHistory(); document.body.style.overflow = 'hidden'; };
 R.hide = function () { if (root) root.classList.remove('show'); document.body.style.overflow = ''; };
 // Para pruebas automáticas
-R._t = { S: S, CFG: CFG, TPL: TPL, getTpl: getTpl, analyzeClip: analyzeClip, buildEDL: buildEDL, gridFor: gridFor, detectBeats: detectBeats, buildAudio: buildAudio, render: render, aiPlan: aiPlan, localPlan: localPlan, createOne: createOne, addFiles: addFiles, narrate: narrate, estimateWords: estimateWords };
+R._t = { S: S, CFG: CFG, TPL: TPL, getTpl: getTpl, analyzeClip: analyzeClip, buildEDL: buildEDL, gridFor: gridFor, detectBeats: detectBeats, buildAudio: buildAudio, render: render, aiPlan: aiPlan, localPlan: localPlan, createOne: createOne, addFiles: addFiles, narrate: narrate, detectCuts: detectCuts, cloneFromVideo: cloneFromVideo, estimateWords: estimateWords };
 })();
