@@ -332,6 +332,10 @@ transition:transform .15s;
 .sp-btn{margin-top:4px;padding:10px;border:none;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;cursor:pointer;text-align:center;transition:opacity .15s}
 .sp-card.c1 .sp-btn{background:#CC0000;color:#fff}.sp-card.c2 .sp-btn{background:#E8720C;color:#000}
 .sp-btn:hover{opacity:.86}
+.sp-card.c4:hover{border-color:#E8B64A;box-shadow:0 14px 34px rgba(232,182,74,.12)}
+.sp-card.c4 .sp-stripe{background:#E8B64A}.sp-card.c4 .sp-title span{color:#E8B64A}
+.sp-card.c4 .sp-item::before{content:'▸';position:absolute;left:0;color:#E8B64A}
+.sp-card.c4 .sp-btn{background:#E8B64A;color:#000}
 #btn-back{position:fixed;top:10px;left:10px;z-index:9998;padding:7px 14px;background:#0d0d0d;border:1px solid #252525;color:#505050;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;display:none}
 #btn-back:hover{border-color:#CC0000;color:#CC0000}
 #btn-back.show{display:block}
@@ -521,6 +525,19 @@ transition:transform .15s;
         <div class="sp-item">Citas, anticipos y cotizador</div>
         <div class="sp-item">Cuidados y reactivación por WhatsApp</div>
         <div class="sp-item">Consentimiento firmado en PDF</div>
+      </div>
+      <div class="sp-btn">ENTRAR →</div>
+    </div>
+    <div class="sp-card c4" id="sp-reels">
+      <div class="sp-stripe"></div><div class="sp-card-bg">四</div>
+      <div class="sp-icon">🎬</div>
+      <div class="sp-title">Reels<br><span>Virales</span></div>
+      <div class="sp-desc">Sube los clips de tu tatuaje y sale el reel editado: cortes al ritmo, gancho viral, voz narrando, caption y día para publicar.</div>
+      <div class="sp-list">
+        <div class="sp-item">Formatos virales listos (o clona uno)</div>
+        <div class="sp-item">Mejores momentos automáticos</div>
+        <div class="sp-item">Voz gratis + subtítulos karaoke</div>
+        <div class="sp-item">MP4 listo para IG y TikTok</div>
       </div>
       <div class="sp-btn">ENTRAR →</div>
     </div>
@@ -2550,7 +2567,7 @@ var dictApp=document.getElementById('dict-app');
 var btnBack=document.getElementById('btn-back');
 function requireKey(){return true;} // la IA ya es gratuita: no hace falta API key
 
-function goSplash(){splash.classList.remove('hide');inkbotApp.style.display='none';dictApp.classList.remove('show');btnBack.classList.remove('show');document.getElementById('d-mob-toggle').style.display='none';var ds=document.querySelector('.d-sidebar');if(ds)ds.classList.remove('d-mob-open');if(window.ESTUDIO&&ESTUDIO.hide)ESTUDIO.hide();}
+function goSplash(){splash.classList.remove('hide');inkbotApp.style.display='none';dictApp.classList.remove('show');btnBack.classList.remove('show');document.getElementById('d-mob-toggle').style.display='none';var ds=document.querySelector('.d-sidebar');if(ds)ds.classList.remove('d-mob-open');if(window.ESTUDIO&&ESTUDIO.hide)ESTUDIO.hide();if(window.REELS&&REELS.hide)REELS.hide();}
 function goInkbot(){if(!requireKey())return;splash.classList.add('hide');inkbotApp.style.display='block';dictApp.classList.remove('show');btnBack.classList.add('show');document.getElementById('d-mob-toggle').style.display='none';}
 function goDict(){if(!requireKey())return;splash.classList.add('hide');inkbotApp.style.display='none';dictApp.classList.add('show');btnBack.classList.add('show');startDictBg();buildDictSVG();if(window.innerWidth<=768)document.getElementById('d-mob-toggle').style.display='flex';}
 
@@ -2559,6 +2576,9 @@ document.getElementById('sp-dict').addEventListener('click',goDict);
 // Estudio de tatuajes (módulo aparte, ver bloque ESTUDIO al final)
 function goEstudio(){splash.classList.add('hide');inkbotApp.style.display='none';dictApp.classList.remove('show');btnBack.classList.remove('show');document.getElementById('d-mob-toggle').style.display='none';if(window.ESTUDIO&&ESTUDIO.open)ESTUDIO.open();}
 document.getElementById('sp-estudio').addEventListener('click',goEstudio);
+// Reels virales (módulo aparte en reels.js)
+function goReels(){splash.classList.add('hide');inkbotApp.style.display='none';dictApp.classList.remove('show');btnBack.classList.remove('show');document.getElementById('d-mob-toggle').style.display='none';if(window.ESTUDIO&&ESTUDIO.hide)ESTUDIO.hide();if(window.REELS&&REELS.open)REELS.open();}
+document.getElementById('sp-reels').addEventListener('click',goReels);
 btnBack.addEventListener('click',goSplash);
 
 /* ── Tema Inkbot ── */
@@ -4972,5 +4992,7 @@ ES.render=render;
 })();
 </script>
 <!-- ══════════ ESTUDIO:FIN ══════════ -->
+<!-- Reels virales: ver reels.js -->
+<script src="reels.js"></script>
 </body>
 </html>

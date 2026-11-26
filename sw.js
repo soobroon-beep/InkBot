@@ -1,8 +1,9 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v14';
+const CACHE = 'inkbot-v15';
 const ASSETS = [
   './',
   './index.html',
+  './reels.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -51,7 +52,7 @@ self.addEventListener('fetch', (e) => {
   if (/(^|\.)googleapis\.com$|(^|\.)firebaseapp\.com$|^accounts\.google\.com$|^apis\.google\.com$|(^|\.)firebaseio\.com$/.test(url.hostname)) return;
 
   // Librerías externas (SDK de Firebase, JSZip, fuentes): se guardan para que la app abra sin conexión
-  if ((url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) || url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'fonts.gstatic.com') {
+  if ((url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0) || url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
         if (res.ok || res.type === 'opaque') { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
