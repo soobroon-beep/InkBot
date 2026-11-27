@@ -102,6 +102,17 @@ function makeVideo(clip) {
   v.muted = true; v.defaultMuted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = clip.url;
   return v;
 }
+// Abre un video con reintento; libera el reproductor si falla (los celulares tienen pocos decodificadores)
+function release(v) { if (!v) return; try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} }
+async function openVideo(clip, tries) {
+  var last = null;
+  for (var i = 0; i < (tries || 3); i++) {
+    var v = makeVideo(clip);
+    try { await once(v, 'loadeddata', 25000); return v; }
+    catch (e) { last = e; release(v); await sleep(400 + i * 600); }
+  }
+  throw new Error((clip.name ? clip.name + ': ' : '') + (last ? last.message : 'no se pudo abrir'));
+}
 function seek(v, t) {
   return new Promise(function (res) {
     var target = clamp(t, 0, Math.max(0, (v.duration || 0) - 0.04)), done = false;
@@ -138,8 +149,7 @@ async function analyzeClip(clip, onp) {
     clip.an = { samples: [{ t: 0, motion: 0, sharp: m.sharp, bright: m.bright, cx: .5, cy: .5 }] };
     return clip.an;
   }
-  var v = makeVideo(clip);
-  await once(v, 'loadeddata', 25000);
+  var v = await openVideo(clip);
   clip.dur = v.duration; clip.w = v.videoWidth; clip.h = v.videoHeight;
   if (!isFinite(clip.dur) || clip.dur <= 0) throw new Error('No se pudo leer la duración de ' + clip.name);
   var cw = clip.w >= clip.h ? 128 : 72, ch = clip.w >= clip.h ? 72 : 128; cv.width = cw; cv.height = ch;
@@ -153,7 +163,14 @@ async function analyzeClip(clip, onp) {
   }
   if (samples.length > 1) samples[0].motion = samples[1].motion;
   clip.an = { samples: samples, step: step };
-  v.removeAttribute('src'); v.load();
+  // Cuadro fijo nítido de respaldo, por si el celular no deja reabrir el video al crear
+  try {
+    var best = samples.reduce(function (a, x) { return x.sharp > a.sharp ? x : a; }, samples[0]);
+    await seek(v, best.t);
+    var sc = Math.min(1, 720 / Math.max(clip.w, clip.h)), st = document.createElement('canvas');
+    st.width = Math.round(clip.w * sc); st.height = Math.round(clip.h * sc); st.getContext('2d').drawImage(v, 0, 0, st.width, st.height); clip.still = st;
+  } catch (e) {}
+  release(v);
   return clip.an;
 }
 // Normaliza contra todo el material para que los clips borrosos u oscuros pierdan
@@ -526,7 +543,7 @@ function drawFrame(ctx, edl, t, srcEl) {
   if (s) {
     var p = clamp((t - s.outStart) / Math.max(.01, s.outEnd - s.outStart), 0, 1), z = s.zoomA + (s.zoomB - s.zoomA) * easeInOut(p);
     if (s.punch) z *= 1 + .1 * (1 - easeOut((t - s.outStart) / .26));
-    var el = srcEl || s.clip.el, sw = s.kind === 'image' ? s.clip.w : (el && el.videoWidth), sh = s.kind === 'image' ? s.clip.h : (el && el.videoHeight);
+    var el = srcEl || s.clip.el || s.clip.still, sw = s.kind === 'image' ? s.clip.w : (el && (el.videoWidth || el.width)), sh = s.kind === 'image' ? s.clip.h : (el && (el.videoHeight || el.height));
     if (useFilter) ctx.filter = 'contrast(1.07) saturate(1.12)';
     if (el) drawCover(ctx, el, sw, sh, s.cx == null ? .5 : clamp(s.cx, .2, .8), s.cy == null ? .5 : clamp(s.cy, .25, .75), z);
     ctx.filter = 'none';
@@ -542,35 +559,25 @@ function decode(ab) {
   if (!decodeCtx) decodeCtx = new OfflineAudioContext(1, 1, SR);
   return new Promise(function (res, rej) { decodeCtx.decodeAudioData(ab.slice(0), res, rej); });
 }
-var puterP = null;
-function loadPuter() {
-  if (window.puter && window.puter.ai) return Promise.resolve(window.puter);
-  if (puterP) return puterP;
-  puterP = new Promise(function (res, rej) {
-    var s = document.createElement('script'); s.src = 'https://js.puter.com/v2/'; s.async = true;
-    s.onload = function () { window.puter ? res(window.puter) : rej(new Error('Puter no cargó')); };
-    s.onerror = function () { puterP = null; rej(new Error('No se pudo cargar Puter')); };
-    document.head.appendChild(s);
-  });
-  return puterP;
+// Voz gratis que corre DENTRO del celular (Piper, español de México). Sin cuentas ni ventanas.
+// La primera vez descarga la voz (~60 MB) y queda guardada en el teléfono.
+var piperP = null, PIPER_VOICE = 'es_MX-claude-high';
+function piperSession(onp) {
+  if (piperP) return piperP;
+  var base = (document.currentScript && document.currentScript.src) || location.href;
+  piperP = import(new URL('vendor/piper/piper-tts-web.js', location.href).href).then(function (m) {
+    m.TtsSession._instance = null;
+    return m.TtsSession.create({ voiceId: PIPER_VOICE, progress: function (p) { if (onp && p && p.total) onp('Descargando la voz (solo la primera vez) · ' + Math.round(p.loaded / p.total * 100) + '%'); } });
+  }).catch(function (e) { piperP = null; throw e; });
+  return piperP;
 }
-var VOICES = {
-  hombre: { eleven: 'pNInz6obpgDQGcFmaJgB', openai: 'onyx', polly: 'Andres' },
-  mujer: { eleven: 'EXAVITQu4vr4xnSDxMaL', openai: 'nova', polly: 'Mia' }
-};
-function audioFromEl(a) {
-  var src = a && (a.src || a.currentSrc); if (!src) return Promise.reject(new Error('Sin audio'));
-  return fetch(src).then(function (r) { if (!r.ok) throw new Error('Audio no disponible'); return r.arrayBuffer(); });
-}
-function ttsChain() {
+var VOICES = { hombre: { eleven: 'pNInz6obpgDQGcFmaJgB' }, mujer: { eleven: 'EXAVITQu4vr4xnSDxMaL' } };
+function ttsChain(onp) {
   var v = VOICES[CFG.genero] || VOICES.hombre, list = [];
-  function puterTTS(opts) { return function (tx) { return loadPuter().then(function (p) { return p.ai.txt2speech(tx, opts); }).then(audioFromEl).then(function (ab) { return { ab: ab }; }); }; }
-  list.push({ id: 'eleven', name: 'ElevenLabs gratis', fn: puterTTS({ provider: 'elevenlabs', voice: v.eleven, model: 'eleven_multilingual_v2' }) });
-  list.push({ id: 'openai', name: 'OpenAI gratis', fn: puterTTS({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: v.openai, instructions: 'Habla en español de México, con energía, cercano y seguro, como un tatuador contando su trabajo en un reel.' }) });
-  list.push({ id: 'neural', name: 'Voz neural gratis', fn: puterTTS({ voice: v.polly, engine: 'neural', language: 'es-MX' }) });
-  var pref = CFG.motor && CFG.motor !== 'auto' ? CFG.motor : '';
-  if (pref) list.sort(function (a, b) { return (b.id === pref) - (a.id === pref); });
-  if (CFG.elevenKey) list.unshift({ id: 'mine', name: 'ElevenLabs (tu llave)', fn: function (tx) { return elevenDirect(tx, v.eleven); } });
+  if (CFG.elevenKey) list.push({ id: 'mine', name: 'ElevenLabs (tu llave)', fn: function (tx) { return elevenDirect(tx, v.eleven); } });
+  list.push({ id: 'piper', name: 'Voz gratis', fn: function (tx) {
+    return piperSession(onp).then(function (ses) { if (onp) onp('Generando la voz…'); return ses.predict(tx); }).then(function (blob) { return blob.arrayBuffer(); }).then(function (ab) { return { ab: ab }; });
+  } });
   return list;
 }
 function elevenDirect(text, voice) {
@@ -611,13 +618,13 @@ function splitSentences(text) {
 }
 async function narrate(text, onp) {
   var parts = splitSentences(text); if (!parts.length) return null;
-  var chain = ttsChain(), lastErr = null;
+  var chain = ttsChain(onp), lastErr = null;
   for (var c = 0; c < chain.length; c++) {
     try {
       var bufs = [];
       for (var i = 0; i < parts.length; i++) {
         if (onp) onp('Voz: ' + chain[c].name + ' · frase ' + (i + 1) + '/' + parts.length);
-        var r = await withTimeout(chain[c].fn(parts[i]), 45000, 'La voz tardó demasiado');
+        var r = await withTimeout(chain[c].fn(parts[i]), i === 0 ? 240000 : 60000, 'La voz tardó demasiado');
         var buf = await decode(r.ab);
         bufs.push({ buf: buf, words: r.words && r.words.length ? r.words : null, text: parts[i] });
       }
@@ -752,7 +759,7 @@ async function render(edl, audioBuf, onp, preview) {
     if (preview && fi % 6 === 0) { var pc = preview.getContext('2d'); pc.drawImage(cv, 0, 0, preview.width, preview.height); }
     if (onp && fi % 10 === 0) onp(fi / total, 'Creando video ' + Math.round(fi / FPS) + 's / ' + Math.round(edl.T) + 's');
   }
-  var vids = {};
+  var cur = null, curId = null;
   for (var si = 0; si < edl.shots.length; si++) {
     var s = edl.shots[si], endF = si === edl.shots.length - 1 ? total : Math.min(total, Math.round(s.outEnd * FPS));
     if (fi >= endF) continue;
@@ -760,17 +767,24 @@ async function render(edl, audioBuf, onp, preview) {
       while (fi < endF) { emit(s.clip.el); if (venc.encodeQueueSize > 6) await drain(); if (fi % 15 === 0) await sleep(0); }
       continue;
     }
-    var v = vids[s.clip.id];
-    if (!v) { v = vids[s.clip.id] = makeVideo(s.clip); await once(v, 'loadeddata', 25000); }
-    await seek(v, s.srcStart);
-    v.playbackRate = clamp(s.speed, .5, 4);
-    await playShot(v, s, endF, emit, venc, drain);
+    if (curId !== s.clip.id) {
+      release(cur); cur = null; curId = null;
+      try { cur = await openVideo(s.clip); curId = s.clip.id; } catch (e) { cur = null; }
+    }
+    if (!cur) { // respaldo: cuadro fijo con movimiento suave
+      var still = s.clip.still;
+      while (fi < endF) { emit(still || null); if (venc.encodeQueueSize > 6) await drain(); if (fi % 15 === 0) await sleep(0); }
+      continue;
+    }
+    await seek(cur, s.srcStart);
+    cur.playbackRate = clamp(s.speed, .5, 4);
+    await playShot(cur, s, endF, emit, venc, drain);
   }
+  release(cur);
   while (fi < total) emit(null);
   await venc.flush(); venc.close();
   if (encErr) throw encErr;
   muxer.finalize();
-  Object.keys(vids).forEach(function (k) { vids[k].pause(); vids[k].removeAttribute('src'); vids[k].load(); });
   return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), warn: warn, secs: (performance.now() - t0) / 1000 };
 }
 // Reproduce la toma en tiempo real y saca cada frame según el tiempo real del video (no se desincroniza)
@@ -1016,12 +1030,13 @@ async function createOne(tplKey, idx, step) {
   var voice = null, voiceErr = '';
   if (voiceWanted && plan.narration) {
     step('voz', 'Generando la voz…');
-    try { voice = await narrate(plan.narration, function (m) { step('voz', m); }); } catch (e) { voiceErr = 'No se pudo generar la voz (' + e.message + '). El reel salió con textos. Si es la primera vez, toca «CONECTAR PUTER (GRATIS)» en el menú principal y vuelve a intentar.'; }
+    try { voice = await narrate(plan.narration, function (m) { step('voz', m); }); } catch (e) { voiceErr = 'No se pudo generar la voz (' + e.message + '). El reel salió con textos en pantalla; revisa tu internet la primera vez (se descarga la voz).'; }
   }
   step('arma', 'Armando cortes al ritmo…');
   var vids = S.clips.filter(function (c) { return c.kind === 'video'; });
   var T = clamp(plan.seconds || tpl.dur[0], tpl.dur[0], tpl.dur[1]), voiceStart = .35;
   if (voice) T = clamp(voice.dur + voiceStart + 2.6, 12, 75);
+  else if (voiceWanted) T = Math.min(T, 22); // sin voz, un reel narrado largo aburre
   if (!vids.length) T = Math.min(T, 12);
   if (tpl.cuts && vids.length) T = tpl.cloneDur;
   var music = null, grid, bpm = tpl.bpm, offset = 0, beat = null;
@@ -1055,225 +1070,266 @@ async function createOne(tplKey, idx, step) {
   var h = history(); h.unshift({ id: res.id, date: res.date, tpl: res.tpl, tplName: res.tplName, hook: res.hook, T: Math.round(T), rating: 0, views: 0 }); lsSet(LS.hist, h.slice(0, 80));
   return res;
 }
-async function createAll() {
-  if (S.busy) return;
-  var vids = S.clips.filter(function (c) { return c.kind === 'video'; });
-  if (!S.clips.length) return toast('Primero sube tus videos o fotos del tatuaje');
-  if (S.audio === 'mine' && !S.musicFile) return toast('Sube tu audio o elige otra opción de audio');
-  S.busy = true; S.results = []; renderResults(); setBusy(true);
-  var step = progress();
-  try {
-    try { await document.fonts.load('150px "Bebas Neue"'); await document.fonts.load('900 70px Montserrat'); await document.fonts.load('800 50px Montserrat'); } catch (e) {}
-    for (var i = 0; i < S.clips.length; i++) {
-      var c = S.clips[i];
-      step('analiza', 'Analizando ' + (i + 1) + '/' + S.clips.length + ': buscando los mejores momentos…', i / S.clips.length);
-      try { await analyzeClip(c, function (f) { step('analiza', 'Analizando ' + (i + 1) + '/' + S.clips.length + '…', (i + f) / S.clips.length); }); }
-      catch (e) { toast(c.name + ': ' + e.message); c.bad = true; }
-    }
-    S.clips = S.clips.filter(function (c) { return !c.bad; }); renderClips();
-    if (!S.clips.length) throw new Error('No se pudo abrir ningún archivo');
-    var used = [];
-    for (var v = 0; v < S.versions; v++) {
-      var key = v === 0 ? (S.tpl === 'auto' ? autoTemplate([]) : S.tpl) : autoTemplate(used);
-      used.push(key);
-      step('plan', (S.versions > 1 ? 'Versión ' + (v + 1) + '/' + S.versions + ' · ' : '') + getTpl(key).name);
-      var r = await createOne(key, v, function (k, m, f) { step(k, (S.versions > 1 ? 'V' + (v + 1) + ' · ' : '') + m, f); });
-      S.results.push(r); renderResults();
-    }
-    step('done', '¡Listo! ' + (S.results.length > 1 ? S.results.length + ' reels creados' : 'Tu reel está listo'), 1);
-  } catch (e) {
-    console.error(e); step('error', '⚠ ' + (e && e.message ? e.message : e));
-  } finally { S.busy = false; setBusy(false); renderHistory(); }
-}
 
-/* ═══════════════════════ 9 · INTERFAZ ═══════════════════════ */
+/* ═══════════════════════ 9 · INTERFAZ (asistente paso a paso) ═══════════════════════ */
 var CSS = '\
-#reels-app{position:fixed;inset:0;z-index:99990;background:#060606;color:#e9e4dc;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;font-family:"DM Sans",sans-serif}\
-#reels-app.show{display:block}\
-.rv-wrap{max-width:640px;margin:0 auto;padding:14px 14px 120px}\
-.rv-top{position:sticky;top:0;z-index:5;background:rgba(6,6,6,.94);backdrop-filter:blur(8px);display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1a1a1a}\
-.rv-back{white-space:nowrap;background:#0d0d0d;border:1px solid #252525;color:#8a8a8a;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:2px;padding:7px 12px;cursor:pointer}\
-.rv-title{font-family:"Bebas Neue",sans-serif;font-size:24px;letter-spacing:5px}.rv-title span{color:#E8B64A}\
-.rv-ai{margin-left:auto;font-family:"Space Mono",monospace;font-size:9px;color:#6a6a6a;max-width:40%;text-align:right;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}\
-.rv-sec{background:#0d0d0d;border:1px solid #1c1c1c;padding:16px;margin-top:14px}\
-.rv-h{font-family:"Bebas Neue",sans-serif;font-size:19px;letter-spacing:3px;display:flex;align-items:center;gap:8px;margin-bottom:10px}.rv-h b{color:#E8B64A;font-weight:400}\
-.rv-sub{font-size:12px;color:#7a7a7a;line-height:1.5;margin:-4px 0 10px}\
-.rv-drop{border:1.5px dashed #3a3a3a;padding:22px 12px;text-align:center;cursor:pointer;color:#9a9a9a;font-size:13px;transition:border-color .2s}\
-.rv-drop:hover{border-color:#E8B64A}.rv-drop strong{display:block;font-family:"Bebas Neue",sans-serif;font-size:22px;letter-spacing:3px;color:#E8B64A;margin-bottom:4px}\
-.rv-clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:12px}\
-.rv-clip{position:relative;aspect-ratio:9/16;background:#111;overflow:hidden;border:1px solid #222}\
-.rv-clip video,.rv-clip img{width:100%;height:100%;object-fit:cover;display:block}\
-.rv-clip .n{position:absolute;top:4px;left:4px;background:#CC0000;color:#fff;font:700 11px "Space Mono",monospace;padding:1px 6px}\
-.rv-clip .k{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.7);color:#ddd;font:10px "Space Mono",monospace;padding:1px 5px}\
-.rv-clip .ctl{position:absolute;top:3px;right:3px;display:flex;flex-direction:column;gap:3px}\
-.rv-clip .ctl button{width:24px;height:24px;border:none;background:rgba(0,0,0,.72);color:#fff;font-size:12px;cursor:pointer;padding:0}\
+#reels-app{position:fixed;inset:0;z-index:99990;background:#0b0b0b;color:#f2f2f2;display:none;flex-direction:column;font-family:"DM Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}\
+#reels-app.show{display:flex}\
+#reels-app *{box-sizing:border-box}\
+.rv-top{flex:none;display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #1b1b1b}\
+.rv-ib{width:40px;height:40px;border-radius:12px;border:1px solid #232323;background:#131313;color:#ddd;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}\
+.rv-tt{flex:1;text-align:center;font-size:15px;font-weight:500;letter-spacing:.3px}\
+.rv-steps{flex:none;display:flex;gap:6px;padding:12px 18px 4px;max-width:560px;width:100%;margin:0 auto}\
+.rv-steps div{flex:1;text-align:center;font-size:11px;color:#666}\
+.rv-steps div i{display:block;height:3px;border-radius:3px;background:#222;margin-bottom:6px}\
+.rv-steps div.on{color:#E8B64A}.rv-steps div.on i,.rv-steps div.ok i{background:#E8B64A}.rv-steps div.ok{color:#aaa}\
+.rv-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}\
+.rv-page{max-width:560px;margin:0 auto;padding:18px 18px 28px;display:none}.rv-page.on{display:block}\
+.rv-h1{font-size:24px;font-weight:500;margin:6px 0 6px;letter-spacing:-.2px}\
+.rv-p{font-size:14px;color:#8d8d8d;line-height:1.5;margin:0 0 18px}\
+.rv-up{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed #333;border-radius:18px;padding:28px 12px;cursor:pointer;color:#bbb;text-align:center}\
+.rv-up b{font-size:16px;font-weight:500;color:#f2f2f2}.rv-up span{font-size:12.5px;color:#777}.rv-up .pl{width:46px;height:46px;border-radius:50%;background:#E8B64A;color:#000;font-size:26px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}\
+.rv-thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}\
+.rv-th{position:relative;aspect-ratio:9/16;border-radius:12px;overflow:hidden;background:#151515}\
+.rv-th img{width:100%;height:100%;object-fit:cover;display:block}\
+.rv-th .n{position:absolute;left:6px;top:6px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.65);font-size:11px;display:flex;align-items:center;justify-content:center}\
+.rv-th .k{position:absolute;left:6px;bottom:6px;font-size:10.5px;background:rgba(0,0,0,.65);padding:2px 6px;border-radius:6px}\
+.rv-th .x{position:absolute;right:5px;top:5px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;font-size:12px;cursor:pointer}\
+.rv-th .mv{position:absolute;right:5px;bottom:5px;display:flex;gap:3px}.rv-th .mv button{width:22px;height:22px;border-radius:6px;border:none;background:rgba(0,0,0,.65);color:#fff;font-size:11px;cursor:pointer;padding:0}\
+.rv-th.load{display:flex;align-items:center;justify-content:center;color:#555;font-size:12px}\
+.rv-lb{font-size:12.5px;color:#8d8d8d;margin:22px 0 8px}\
+.rv-in{width:100%;background:#131313;border:1px solid #242424;border-radius:12px;color:#f2f2f2;padding:13px 14px;font:15px "DM Sans",sans-serif;outline:none}.rv-in:focus{border-color:#E8B64A}\
 .rv-row{display:flex;gap:8px;align-items:center}\
-.rv-in{flex:1;background:#080808;border:1px solid #252525;color:#eee;padding:11px 12px;font:14px "DM Sans",sans-serif;outline:none;min-width:0}.rv-in:focus{border-color:#E8B64A}\
-.rv-mic{width:44px;height:44px;border:1px solid #252525;background:#080808;color:#E8B64A;font-size:18px;cursor:pointer}.rv-mic.on{background:#CC0000;color:#fff}\
-.rv-tpls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}\
-.rv-tpl{border:1px solid #222;background:#090909;padding:10px;cursor:pointer;position:relative;transition:border-color .15s}\
-.rv-tpl.on{border-color:#E8B64A;background:#14110a}.rv-tpl .e{font-size:20px}.rv-tpl .nm{font-family:"Bebas Neue",sans-serif;font-size:16px;letter-spacing:2px;margin-top:2px}\
-.rv-tpl .d{font-size:11px;color:#777;line-height:1.35;margin-top:2px}.rv-tpl .x{position:absolute;top:4px;right:6px;color:#666;font-size:12px;background:none;border:none;cursor:pointer}\
-.rv-chips{display:flex;flex-wrap:wrap;gap:6px}\
-.rv-chip{border:1px solid #2a2a2a;background:#090909;color:#cfcfcf;padding:8px 11px;font-size:12.5px;cursor:pointer;line-height:1.3;text-align:left}\
-.rv-chip.on{border-color:#E8B64A;color:#fff;background:#14110a}.rv-chip em{color:#E8B64A;font-style:normal}\
-.rv-opts{display:flex;flex-direction:column;gap:8px}\
-.rv-opt{display:flex;gap:10px;border:1px solid #222;background:#090909;padding:11px;cursor:pointer;align-items:flex-start}\
-.rv-opt.on{border-color:#E8B64A;background:#14110a}.rv-opt .e{font-size:20px;line-height:1}.rv-opt b{display:block;font-size:13.5px}.rv-opt span{font-size:11.5px;color:#7d7d7d;line-height:1.4}\
-.rv-tag{display:inline-block;font:9px "Space Mono",monospace;letter-spacing:1px;background:#00A86B;color:#000;padding:1px 5px;margin-left:6px;vertical-align:middle}\
-.rv-btn{display:block;width:100%;border:none;padding:16px;font-family:"Bebas Neue",sans-serif;font-size:22px;letter-spacing:5px;cursor:pointer;background:#CC0000;color:#fff;margin-top:14px}\
-.rv-btn:disabled{opacity:.5;cursor:wait}.rv-btn.g{background:#E8B64A;color:#000}.rv-btn.s{background:#151515;color:#ddd;border:1px solid #2a2a2a;font-size:16px;padding:12px;letter-spacing:3px}\
-.rv-small{background:#151515;border:1px solid #2a2a2a;color:#ddd;padding:8px 12px;font:12px "DM Sans",sans-serif;cursor:pointer}\
-.rv-seg{display:flex;border:1px solid #252525}.rv-seg button{flex:1;background:#080808;border:none;color:#888;padding:9px 4px;font:12px "DM Sans",sans-serif;cursor:pointer}.rv-seg button.on{background:#E8B64A;color:#000;font-weight:700}\
-.rv-prog{margin-top:14px;display:none}.rv-prog.show{display:block}\
-.rv-bar{height:6px;background:#1a1a1a;overflow:hidden}.rv-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#CC0000,#E8B64A);transition:width .2s}\
-.rv-msg{font:11px "Space Mono",monospace;color:#9a9a9a;margin-top:8px;line-height:1.5}\
-.rv-live{display:block;width:120px;height:213px;margin:10px auto 0;background:#000;border:1px solid #222}\
-.rv-res{border:1px solid #2a2a2a;background:#0a0a0a;padding:12px;margin-top:12px}\
-.rv-res video{width:100%;max-height:70vh;background:#000;display:block}\
-.rv-res .t{font-family:"Bebas Neue",sans-serif;font-size:18px;letter-spacing:2px;margin-bottom:8px}\
-.rv-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}\
-.rv-box{background:#080808;border:1px solid #1f1f1f;padding:10px;margin-top:8px;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;position:relative}\
-.rv-box .lb{font:9px "Space Mono",monospace;letter-spacing:2px;color:#E8B64A;display:block;margin-bottom:4px}\
-.rv-box .cp{position:absolute;top:6px;right:6px}\
-.rv-warn{color:#e0a040;font-size:12px;margin-top:8px;line-height:1.4}\
-.rv-rate{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}.rv-rate button{background:#111;border:1px solid #2a2a2a;font-size:18px;padding:5px 10px;cursor:pointer}.rv-rate button.on{border-color:#E8B64A;background:#14110a}\
-.rv-hist{display:flex;flex-direction:column;gap:6px}.rv-hi{display:flex;gap:8px;align-items:center;font-size:12px;border-bottom:1px solid #161616;padding:6px 0}.rv-hi .hk{flex:1;color:#cfcfcf}.rv-hi input{width:84px;background:#080808;border:1px solid #252525;color:#eee;padding:5px;font-size:12px}\
-.rv-det summary{cursor:pointer;font-family:"Bebas Neue",sans-serif;font-size:17px;letter-spacing:3px;color:#bbb;list-style:none}.rv-det summary::-webkit-details-marker{display:none}\
-.rv-f{display:flex;flex-direction:column;gap:4px;margin-top:10px}.rv-f label{font:9px "Space Mono",monospace;letter-spacing:2px;color:#777}\
-.rv-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#181818;border:1px solid #333;color:#eee;padding:10px 16px;font-size:13px;z-index:99999;max-width:90%;text-align:center}\
-.rv-link{color:#E8B64A;font-size:12px}\
-@media(max-width:420px){.rv-tpls{grid-template-columns:1fr 1fr}.rv-tpl .d{display:none}}\
+.rv-list{display:flex;flex-direction:column;gap:8px}\
+.rv-it{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid #222;border-radius:14px;background:#121212;cursor:pointer;position:relative}\
+.rv-it.on{border-color:#E8B64A;background:#17140c}\
+.rv-it .e{font-size:22px;width:30px;text-align:center;flex:none}\
+.rv-it .t{flex:1;min-width:0}.rv-it .t b{display:block;font-size:15px;font-weight:500}.rv-it .t span{display:block;font-size:12.5px;color:#868686;line-height:1.4;margin-top:2px}\
+.rv-it .r{width:20px;height:20px;border-radius:50%;border:1.5px solid #444;flex:none}.rv-it.on .r{border:6px solid #E8B64A}\
+.rv-it .del{position:absolute;right:42px;top:50%;transform:translateY(-50%);border:none;background:none;color:#666;font-size:14px;cursor:pointer}\
+.rv-tag{display:inline-block;font-style:normal;font-size:10px;color:#000;background:#E8B64A;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px;font-weight:600}\
+.rv-more{margin-top:14px;border:1px solid #222;border-radius:14px;background:#101010}\
+.rv-more>summary{list-style:none;cursor:pointer;padding:14px;font-size:14px;color:#cfcfcf;display:flex;justify-content:space-between}.rv-more>summary::-webkit-details-marker{display:none}.rv-more>summary:after{content:"+";color:#777}.rv-more[open]>summary:after{content:"–"}\
+.rv-more .in{padding:0 14px 16px}\
+.rv-seg{display:flex;background:#131313;border:1px solid #232323;border-radius:12px;padding:3px;gap:3px}.rv-seg button{flex:1;border:none;background:none;color:#999;padding:10px 4px;border-radius:9px;font:13.5px "DM Sans",sans-serif;cursor:pointer}.rv-seg button.on{background:#E8B64A;color:#000;font-weight:600}\
+.rv-chips{display:flex;flex-wrap:wrap;gap:6px}.rv-chip{border:1px solid #262626;background:#131313;color:#ccc;border-radius:20px;padding:8px 12px;font:13px "DM Sans",sans-serif;cursor:pointer;text-align:left}.rv-chip.on{border-color:#E8B64A;color:#fff}.rv-chip em{color:#E8B64A;font-style:normal}\
+.rv-link{background:none;border:none;color:#E8B64A;font:13.5px "DM Sans",sans-serif;padding:8px 0;cursor:pointer}\
+.rv-foot{flex:none;border-top:1px solid #1b1b1b;padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:560px;width:100%;margin:0 auto}\
+.rv-b{flex:1;border:none;border-radius:14px;padding:15px;font:600 15.5px "DM Sans",sans-serif;cursor:pointer;background:#E8B64A;color:#000}\
+.rv-b:disabled{opacity:.35;cursor:default}.rv-b.g{background:#1a1a1a;color:#ddd;flex:0 0 auto;padding:15px 20px}\
+.rv-b.full{width:100%;flex:none}\
+.rv-mic{width:48px;height:48px;border-radius:12px;border:1px solid #242424;background:#131313;color:#E8B64A;font-size:18px;cursor:pointer;flex:none}.rv-mic.on{background:#CC0000;color:#fff}\
+.rv-make{text-align:center}\
+.rv-live{width:180px;height:320px;border-radius:16px;background:#000;display:block;margin:8px auto 18px;border:1px solid #222}\
+.rv-bar{height:4px;background:#1f1f1f;border-radius:4px;overflow:hidden;margin:0 auto;max-width:320px}.rv-bar i{display:block;height:100%;width:0;background:#E8B64A;transition:width .3s}\
+.rv-chk{list-style:none;padding:0;margin:18px auto 0;max-width:320px;text-align:left}.rv-chk li{font-size:14px;color:#555;padding:6px 0;display:flex;gap:10px;align-items:center}.rv-chk li:before{content:"";width:16px;height:16px;border-radius:50%;border:1.5px solid #333;flex:none}\
+.rv-chk li.now{color:#f2f2f2}.rv-chk li.now:before{border-color:#E8B64A;border-top-color:transparent;animation:rvspin .8s linear infinite}.rv-chk li.ok{color:#9a9a9a}.rv-chk li.ok:before{content:"✓";border:none;background:#E8B64A;color:#000;font-size:11px;display:flex;align-items:center;justify-content:center}\
+@keyframes rvspin{to{transform:rotate(360deg)}}\
+.rv-msg{font-size:12.5px;color:#8a8a8a;margin-top:10px;min-height:18px}\
+.rv-err{background:#1c1010;border:1px solid #3a1d1d;color:#f0b0a0;border-radius:14px;padding:14px;font-size:14px;line-height:1.5;margin:10px 0;text-align:left}\
+.rv-res video{width:100%;max-height:62vh;border-radius:16px;background:#000;display:block}\
+.rv-res+.rv-res{margin-top:28px;padding-top:22px;border-top:1px solid #1d1d1d}\
+.rv-acts{display:flex;gap:8px;margin-top:12px}\
+.rv-card{background:#121212;border:1px solid #1f1f1f;border-radius:14px;padding:13px 14px;margin-top:10px;font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word}\
+.rv-card .l{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#8a8a8a;margin-bottom:6px;white-space:normal}\
+.rv-card .l button{background:#1d1d1d;border:none;color:#ddd;border-radius:8px;padding:5px 10px;font:12px "DM Sans",sans-serif;cursor:pointer}\
+.rv-warn{font-size:12.5px;color:#d9a441;margin-top:10px;line-height:1.45}\
+.rv-rate{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:13px;color:#8a8a8a}.rv-rate button{border:1px solid #262626;background:#131313;border-radius:10px;font-size:17px;padding:6px 11px;cursor:pointer}.rv-rate button.on{border-color:#E8B64A}\
+.rv-sheet{position:absolute;inset:0;background:#0b0b0b;z-index:5;display:none;flex-direction:column}.rv-sheet.on{display:flex}\
+.rv-sec{margin-bottom:26px}.rv-sec h3{font-size:16px;font-weight:500;margin:0 0 4px}\
+.rv-hi{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1a1a1a;font-size:13px}.rv-hi .hk{flex:1;min-width:0}.rv-hi .hk small{display:block;color:#666;font-size:11.5px;margin-top:2px}.rv-hi input{width:86px;background:#131313;border:1px solid #242424;border-radius:8px;color:#eee;padding:7px;font-size:12.5px}\
+.rv-a{color:#E8B64A;font-size:13.5px;line-height:1.9;text-decoration:none;display:block}\
+.rv-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d1d1d;color:#eee;padding:11px 16px;border-radius:12px;font-size:13.5px;z-index:99999;max-width:88%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}\
+.rv-clone{margin-top:10px;padding:14px;border:1px solid #2a2414;background:#14110a;border-radius:14px;display:none}.rv-clone.on{display:block}\
+.rv-clone ol{margin:0 0 12px;padding-left:18px;color:#b9b9b9;font-size:13px;line-height:1.6}\
 ';
+var STEPS = ['Material', 'Estilo', 'Audio'];
 function toast(m) { var t = document.createElement('div'); t.className = 'rv-toast'; t.textContent = m; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
 function hookHTML(s) { return esc(String(s)).replace(/\*([^*]+)\*/g, '<em>$1</em>'); }
+
 function build() {
   if (root) return;
   var st = document.createElement('style'); st.id = 'reels-css'; st.textContent = CSS; document.head.appendChild(st);
   if (!document.querySelector('link[data-reels-font]')) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&display=swap'; l.setAttribute('data-reels-font', '1'); document.head.appendChild(l); }
   root = document.createElement('div'); root.id = 'reels-app';
-  root.innerHTML = '<div class="rv-top"><button class="rv-back" id="rv-back">← MENÚ</button><div class="rv-title">REELS <span>VIRALES</span></div><div class="rv-ai" id="rv-ai"></div></div>'
-    + '<div class="rv-wrap">'
-    // 1 material
-    + '<div class="rv-sec"><div class="rv-h"><b>1</b> TU MATERIAL</div>'
-    + '<div class="rv-sub">Sube todos los clips del tatuaje y la foto final. Se acomodan solos en el orden en que los grabaste.</div>'
-    + '<label class="rv-drop" for="rv-file"><strong>＋ SUBIR VIDEOS Y FOTOS</strong>Toca para elegir de tu galería (puedes elegir varios)</label>'
-    + '<input type="file" id="rv-file" accept="video/*,image/*" multiple hidden>'
-    + '<div class="rv-clips" id="rv-clips"></div>'
-    + '<div class="rv-f"><label>¿QUÉ TATUAJE ES? (OPCIONAL, AYUDA A LA IA)</label><div class="rv-row"><input class="rv-in" id="rv-desc" placeholder="Ej. carpa koi con flor de cerezo en el antebrazo, 6 horas"><button class="rv-mic" id="rv-mic" title="Dictar">🎤</button></div></div>'
+  root.innerHTML = ''
+    + '<div class="rv-top"><button class="rv-ib" id="rv-back" aria-label="Atrás">←</button><div class="rv-tt" id="rv-tt">Crear reel</div><button class="rv-ib" id="rv-gear" aria-label="Ajustes">⚙</button></div>'
+    + '<div class="rv-steps" id="rv-steps">' + STEPS.map(function (x) { return '<div><i></i>' + x + '</div>'; }).join('') + '</div>'
+    + '<div class="rv-body" id="rv-body">'
+    // PASO 1
+    + '<div class="rv-page" data-p="1"><div class="rv-h1">Sube tu tatuaje</div><p class="rv-p">Elige los clips del proceso y la foto del resultado. Se acomodan solos en el orden en que los grabaste.</p>'
+    + '<label class="rv-up" for="rv-file"><div class="pl">＋</div><b>Elegir videos y fotos</b><span>Puedes elegir varios a la vez</span></label><input type="file" id="rv-file" accept="video/*,image/*" multiple hidden>'
+    + '<div class="rv-thumbs" id="rv-clips"></div>'
+    + '<div class="rv-lb">¿Qué tatuaje es? (opcional)</div><div class="rv-row"><input class="rv-in" id="rv-desc" placeholder="Ej. carpa koi con flor de cerezo"><button class="rv-mic" id="rv-mic" aria-label="Dictar">🎤</button></div></div>'
+    // PASO 2
+    + '<div class="rv-page" data-p="2"><div class="rv-h1">Elige el estilo</div><p class="rv-p">Si no sabes cuál, deja «Automático».</p>'
+    + '<div class="rv-list" id="rv-tpls"></div>'
+    + '<button class="rv-link" id="rv-cl-toggle">🔁 Copiar un video viral que te gustó</button>'
+    + '<div class="rv-clone" id="rv-clone"><ol><li>Guarda el video en tu celular (TikTok: Compartir → Guardar video. Instagram: grabación de pantalla).</li><li>Súbelo aquí. La app copia sus cortes, su ritmo y su audio.</li></ol>'
+    + '<label class="rv-up" for="rv-cl-file" style="padding:16px"><b id="rv-cl-fname">Subir el video viral</b><span>Máximo 90 segundos</span></label><input type="file" id="rv-cl-file" accept="video/*" hidden>'
+    + '<div class="rv-lb">Link (opcional)</div><input class="rv-in" id="rv-cl-link" placeholder="Pega el link si quieres guardarlo">'
+    + '<div class="rv-lb">¿Qué pasa en el video? (opcional, ayuda a los textos)</div><input class="rv-in" id="rv-cl-what" placeholder="Ej. texto POV y al final gira el brazo">'
+    + '<button class="rv-b full" id="rv-cl-go" style="margin-top:14px">Copiar este viral</button><div class="rv-msg" id="rv-cl-st"></div></div></div>'
+    // PASO 3
+    + '<div class="rv-page" data-p="3"><div class="rv-h1">Música y voz</div><p class="rv-p">Los cortes siempre van al ritmo.</p>'
+    + '<div class="rv-list" id="rv-audio">'
+    + '<div class="rv-it" data-a="trend"><div class="e">🔥</div><div class="t"><b>Audio en tendencia<i class="rv-tag">MEJOR</i></b><span>Al subirlo a Instagram o TikTok le pones el audio que está pegando. El algoritmo te empuja más.</span></div><div class="r"></div></div>'
+    + '<div class="rv-it" data-a="clone" id="rv-a-clone" style="display:none"><div class="e">🔁</div><div class="t"><b>Audio del viral</b><span>El mismo audio del video que copiaste.</span></div><div class="r"></div></div>'
+    + '<div class="rv-it" data-a="mine"><div class="e">🎵</div><div class="t"><b>Mi canción</b><span id="rv-music-st">Sube un audio; los cortes caen en cada golpe.</span></div><div class="r"></div></div>'
+    + '<div class="rv-it" data-a="beat"><div class="e">🥁</div><div class="t"><b>Música INKBOT</b><span>Música japonesa libre de derechos, con golpe en el resultado.</span></div><div class="r"></div></div>'
+    + '</div><input type="file" id="rv-music" accept="audio/*,video/mp4" hidden>'
+    + '<div class="rv-lb">Voz narrando</div><div class="rv-seg" id="rv-voz"><button data-v="auto">Automático</button><button data-v="siempre">Sí</button><button data-v="off">No</button></div>'
+    + '<details class="rv-more"><summary>Más opciones</summary><div class="in">'
+    + '<div class="rv-lb" style="margin-top:4px">Texto del primer segundo</div><div class="rv-chips" id="rv-hooks"></div>'
+    + '<button class="rv-link" id="rv-hooks-ai">✨ Proponer textos con IA</button>'
+    + '<input class="rv-in" id="rv-hook-own" placeholder="O escribe el tuyo (*palabra* = resaltada)">'
+    + '<div class="rv-lb">¿Cuántas versiones?</div><div class="rv-seg" id="rv-ver"><button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button></div>'
+    + '</div></details></div>'
+    // PASO 4 · crear / resultado
+    + '<div class="rv-page rv-make" data-p="4"><div id="rv-making"><div class="rv-h1" id="rv-mk-t">Creando tu reel</div><p class="rv-p" style="margin-bottom:6px">Deja la app abierta. Tarda más o menos lo que dura el video.</p>'
+    + '<canvas class="rv-live" id="rv-live" width="180" height="320"></canvas><div class="rv-bar"><i id="rv-bar"></i></div>'
+    + '<ul class="rv-chk" id="rv-chk"><li data-k="analiza">Buscando los mejores momentos</li><li data-k="plan">Escribiendo gancho y caption</li><li data-k="voz">Grabando la voz</li><li data-k="arma">Armando los cortes al ritmo</li><li data-k="render">Creando el video</li></ul><div class="rv-msg" id="rv-msg"></div></div>'
+    + '<div id="rv-results" style="text-align:left"></div></div>'
     + '</div>'
-    // 2 formato
-    + '<div class="rv-sec"><div class="rv-h"><b>2</b> FORMATO VIRAL</div><div class="rv-tpls" id="rv-tpls"></div>'
-    + '<details class="rv-det" style="margin-top:12px"><summary>＋ CLONAR UN VIDEO VIRAL</summary>'
-    + '<div class="rv-sub" style="margin-top:8px">Copia los <b>cortes exactos</b> y el <b>audio</b> de un reel que explotó y los usa con tus clips.<br>1) Guarda el video viral en tu celular (en TikTok: Compartir → Guardar video; en Instagram: grábalo con la grabadora de pantalla).<br>2) Súbelo aquí. El link y la descripción son opcionales, solo ayudan a la IA con los textos.</div>'
-    + '<label class="rv-drop" for="rv-cl-file" style="padding:14px"><strong style="font-size:18px">＋ SUBIR EL VIDEO VIRAL</strong><span id="rv-cl-fname">Toca para elegirlo</span></label><input type="file" id="rv-cl-file" accept="video/*" hidden>'
-    + '<div class="rv-f"><div class="rv-row"><input class="rv-in" id="rv-cl-link" placeholder="Link del reel o TikTok (opcional)"><button class="rv-small" id="rv-cl-open" title="Abrir link">↗</button></div></div>'
-    + '<div class="rv-f"><input class="rv-in" id="rv-cl-what" placeholder="Ej. empieza con texto POV, cortes rápidos y al final gira el brazo con un golpe"></div>'
-    + '<button class="rv-btn s" id="rv-cl-go">CREAR PLANTILLA</button><div class="rv-msg" id="rv-cl-st"></div></details>'
-    + '</div>'
-    // 3 gancho
-    + '<div class="rv-sec"><div class="rv-h"><b>3</b> TEXTO GANCHO</div><div class="rv-sub">Lo que se lee en el primer segundo. Déjalo en automático o elige uno.</div>'
-    + '<div class="rv-chips" id="rv-hooks"></div><div class="rv-row" style="margin-top:10px"><button class="rv-small" id="rv-hooks-ai">✨ Ganchos con IA para este tatuaje</button></div>'
-    + '<div class="rv-f"><input class="rv-in" id="rv-hook-own" placeholder="O escribe el tuyo (usa *asteriscos* para resaltar)"></div></div>'
-    // 4 audio
-    + '<div class="rv-sec"><div class="rv-h"><b>4</b> AUDIO</div><div class="rv-opts" id="rv-audio">'
-    + '<div class="rv-opt" data-a="trend"><div class="e">🔥</div><div><b>Audio en tendencia <i class="rv-tag">RECOMENDADO</i></b><span>El video sale con los cortes al ritmo y la voz. Al subirlo, eliges en Instagram o TikTok el audio que está pegando. Así el algoritmo te mete en la tendencia.</span></div></div>'
-    + '<div class="rv-opt" data-a="mine"><div class="e">📁</div><div><b>Mi audio</b><span>Sube una canción o audio guardado. Detecta el ritmo, corta en cada golpe y hace coincidir el drop con la revelación.</span></div></div>'
-    + '<div class="rv-opt" data-a="clone" id="rv-a-clone" style="display:none"><div class="e">🔁</div><div><b>Audio del viral</b><span>Usa el mismo audio del video que clonaste, con los cortes justo donde caían en el original. Si prefieres, en Instagram toca «Usar audio» en el reel original: también cuenta para la tendencia.</span></div></div>'
-    + '<div class="rv-opt" data-a="beat"><div class="e">🥁</div><div><b>Beat INKBOT</b><span>Música japonesa (taiko + koto) creada al momento, libre de derechos, con subida y golpe en el resultado final.</span></div></div>'
-    + '</div><input type="file" id="rv-music" accept="audio/*,video/mp4" hidden><div class="rv-msg" id="rv-music-st"></div>'
-    + '<div class="rv-f"><label>VOZ NARRANDO</label><div class="rv-seg" id="rv-voz"><button data-v="auto">Según formato</button><button data-v="siempre">Siempre</button><button data-v="off">Sin voz</button></div></div>'
-    + '<div class="rv-f"><label>VOZ</label><div class="rv-seg" id="rv-gen"><button data-g="hombre">Hombre</button><button data-g="mujer">Mujer</button></div></div>'
-    + '</div>'
-    // crear
-    + '<div class="rv-sec"><div class="rv-f" style="margin-top:0"><label>¿CUÁNTOS REELS?</label><div class="rv-seg" id="rv-ver"><button data-n="1">1 reel</button><button data-n="2">2 versiones</button><button data-n="3">3 versiones distintas</button></div></div>'
-    + '<button class="rv-btn" id="rv-go">⚡ CREAR MI REEL</button>'
-    + '<div class="rv-prog" id="rv-prog"><div class="rv-bar"><i id="rv-bar"></i></div><div class="rv-msg" id="rv-msg"></div><canvas class="rv-live" id="rv-live" width="180" height="320"></canvas></div>'
-    + '<div id="rv-results"></div></div>'
-    // historial
-    + '<div class="rv-sec"><div class="rv-h">📈 TUS REELS</div><div class="rv-sub">Cuando publiques, califícalos o pon sus vistas. La IA aprende qué ganchos y formatos te funcionan y los usa más.</div><div class="rv-hist" id="rv-hist"></div></div>'
-    // tendencias
-    + '<div class="rv-sec"><div class="rv-h">🔎 ¿QUÉ ESTÁ PEGANDO?</div><div class="rv-sub">Instagram y TikTok no dejan que una app lea sus tendencias, pero estos atajos te las muestran en segundos:</div>'
-    + '<div class="rv-sub">• <a class="rv-link" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es">Canciones en tendencia de TikTok (Creative Center)</a><br>• <a class="rv-link" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es">Hashtags en tendencia de TikTok</a><br>• En Instagram: al agregar audio a tu reel, los que tienen la flechita ↗ son los que están en tendencia.<br>• ¿Viste un reel de tatuaje que explotó? Clónalo en el paso 2.</div></div>'
-    // ajustes
-    + '<div class="rv-sec"><details class="rv-det"><summary>⚙ AJUSTES</summary>'
-    + '<div class="rv-f"><label>TU USUARIO (MARCA DE AGUA)</label><input class="rv-in" id="rv-c-handle"></div>'
-    + '<div class="rv-f"><label>TU CIUDAD</label><input class="rv-in" id="rv-c-ciudad"></div>'
-    + '<div class="rv-f"><label>TU ESTILO</label><input class="rv-in" id="rv-c-estilo"></div>'
-    + '<div class="rv-f"><label>TEXTO FINAL (LLAMADA A LA ACCIÓN)</label><input class="rv-in" id="rv-c-cta"></div>'
-    + '<div class="rv-f"><label>MOSTRAR USUARIO Y LLAMADA FINAL</label><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
-    + '<div class="rv-f"><label>MOTOR DE VOZ</label><div class="rv-seg" id="rv-c-motor"><button data-e="auto">Mejor gratis</button><button data-e="openai">OpenAI</button><button data-e="neural">Neural</button></div></div>'
-    + '<div class="rv-f"><label>LLAVE DE ELEVENLABS (OPCIONAL · TU VOZ PROPIA)</label><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Si la pones, se usa primero"></div>'
-    + '<div class="rv-sub" style="margin-top:10px">La IA de textos es la misma de INKBOT: gratis por defecto, y en el menú principal puedes conectar tu propia IA (Gemini, Groq, OpenRouter o la tuya).</div>'
-    + '<button class="rv-btn s" id="rv-c-save">GUARDAR AJUSTES</button></details></div>'
-    + '</div>';
+    + '<div class="rv-foot" id="rv-foot"><button class="rv-b g" id="rv-prev">Atrás</button><button class="rv-b" id="rv-next">Siguiente</button></div>'
+    // HOJA DE AJUSTES
+    + '<div class="rv-sheet" id="rv-sheet"><div class="rv-top"><span style="width:40px"></span><div class="rv-tt">Ajustes</div><button class="rv-ib" id="rv-sheet-x">✕</button></div><div class="rv-body"><div class="rv-page on">'
+    + '<div class="rv-sec"><h3>Tus reels</h3><p class="rv-p">Pon las vistas cuando los publiques: la app aprende qué te funciona.</p><div id="rv-hist"></div></div>'
+    + '<div class="rv-sec"><h3>Tu marca</h3>'
+    + '<div class="rv-lb">Usuario</div><input class="rv-in" id="rv-c-handle"><div class="rv-lb">Ciudad</div><input class="rv-in" id="rv-c-ciudad"><div class="rv-lb">Estilo</div><input class="rv-in" id="rv-c-estilo"><div class="rv-lb">Texto final</div><input class="rv-in" id="rv-c-cta">'
+    + '<div class="rv-lb">Mostrar usuario y texto final</div><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
+    + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">La voz gratis se genera en tu celular (la primera vez descarga ~60 MB). Si tienes ElevenLabs, pega tu llave y se usa esa.</p><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)">'
+    + '<div class="rv-lb">Voz de ElevenLabs</div><div class="rv-seg" id="rv-gen"><button data-g="hombre">Hombre</button><button data-g="mujer">Mujer</button></div></div>'
+    + '<div class="rv-sec"><h3>IA de textos</h3><p class="rv-p" id="rv-ai-info"></p></div>'
+    + '<div class="rv-sec"><h3>¿Qué está pegando?</h3><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es">Canciones en tendencia de TikTok ↗</a><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es">Hashtags en tendencia de TikTok ↗</a><p class="rv-p" style="margin-top:6px">En Instagram, los audios con la flechita ↗ son los que están en tendencia.</p></div>'
+    + '<button class="rv-b full" id="rv-c-save">Guardar</button></div></div></div>';
   document.body.appendChild(root);
   wire();
 }
+
+var UI = { step: 1 };
+function go(n) {
+  UI.step = n;
+  $$('.rv-page[data-p]', root).forEach(function (p) { p.classList.toggle('on', +p.dataset.p === n); });
+  $$('#rv-steps div', root).forEach(function (d, i) { d.classList.toggle('on', i + 1 === n); d.classList.toggle('ok', i + 1 < n || n === 4); });
+  $('#rv-steps').style.display = n === 4 ? 'none' : 'flex';
+  $('#rv-tt').textContent = n === 4 ? (S.busy ? 'Creando…' : 'Tu reel') : 'Crear reel';
+  footer(); $('#rv-body').scrollTop = 0;
+}
+function footer() {
+  var prev = $('#rv-prev'), next = $('#rv-next'), n = UI.step;
+  $('#rv-foot').style.display = n === 4 && S.busy ? 'none' : 'flex';
+  prev.style.display = n === 1 ? 'none' : 'block';
+  if (n === 1) { next.textContent = 'Siguiente'; next.disabled = !S.clips.length; }
+  else if (n === 2) { next.textContent = 'Siguiente'; next.disabled = false; prev.textContent = 'Atrás'; }
+  else if (n === 3) { next.textContent = S.versions > 1 ? 'Crear ' + S.versions + ' reels ⚡' : 'Crear reel ⚡'; next.disabled = false; prev.textContent = 'Atrás'; }
+  else { prev.textContent = 'Nuevo tatuaje'; next.textContent = 'Otra versión'; next.disabled = false; }
+}
 function wire() {
-  $('#rv-back').onclick = function () { var b = document.getElementById('btn-back'); if (b) b.click(); else R.hide(); };
+  $('#rv-back').onclick = function () {
+    if (S.busy) return toast('Espera a que termine el video');
+    if (UI.step > 1 && UI.step < 4) return go(UI.step - 1);
+    if (UI.step === 4) return go(3);
+    var b = document.getElementById('btn-back'); if (b) b.click(); else R.hide();
+  };
+  $('#rv-prev').onclick = function () {
+    if (UI.step === 4) { resetAll(); return go(1); }
+    go(UI.step - 1);
+  };
+  $('#rv-next').onclick = function () {
+    if (UI.step === 1) { if (!S.clips.length) return toast('Sube al menos un video o foto'); return go(2); }
+    if (UI.step === 2) return go(3);
+    if (UI.step === 3) return createAll();
+    if (UI.step === 4) return go(2);
+  };
+  $('#rv-gear').onclick = function () { fillSettings(); $('#rv-sheet').classList.add('on'); };
+  $('#rv-sheet-x').onclick = function () { $('#rv-sheet').classList.remove('on'); };
   $('#rv-file').onchange = function (e) { addFiles(e.target.files); e.target.value = ''; };
-  var drop = $('.rv-drop', root);
-  drop.addEventListener('dragover', function (e) { e.preventDefault(); });
-  drop.addEventListener('drop', function (e) { e.preventDefault(); addFiles(e.dataTransfer.files); });
   $('#rv-desc').oninput = function (e) { S.desc = e.target.value.trim(); };
   $('#rv-mic').onclick = dictate;
-  $('#rv-hooks-ai').onclick = function () {
-    var b = this; b.disabled = true; b.textContent = '✨ Escribiendo ganchos…';
-    aiHooks().then(function (g) { S.hooksAI = g; S.hook = ''; renderHooks(); }).catch(function (e) { toast('IA: ' + e.message); })
-      .then(function () { b.disabled = false; b.textContent = '✨ Ganchos con IA para este tatuaje'; });
+  // clonar viral
+  $('#rv-cl-toggle').onclick = function () { $('#rv-clone').classList.toggle('on'); };
+  $('#rv-cl-file').onchange = function (e) { var f = e.target.files[0]; if (!f) return; S.cloneFile = f; $('#rv-cl-fname').textContent = '✓ ' + f.name; e.target.value = ''; };
+  $('#rv-cl-go').onclick = function () {
+    var what = $('#rv-cl-what').value.trim(), link = $('#rv-cl-link').value.trim(), b = this, file = S.cloneFile, st = $('#rv-cl-st');
+    if (!file) return toast('Primero sube el video viral');
+    b.disabled = true; b.textContent = 'Copiando…';
+    cloneFromVideo(file, link, what, function (m) { st.textContent = m; }).then(function (t) {
+      var c = customTpls(); c.unshift(t); lsSet(LS.tpl, c.slice(0, 30));
+      S.tpl = t.id; if (t.hasAudio) S.audio = 'clone'; S.cloneFile = null;
+      $('#rv-cl-fname').textContent = 'Subir el video viral'; $('#rv-cl-what').value = ''; $('#rv-cl-link').value = '';
+      st.textContent = '✓ Copiado: ' + t.cuts.length + ' cortes' + (t.hasAudio ? ' y el audio' : '') + '. Ya está seleccionado arriba.';
+      renderTpls(); renderAudio(); renderHooks();
+    }).catch(function (e) { st.textContent = '⚠ ' + e.message; }).then(function () { b.disabled = false; b.textContent = 'Copiar este viral'; });
   };
-  $('#rv-hook-own').oninput = function (e) { S.hook = e.target.value.trim(); $$('.rv-chip', $('#rv-hooks')).forEach(function (c) { c.classList.toggle('on', !S.hook && c.dataset.h === ''); }); };
-  $$('.rv-opt', $('#rv-audio')).forEach(function (o) {
+  // audio
+  $$('.rv-it', $('#rv-audio')).forEach(function (o) {
     o.onclick = function () { S.audio = o.dataset.a; renderAudio(); if (S.audio === 'mine' && !S.musicFile) $('#rv-music').click(); };
   });
   $('#rv-music').onchange = function (e) {
-    var f = e.target.files[0]; if (!f) return; S.musicFile = f; S.music = null; $('#rv-music-st').textContent = '⏳ Detectando el ritmo de ' + f.name + '…';
-    prepareMusic().then(function (m) { $('#rv-music-st').textContent = '✓ ' + f.name + ' · ' + Math.round(m.beats.bpm) + ' BPM · drop en ' + m.beats.drop.toFixed(1) + ' s'; })
+    var f = e.target.files[0]; if (!f) return; S.musicFile = f; S.music = null; $('#rv-music-st').textContent = 'Leyendo el ritmo…';
+    prepareMusic().then(function (m) { $('#rv-music-st').textContent = '✓ ' + f.name + ' · ' + Math.round(m.beats.bpm) + ' BPM'; })
       .catch(function () { S.musicFile = null; $('#rv-music-st').textContent = '⚠ No se pudo leer ese audio. Prueba con un MP3.'; });
   };
-  segWire('#rv-voz', 'v', function (v) { CFG.voz = v; saveCfg(); }, function () { return CFG.voz === 'eleven' || CFG.voz === 'neural' || CFG.voz === 'openai' ? 'auto' : CFG.voz; });
+  segWire('#rv-voz', 'v', function (v) { CFG.voz = v; saveCfg(); }, function () { return ['auto', 'siempre', 'off'].indexOf(CFG.voz) >= 0 ? CFG.voz : 'auto'; });
+  segWire('#rv-ver', 'n', function (v) { S.versions = +v; footer(); }, function () { return String(S.versions); });
   segWire('#rv-gen', 'g', function (v) { CFG.genero = v; saveCfg(); }, function () { return CFG.genero; });
-  segWire('#rv-ver', 'n', function (v) { S.versions = +v; $('#rv-go').textContent = S.versions > 1 ? '⚡ CREAR ' + S.versions + ' REELS' : '⚡ CREAR MI REEL'; }, function () { return String(S.versions); });
   segWire('#rv-c-marca', 'm', function (v) { CFG.marca = v === '1'; saveCfg(); }, function () { return CFG.marca ? '1' : '0'; });
-  segWire('#rv-c-motor', 'e', function (v) { CFG.motor = v; saveCfg(); }, function () { return CFG.motor || 'auto'; });
-  $('#rv-go').onclick = createAll;
-  $('#rv-cl-go').onclick = function () {
-    var what = $('#rv-cl-what').value.trim(), link = $('#rv-cl-link').value.trim(), b = this, file = S.cloneFile, st = $('#rv-cl-st');
-    if (!file && !what) return toast('Sube el video viral (o al menos describe qué pasa en él)');
-    b.disabled = true; b.textContent = 'CREANDO PLANTILLA…';
-    (file ? cloneFromVideo(file, link, what, function (m) { st.textContent = m; }) : aiClone(link, what)).then(function (t) { if (t.hasAudio) S.audio = 'clone'; S.cloneFile = null; $('#rv-cl-fname').textContent = 'Toca para elegirlo'; st.textContent = t.cuts ? '✓ ' + t.cuts.length + ' cortes copiados' + (t.hasAudio ? ' + audio' : '') : ''; renderAudio(); return t; }).then(function (t) { var c = customTpls(); c.unshift(t); lsSet(LS.tpl, c.slice(0, 30)); S.tpl = t.id; renderTpls(); renderHooks(); toast('Plantilla «' + t.name + '» lista'); $('#rv-cl-what').value = ''; $('#rv-cl-link').value = ''; })
-      .catch(function (e) { toast('No se pudo: ' + e.message); }).then(function () { b.disabled = false; b.textContent = 'CREAR PLANTILLA'; });
+  $('#rv-hooks-ai').onclick = function () {
+    var b = this; b.disabled = true; b.textContent = '✨ Escribiendo… (la IA gratis puede tardar ~1 min)';
+    aiHooks().then(function (g) { S.hooksAI = g; S.hook = ''; renderHooks(); }).catch(function (e) { toast('IA: ' + e.message); })
+      .then(function () { b.disabled = false; b.textContent = '✨ Proponer textos con IA'; });
   };
-  $('#rv-cl-file').onchange = function (e) { var f = e.target.files[0]; if (!f) return; S.cloneFile = f; $('#rv-cl-fname').textContent = '✓ ' + f.name; e.target.value = ''; };
-  $('#rv-cl-open').onclick = function () { var u = $('#rv-cl-link').value.trim(); if (/^https?:\/\//.test(u)) window.open(u, '_blank', 'noopener'); else toast('Pega primero el link'); };
-  ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
-  $('#rv-c-eleven').value = CFG.elevenKey || '';
+  $('#rv-hook-own').oninput = function (e) { S.hook = e.target.value.trim(); $$('.rv-chip', $('#rv-hooks')).forEach(function (c) { c.classList.toggle('on', !S.hook && c.dataset.h === ''); }); };
   $('#rv-c-save').onclick = function () {
     ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { CFG[k] = $('#rv-c-' + k).value.trim(); });
-    CFG.elevenKey = $('#rv-c-eleven').value.trim(); saveCfg(); fitCache = {}; renderHooks(); toast('Ajustes guardados');
+    CFG.elevenKey = $('#rv-c-eleven').value.trim(); saveCfg(); fitCache = {}; renderHooks(); toast('Guardado'); $('#rv-sheet').classList.remove('on');
   };
-  renderTpls(); renderHooks(); renderAudio(); renderClips(); renderHistory();
+  renderTpls(); renderHooks(); renderAudio(); renderClips(); go(1);
+}
+function fillSettings() {
+  ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
+  $('#rv-c-eleven').value = CFG.elevenKey || '';
+  var I = window.INKAI, own = I && I.getCfg && I.getCfg().provider !== 'auto';
+  $('#rv-ai-info').textContent = own ? 'Usando tu IA: ' + (I.PROV[I.getCfg().provider] || {}).label + '. Se cambia en el menú principal de INKBOT.'
+    : 'Gratis, sin cuentas ni ventanas (Pollinations). Responde más o menos 1 vez por minuto. Si quieres que sea instantánea, en el menú principal de INKBOT pon una llave gratis de Gemini o Groq.';
+  renderHistory();
 }
 function segWire(sel, attr, onSet, getV) {
-  var box = $(sel); var btns = $$('button', box);
+  var box = $(sel), btns = $$('button', box);
   function paint() { var v = getV(); btns.forEach(function (b) { b.classList.toggle('on', b.dataset[attr] === v); }); }
   btns.forEach(function (b) { b.onclick = function () { onSet(b.dataset[attr]); paint(); }; }); paint();
+}
+// Miniaturas como imagen (no se dejan videos abiertos: los celulares tienen pocos decodificadores)
+var thumbQ = Promise.resolve();
+function makeThumb(c) {
+  thumbQ = thumbQ.then(async function () {
+    if (c.thumb) return;
+    if (c.kind === 'image') { c.thumb = c.url; renderClips(); return; }
+    var v = null;
+    try {
+      v = await openVideo(c, 2); c.dur = v.duration; await seek(v, Math.min(1, v.duration / 3));
+      var cv = document.createElement('canvas'), sc = 220 / Math.max(v.videoWidth, v.videoHeight); cv.width = Math.round(v.videoWidth * sc); cv.height = Math.round(v.videoHeight * sc);
+      cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height); c.thumb = cv.toDataURL('image/jpeg', .7);
+    } catch (e) { c.thumb = 'x'; c.thumbErr = true; }
+    release(v); renderClips();
+  });
 }
 function addFiles(list) {
   var files = Array.prototype.slice.call(list || []).filter(function (f) { return /^(video|image)\//.test(f.type) || /\.(mp4|mov|m4v|webm|3gp|jpe?g|png|webp|heic)$/i.test(f.name); });
   if (!files.length) return;
   files.forEach(function (f) { S.clips.push({ id: uid(), file: f, name: f.name, kind: /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name) ? 'image' : 'video', url: URL.createObjectURL(f), lm: f.lastModified || 0 }); });
-  // orden de grabación: videos por fecha y las fotos al final (son el resultado)
   S.clips.sort(function (a, b) { if (a.kind !== b.kind) return a.kind === 'video' ? -1 : 1; return a.lm - b.lm; });
-  renderClips();
+  renderClips(); S.clips.forEach(makeThumb);
 }
 function renderClips() {
   var box = $('#rv-clips'); if (!box) return;
   box.innerHTML = S.clips.map(function (c, i) {
-    return '<div class="rv-clip">' + (c.kind === 'video' ? '<video src="' + c.url + '#t=0.5" muted playsinline preload="metadata"></video>' : '<img src="' + c.url + '" alt="">')
-      + '<span class="n">' + (i + 1) + '</span><span class="k">' + (c.kind === 'video' ? (c.dur ? Math.round(c.dur) + 's' : '🎬') : '📷 final') + '</span>'
-      + '<div class="ctl"><button data-act="x" data-i="' + i + '">✕</button><button data-act="u" data-i="' + i + '">▲</button><button data-act="d" data-i="' + i + '">▼</button></div></div>';
+    var inner = !c.thumb ? '<div class="rv-th load">…</div>' : null;
+    if (inner) return inner;
+    return '<div class="rv-th">' + (c.thumb === 'x' ? '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:24px">🎬</div>' : '<img src="' + c.thumb + '" alt="">')
+      + '<span class="n">' + (i + 1) + '</span><span class="k">' + (c.kind === 'video' ? (c.dur ? Math.round(c.dur) + ' s' : 'video') : 'foto') + '</span>'
+      + '<button class="x" data-act="x" data-i="' + i + '">✕</button><div class="mv"><button data-act="u" data-i="' + i + '">‹</button><button data-act="d" data-i="' + i + '">›</button></div></div>';
   }).join('');
   $$('button', box).forEach(function (b) {
     b.onclick = function () {
@@ -1284,16 +1340,17 @@ function renderClips() {
       renderClips();
     };
   });
+  if (UI.step === 1) footer();
 }
 function renderTpls() {
   var box = $('#rv-tpls'), cs = customTpls();
-  var items = [{ key: 'auto', emoji: '🎲', name: 'Que la IA elija', desc: 'Elige el formato según tu material y lo que mejor te ha funcionado.' }]
-    .concat(cs.map(function (c) { return { key: c.id, emoji: c.cuts ? '🔁' : '⭐', name: c.name, desc: c.notes || 'Plantilla clonada', custom: true }; }))
+  var items = [{ key: 'auto', emoji: '✨', name: 'Automático', desc: 'La app elige el mejor formato para tu material.', tag: 'RECOMENDADO' }]
+    .concat(cs.map(function (c) { return { key: c.id, emoji: c.cuts ? '🔁' : '⭐', name: c.name, desc: c.notes || 'Plantilla copiada', custom: true }; }))
     .concat(BASES.map(function (k) { return { key: k, emoji: TPL[k].emoji, name: TPL[k].name, desc: TPL[k].desc }; }));
-  box.innerHTML = items.map(function (t) { return '<div class="rv-tpl' + (S.tpl === t.key ? ' on' : '') + '" data-k="' + t.key + '"><div class="e">' + t.emoji + '</div><div class="nm">' + esc(t.name) + '</div><div class="d">' + esc(t.desc) + '</div>' + (t.custom ? '<button class="x" data-del="' + t.key + '">✕</button>' : '') + '</div>'; }).join('');
-  $$('.rv-tpl', box).forEach(function (el) {
+  box.innerHTML = items.map(function (t) { return '<div class="rv-it' + (S.tpl === t.key ? ' on' : '') + '" data-k="' + t.key + '"><div class="e">' + t.emoji + '</div><div class="t"><b>' + esc(t.name) + (t.tag ? '<i class="rv-tag">' + t.tag + '</i>' : '') + '</b><span>' + esc(t.desc) + '</span></div>' + (t.custom ? '<button class="del" data-del="' + t.key + '" aria-label="Borrar">✕</button>' : '') + '<div class="r"></div></div>'; }).join('');
+  $$('.rv-it', box).forEach(function (el) {
     el.onclick = function (e) {
-      if (e.target.dataset.del) { IDB.del(e.target.dataset.del); lsSet(LS.tpl, customTpls().filter(function (c) { return c.id !== e.target.dataset.del; })); if (S.tpl === e.target.dataset.del) S.tpl = 'auto'; renderTpls(); return; }
+      if (e.target.dataset.del) { IDB.del(e.target.dataset.del); lsSet(LS.tpl, customTpls().filter(function (c) { return c.id !== e.target.dataset.del; })); if (S.tpl === e.target.dataset.del) S.tpl = 'auto'; if (S.audio === 'clone') S.audio = 'trend'; renderTpls(); renderAudio(); return; }
       S.tpl = el.dataset.k; S.hooksAI = []; S.hook = ''; var tt = S.tpl !== 'auto' && getTpl(S.tpl);
       if (tt && tt.hasAudio) S.audio = 'clone'; else if (S.audio === 'clone') S.audio = 'trend';
       renderTpls(); renderHooks(); renderAudio();
@@ -1304,33 +1361,84 @@ function renderHooks() {
   var box = $('#rv-hooks'); if (!box) return;
   var list = S.hooksAI.length ? S.hooksAI : (S.tpl === 'auto' ? [] : getTpl(S.tpl).hooks.map(function (x) { return fillVars(x); }));
   var own = $('#rv-hook-own'); if (own) own.value = '';
-  box.innerHTML = '<button class="rv-chip' + (!S.hook ? ' on' : '') + '" data-h="">🎲 Automático</button>' + list.map(function (h) { return '<button class="rv-chip' + (S.hook === h ? ' on' : '') + '" data-h="' + esc(h) + '">' + hookHTML(h) + '</button>'; }).join('');
+  box.innerHTML = '<button class="rv-chip' + (!S.hook ? ' on' : '') + '" data-h="">Automático</button>' + list.map(function (h) { return '<button class="rv-chip' + (S.hook === h ? ' on' : '') + '" data-h="' + esc(h) + '">' + hookHTML(h) + '</button>'; }).join('');
   $$('.rv-chip', box).forEach(function (c) { c.onclick = function () { S.hook = c.dataset.h; $$('.rv-chip', box).forEach(function (x) { x.classList.toggle('on', x === c); }); }; });
 }
-function renderAudio() { var tt = S.tpl !== 'auto' && getTpl(S.tpl), ca = $('#rv-a-clone'); if (ca) ca.style.display = tt && tt.hasAudio ? 'flex' : 'none'; $$('.rv-opt', $('#rv-audio')).forEach(function (o) { o.classList.toggle('on', o.dataset.a === S.audio); }); if ($('#rv-music-st')) $('#rv-music-st').style.display = S.audio === 'mine' ? 'block' : 'none'; }
-function setBusy(b) { var g = $('#rv-go'); g.disabled = b; g.textContent = b ? '⏳ CREANDO…' : (S.versions > 1 ? '⚡ CREAR ' + S.versions + ' REELS' : '⚡ CREAR MI REEL'); $('#rv-live').style.display = b ? 'block' : 'none'; }
+function renderAudio() {
+  var tt = S.tpl !== 'auto' && getTpl(S.tpl), ca = $('#rv-a-clone'); if (ca) ca.style.display = tt && tt.hasAudio ? 'flex' : 'none';
+  $$('.rv-it', $('#rv-audio')).forEach(function (o) { o.classList.toggle('on', o.dataset.a === S.audio); });
+}
+function resetAll() {
+  S.clips.forEach(function (c) { try { URL.revokeObjectURL(c.url); } catch (e) {} });
+  S.results.forEach(function (r) { try { URL.revokeObjectURL(r.url); } catch (e) {} });
+  S.clips = []; S.results = []; S.desc = ''; $('#rv-desc').value = ''; $('#rv-results').innerHTML = ''; renderClips();
+}
+// Progreso con lista de pasos
 function progress() {
-  var box = $('#rv-prog'), bar = $('#rv-bar'), msg = $('#rv-msg'); box.classList.add('show');
-  var weights = { analiza: [0, 15], plan: [15, 25], voz: [25, 35], arma: [35, 37], audio: [37, 40], render: [40, 100], done: [100, 100], error: [0, 0] };
+  var bar = $('#rv-bar'), msg = $('#rv-msg'), order = ['analiza', 'plan', 'voz', 'arma', 'render'];
+  var weights = { analiza: [0, 15], plan: [15, 25], voz: [25, 35], arma: [35, 37], audio: [37, 40], render: [40, 100], done: [100, 100] };
+  $$('#rv-chk li').forEach(function (li) { li.className = ''; });
   return function (k, m, f) {
+    if (k === 'audio') k = 'arma';
     var w = weights[k] || [0, 0], p = w[0] + (w[1] - w[0]) * (f == null ? 0 : clamp(f, 0, 1));
     if (k !== 'error') bar.style.width = (k === 'done' ? 100 : p) + '%';
-    msg.textContent = m || ''; msg.style.color = k === 'error' ? '#e06040' : '#9a9a9a';
+    var idx = order.indexOf(k);
+    if (idx >= 0) $$('#rv-chk li').forEach(function (li, i) { li.className = i < idx ? 'ok' : i === idx ? 'now' : (li.className === 'ok' && k === 'plan' ? '' : li.className === 'ok' ? 'ok' : ''); });
+    if (k === 'done') $$('#rv-chk li').forEach(function (li) { li.className = 'ok'; });
+    msg.textContent = m || '';
   };
+}
+async function createAll() {
+  if (S.busy) return;
+  if (!S.clips.length) { go(1); return toast('Primero sube tus videos o fotos'); }
+  if (S.audio === 'mine' && !S.musicFile) return toast('Sube tu canción o elige otra opción de audio');
+  S.busy = true; S.results.forEach(function (r) { try { URL.revokeObjectURL(r.url); } catch (e) {} }); S.results = [];
+  $('#rv-results').innerHTML = ''; $('#rv-making').style.display = 'block'; $('#rv-mk-t').textContent = S.versions > 1 ? 'Creando ' + S.versions + ' reels' : 'Creando tu reel';
+  go(4);
+  var step = progress();
+  try {
+    try { await document.fonts.load('150px "Bebas Neue"'); await document.fonts.load('900 70px Montserrat'); await document.fonts.load('800 50px Montserrat'); } catch (e) {}
+    await thumbQ;
+    var bad = [];
+    for (var i = 0; i < S.clips.length; i++) {
+      var c = S.clips[i];
+      step('analiza', 'Revisando ' + (i + 1) + ' de ' + S.clips.length + '…', i / S.clips.length);
+      try { await analyzeClip(c, function (f) { step('analiza', 'Revisando ' + (i + 1) + ' de ' + S.clips.length + '…', (i + f) / S.clips.length); }); }
+      catch (e) { c.bad = true; bad.push(c.name); }
+    }
+    S.clips = S.clips.filter(function (c) { return !c.bad; }); renderClips();
+    if (!S.clips.length) throw new Error('El celular no pudo abrir ninguno de los archivos. Prueba con videos grabados con la cámara normal (no en HDR/8K) o vuelve a elegirlos.');
+    var used = [];
+    for (var v = 0; v < S.versions; v++) {
+      var key = v === 0 ? (S.tpl === 'auto' ? autoTemplate([]) : S.tpl) : autoTemplate(used);
+      used.push(key);
+      if (S.versions > 1) $('#rv-mk-t').textContent = 'Reel ' + (v + 1) + ' de ' + S.versions + ' · ' + getTpl(key).name;
+      var r = await createOne(key, v, step);
+      if (bad.length) r.warn = (r.warn ? r.warn + ' ' : '') + 'No se pudo abrir: ' + bad.join(', ') + '.';
+      S.results.push(r); renderResults();
+    }
+    step('done', '', 1);
+    $('#rv-making').style.display = 'none';
+  } catch (e) {
+    console.error(e);
+    $('#rv-making').style.display = 'none';
+    $('#rv-results').innerHTML = (S.results.length ? $('#rv-results').innerHTML : '') + '<div class="rv-err">⚠ ' + esc(e && e.message ? e.message : e) + '</div>';
+    if (S.results.length) renderResults();
+  } finally { S.busy = false; go(4); renderHistory(); }
 }
 function renderResults() {
   var box = $('#rv-results'); if (!box) return;
   box.innerHTML = S.results.map(function (r, i) {
     var p = r.plan;
-    return '<div class="rv-res" data-i="' + i + '"><div class="t">' + r.emoji + ' ' + esc(r.tplName) + ' · ' + Math.round(r.T) + ' s</div>'
-      + '<video src="' + r.url + '" controls playsinline></video>'
-      + '<div class="rv-acts"><button class="rv-btn g" style="margin:0" data-act="share">📲 COMPARTIR</button><button class="rv-btn s" style="margin:0" data-act="dl">⬇ DESCARGAR</button></div>'
+    return '<div class="rv-res" data-i="' + i + '">'
+      + (S.results.length > 1 ? '<div class="rv-lb" style="margin-top:0">' + r.emoji + ' ' + esc(r.tplName) + '</div>' : '')
+      + '<video src="' + r.url + '" controls playsinline preload="metadata"></video>'
+      + '<div class="rv-acts"><button class="rv-b" data-act="share">Compartir a Instagram / TikTok</button><button class="rv-b g" data-act="dl" aria-label="Descargar">⬇</button></div>'
       + (r.warn ? '<div class="rv-warn">⚠ ' + esc(r.warn) + '</div>' : '')
-      + '<div class="rv-box"><span class="lb">CAPTION</span><button class="rv-small cp" data-cp="cap">Copiar</button>' + esc(p.caption + '\n\n' + p.hashtags.join(' ')) + '</div>'
-      + '<div class="rv-box"><span class="lb">CUÁNDO PUBLICAR</span>' + esc(cap(p.day) + ' · ' + p.time) + '</div>'
-      + (r.audioMode === 'trend' ? '<div class="rv-box"><span class="lb">AUDIO A ELEGIR EN IG / TIKTOK</span>' + esc(p.audioTip) + (r.voice ? '\nTip: baja el volumen del audio en tendencia a ~20% para que se escuche tu voz.' : '') + '</div>' : '')
-      + (p.narration && r.voice ? '<div class="rv-box"><span class="lb">VOZ (' + esc(r.voice) + ')</span>' + esc(p.narration) + '</div>' : '')
-      + '<div class="rv-rate">¿Cómo te quedó? <button data-rate="2">🔥</button><button data-rate="1">👍</button><button data-rate="-1">👎</button></div></div>';
+      + '<div class="rv-card"><div class="l">Caption<button data-cp="1">Copiar</button></div>' + esc(p.caption + '\n\n' + p.hashtags.join(' ')) + '</div>'
+      + '<div class="rv-card"><div class="l">Cuándo publicarlo</div>' + esc(cap(p.day) + ' · ' + p.time) + '</div>'
+      + (r.audioMode === 'trend' ? '<div class="rv-card"><div class="l">Qué audio ponerle en IG / TikTok</div>' + esc(p.audioTip) + (r.voice ? '\nBaja ese audio a ~20 % para que se escuche la voz.' : '') + '</div>' : '')
+      + '<div class="rv-rate">¿Te gustó? <button data-rate="2">🔥</button><button data-rate="1">👍</button><button data-rate="-1">👎</button></div></div>';
   }).join('');
   $$('.rv-res', box).forEach(function (el) {
     var r = S.results[+el.dataset.i];
@@ -1350,7 +1458,7 @@ function download(r) { var a = document.createElement('a'); a.href = r.url; a.do
 function share(r) {
   var f = new File([r.blob], fileName(r), { type: 'video/mp4' }), text = r.plan.caption + '\n\n' + r.plan.hashtags.join(' ');
   copy(text, true);
-  if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], text: text }).catch(function () {});
+  if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], text: text }).then(function () { toast('El caption ya está copiado: pégalo al publicar'); }).catch(function () {});
   else { download(r); toast('Se descargó el video. El caption ya está copiado.'); }
 }
 function copy(t, silent) {
@@ -1358,15 +1466,15 @@ function copy(t, silent) {
   if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {});
   else { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} ta.remove(); }
 }
-function rate(id, v) { var h = history(); h.forEach(function (x) { if (x.id === id) x.rating = v; }); lsSet(LS.hist, h); renderHistory(); }
+function rate(id, v) { var h = history(); h.forEach(function (x) { if (x.id === id) x.rating = v; }); lsSet(LS.hist, h); }
 function renderHistory() {
   var box = $('#rv-hist'); if (!box) return; var h = history();
-  if (!h.length) { box.innerHTML = '<div class="rv-sub" style="margin:0">Aún no has creado reels.</div>'; return; }
+  if (!h.length) { box.innerHTML = '<p class="rv-p" style="margin:0">Aún no has creado reels.</p>'; return; }
   box.innerHTML = h.slice(0, 15).map(function (x) {
     var t = TPL[x.tpl] ? TPL[x.tpl].emoji : '⭐';
-    return '<div class="rv-hi"><span>' + t + '</span><span class="hk">' + hookHTML(x.hook) + '<br><span style="color:#555">' + new Date(x.date).toLocaleDateString('es-MX') + ' · ' + esc(x.tplName || '') + (x.rating ? ' · ' + (x.rating > 1 ? '🔥' : x.rating > 0 ? '👍' : '👎') : '') + '</span></span><input type="number" min="0" placeholder="vistas" value="' + (x.views || '') + '" data-id="' + x.id + '"></div>';
+    return '<div class="rv-hi"><span>' + t + '</span><div class="hk">' + hookHTML(x.hook) + '<small>' + new Date(x.date).toLocaleDateString('es-MX') + ' · ' + esc(x.tplName || '') + (x.rating ? ' · ' + (x.rating > 1 ? '🔥' : x.rating > 0 ? '👍' : '👎') : '') + '</small></div><input type="number" min="0" inputmode="numeric" placeholder="vistas" value="' + (x.views || '') + '" data-id="' + x.id + '"></div>';
   }).join('');
-  $$('input', box).forEach(function (inp) { inp.onchange = function () { var hh = history(); hh.forEach(function (x) { if (x.id === inp.dataset.id) x.views = +inp.value || 0; }); lsSet(LS.hist, hh); toast('Guardado: la IA lo toma en cuenta'); }; });
+  $$('input', box).forEach(function (inp) { inp.onchange = function () { var hh = history(); hh.forEach(function (x) { if (x.id === inp.dataset.id) x.views = +inp.value || 0; }); lsSet(LS.hist, hh); toast('Guardado'); }; });
 }
 var rec = null;
 function dictate() {
@@ -1380,13 +1488,9 @@ function dictate() {
   rec.onerror = function () { toast('No se pudo dictar'); };
   b.classList.add('on'); rec.start();
 }
-function aiBadge() {
-  var el = $('#rv-ai'); if (!el) return; var I = window.INKAI;
-  el.textContent = I ? ('IA · ' + (I.source || (I.getCfg && I.getCfg().provider === 'auto' ? 'GRATIS' : (I.getCfg ? I.getCfg().provider.toUpperCase() : '')))) : 'IA no disponible';
-}
 
-R.open = function () { build(); root.classList.add('show'); aiBadge(); renderHistory(); document.body.style.overflow = 'hidden'; };
+R.open = function () { build(); root.classList.add('show'); if (!S.busy && UI.step === 4 && !S.results.length) go(1); document.body.style.overflow = 'hidden'; };
 R.hide = function () { if (root) root.classList.remove('show'); document.body.style.overflow = ''; };
 // Para pruebas automáticas
-R._t = { S: S, CFG: CFG, TPL: TPL, getTpl: getTpl, analyzeClip: analyzeClip, buildEDL: buildEDL, gridFor: gridFor, detectBeats: detectBeats, buildAudio: buildAudio, render: render, aiPlan: aiPlan, localPlan: localPlan, createOne: createOne, addFiles: addFiles, narrate: narrate, detectCuts: detectCuts, cloneFromVideo: cloneFromVideo, estimateWords: estimateWords };
+R._t = { S: S, CFG: CFG, TPL: TPL, UI: UI, go: go, getTpl: getTpl, analyzeClip: analyzeClip, buildEDL: buildEDL, gridFor: gridFor, detectBeats: detectBeats, buildAudio: buildAudio, render: render, aiPlan: aiPlan, localPlan: localPlan, createOne: createOne, addFiles: addFiles, narrate: narrate, detectCuts: detectCuts, cloneFromVideo: cloneFromVideo, estimateWords: estimateWords };
 })();
