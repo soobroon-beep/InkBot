@@ -171,6 +171,14 @@ async function openVideo(clip, tries) {
   }
   throw new Error((clip.name ? clip.name + ': ' : '') + (last ? last.message : 'no se pudo abrir'));
 }
+// Busca un tiempo y espera a que ese cuadro esté listo para dibujarse
+function seekFrame(v, t) {
+  return new Promise(function (res) {
+    var done = false; function fin() { if (!done) { done = true; res(); } }
+    var onSeeked = function () { v.removeEventListener('seeked', onSeeked); if ('requestVideoFrameCallback' in v) { v.requestVideoFrameCallback(fin); setTimeout(fin, 120); } else fin(); };
+    v.addEventListener('seeked', onSeeked); v.currentTime = t; setTimeout(fin, 3000);
+  });
+}
 function seek(v, t) {
   return new Promise(function (res) {
     var target = clamp(t, 0, Math.max(0, (v.duration || 0) - 0.04)), done = false;
@@ -365,8 +373,8 @@ function buildEDL(o) {
   var tpl = o.tpl, T = o.T, g = o.grid, r = rng(o.seed), plan = o.plan, base = tpl.base, P = paramsOf(tpl);
   var E = o.edit || { cuts: LEARN.cuts, speed: LEARN.speed, trans: LEARN.trans };
   var cutF = { '-2': 2.1, '-1.5': 1.75, '-1': 1.45, '-0.5': 1.2, '0': 1, '0.5': .85, '1': .7, '1.5': .6, '2': .5 }[String(lvl(E.cuts))] || 1;
-  var spdF = { '-2': .55, '-1.5': .65, '-1': .75, '-0.5': .87, '0': 1, '0.5': 1.15, '1': 1.3, '1.5': 1.45, '2': 1.6 }[String(lvl(E.speed))] || 1;
-  P.speed = Math.max(.8, P.speed * spdF);
+  var spdF0 = { '-2': .55, '-1.5': .65, '-1': .75, '-0.5': .87, '0': 1, '0.5': 1.15, '1': 1.3, '1.5': 1.45, '2': 1.6 }[String(lvl(E.speed))] || 1;
+  var spdF = spdF0; P.speed = Math.max(.8, P.speed * spdF);
   var clips = o.clips.filter(function (c) { return c.kind === 'image' || c.an; });
   var vids = clips.filter(function (c) { return c.kind === 'video'; });
   var st = globalStats(clips), used = [], shots = [], overlays = [];
@@ -409,51 +417,75 @@ function buildEDL(o) {
   var revLen = clamp(T * P.revFrac * (.9 + r() * .25), 3.5, Math.min(14, T * .5));
   if (revItems[0].kind === 'video') revLen = Math.min(revLen, Math.max(2.5, revItems[0].dur - .3));
   if (clips.length === 1 && clips[0].kind === 'image') revLen = T;
-  var R0 = Math.max(0, T - revLen);
+  var R0 = Math.max(0, T - revLen), revLenExtra = 0;
   var bodyClips = clips.filter(function (c) { return revItems.indexOf(c) < 0; });
   if (!bodyClips.length) bodyClips = clips.slice(); // un solo clip: el proceso sale del mismo
   var first = bodyClips[0];
 
-  // ── Gancho: siempre el PRIMER clip que subiste (si son tomas de la ciudad, abre con la ciudad) ──
-  var hookLen = R0 > 0 ? clamp((base === 'pov' ? 3 : base === 'encuesta' ? 1.6 : 2.2) * (.85 + r() * .35), 1.2, R0 * .45) : 0;
+  // ── Montaje que DEJA CORRER los clips: en tu orden, una toma continua por clip (sin repetir ni congelar) ──
+  var hookEnd = 0;
   if (tpl.teaser && R0 > 4) {
     // antes y después: un vistazo del resultado y luego regresa al inicio
     var tz = revItems[revItems.length - 1];
     if (tz.kind === 'image') push([imgShot(tz, 1.3, 1.12, 1.02)], 'hook');
     else { var tsh = bestShot([tz], 1.3, 1, 'reveal', st, [], r); if (tsh) { tsh.zoomA = 1.1; tsh.zoomB = 1.02; push([tsh], 'hook'); } }
-    hookLen = 1.3;
-  } else if (hookLen > 0) {
-    if (first.kind === 'image') push([imgShot(first, hookLen, 1.16, 1.04)], 'hook');
-    else { var hs = bestShot([first], hookLen, 1.1, base === 'asmr' ? 'detail' : 'hook', st, used, r); if (hs) { hs.zoomA = 1.12; hs.zoomB = 1.03; push([hs], 'hook'); } }
+    hookEnd = 1.3;
   }
-  var hookEnd = shots.length ? hookLen : 0;
-
-  // ── Proceso: cada clip en su turno, con su parte del tiempo; pocos cortes y al ritmo ──
-  var span0 = hookEnd, span1 = R0;
-  var accel = P.accel && o.musicSync && E.cuts >= 0 && (span1 - span0) > 6 ? Math.min(1.4, bi * 3) : 0;
-  var spanB = span1 - accel;
-  var weights = bodyClips.map(function (c) { return c.kind === 'image' ? 2.2 : Math.pow(Math.max(1, c.dur || 1), .75); });
-  var wsum = weights.reduce(function (a, b) { return a + b; }, 0), tcur = span0;
-  // Sin canción, tomas largas y naturales; con canción, cortes al golpe pero nunca demasiado seguidos
-  var minShot = (o.musicSync ? 1.3 : (P.calm ? 3.4 : 2.8)) * cutF;
-  var kMin = Math.max(P.k[0], Math.ceil(minShot / bi)), kMax = Math.max(P.k[1], kMin), stageLabels = tpl.labels || (plan.lines && plan.lines.length >= bodyClips.length ? plan.lines : null);
+  var maxSp = (tpl.key === 'timelapse' ? 4 : base === 'asmr' ? 1 : P.calm ? 2 : 1.8) * Math.max(.6, spdF);
+  var B = Math.max(0, R0 - hookEnd);
+  var usable = bodyClips.map(function (c) { return c.kind === 'image' ? 0 : Math.max(.5, (c.dur || 1) - .5); });
+  var cap = bodyClips.map(function (c, i) { return c.kind === 'image' ? 3.5 : usable[i] / .85; });
+  var want = bodyClips.map(function (c, i) { return c.kind === 'image' ? 2.6 : Math.pow(usable[i], .7); });
+  var alloc = bodyClips.map(function () { return 0; }), left = B;
+  for (var pass = 0; pass < 6 && left > .05; pass++) {
+    var open = alloc.map(function (a, i) { return a < cap[i] - 1e-3; }), ws = 0;
+    want.forEach(function (w, i) { if (open[i]) ws += w; });
+    if (!ws) break;
+    var given = 0;
+    alloc = alloc.map(function (a, i) { if (!open[i]) return a; var add = Math.min(cap[i] - a, left * want[i] / ws); given += add; return a + add; });
+    left -= given;
+  }
+  // si no alcanza el material, el resultado final se queda más tiempo en pantalla (nunca se repite nada)
+  if (left > .05) { R0 -= left; revLenExtra = left; }
+  var tcur = hookEnd;
+  var stageLabels = tpl.labels || (plan.lines && plan.lines.length >= bodyClips.length ? plan.lines : null);
   bodyClips.forEach(function (c, ci) {
-    var a = tcur, b = ci === bodyClips.length - 1 ? spanB : Math.min(spanB, a + (spanB - span0) * weights[ci] / wsum);
-    if (base !== 'etapas' && ci < bodyClips.length - 1 && g.length > 2) b = Math.max(a + .5, snap(g, b));
-    tcur = b; if (b - a < .35) return;
-    if (c.kind === 'image') { push([imgShot(c, b - a, r() < .5 ? 1.03 : 1.1, r() < .5 ? 1.1 : 1.03)], 'process'); }
+    var a = tcur, dur = alloc[ci], b = a + dur;
+    if (o.musicSync && g.length > 2 && ci < bodyClips.length - 1) { var sb = snap(g, b); if (Math.abs(sb - b) < .35 && sb - a > 1) b = sb; }
+    if (ci === bodyClips.length - 1) b = R0;
+    tcur = b; dur = b - a; if (dur < .3) return;
+    if (c.kind === 'image') { push([imgShot(c, dur, r() < .5 ? 1.03 : 1.09, r() < .5 ? 1.09 : 1.03)], ci === 0 && !hookEnd ? 'hook' : 'process'); }
     else {
-      var k = kMin + Math.floor(r() * (kMax - kMin + 1));
-      var cuts = (b - a) < minShot * 1.7 ? [b - a] : cutsBetween(g, a, b, Math.max(1, k), r, Math.min(minShot * .8, b - a));
-      push(chronoShots(cuts.map(function (d) { return { outDur: d, speed: P.speed * (.9 + r() * .25), mode: base === 'asmr' ? 'detail' : 'action' }; }), [c], st, used, r), 'process');
+      var u = usable[ci], lo = .3, sp, segs = [];
+      if (u / dur > maxSp && dur > 9) {
+        // clip muy largo para su tiempo: varios tramos que avanzan en el proceso (saltos hacia adelante, cada uno corre normal)
+        var m = clamp(Math.round(dur / 5), 2, 6), each = dur / m, spm = Math.min(maxSp, 1.25);
+        for (var q = 0; q < m; q++) {
+          var regA = lo + (u / m) * q, regLen = u / m, win = each * spm;
+          var cand = candidates(c, win, ci === 0 && q === 0 ? 'hook' : 'action', st, used).filter(function (cd) { return cd.start >= regA - .05 && cd.start + win <= regA + regLen + .05; })[0];
+          var stt = cand ? cand.start : Math.min(regA, c.dur - win - .1);
+          useShot(used, c, stt, win);
+          segs.push({ kind: 'video', clip: c, srcStart: Math.max(0, stt), speed: spm, cx: cand ? cand.cx : .5, cy: cand ? cand.cy : .5, outDur: each, jump: q > 0 });
+        }
+      } else {
+        sp = clamp(u / dur > 1 ? 1 : u / dur, .85, maxSp);
+        if (u > dur * sp + .2) {
+          var w = dur * sp, cd = candidates(c, w, ci === 0 ? 'hook' : 'action', st, used)[0];
+          var s0 = cd ? cd.start : lo; useShot(used, c, s0, w);
+          segs.push({ kind: 'video', clip: c, srcStart: s0, speed: sp, cx: cd ? cd.cx : .5, cy: cd ? cd.cy : .5, outDur: dur });
+        } else {
+          sp = clamp(u / dur, .85, maxSp); useShot(used, c, lo, u);
+          var cw = windowScore(c, lo, u, 'action', st, null);
+          segs.push({ kind: 'video', clip: c, srcStart: lo, speed: sp, cx: cw.cx, cy: cw.cy, outDur: dur });
+        }
+      }
+      push(segs, ci === 0 && !hookEnd ? 'hook' : 'process');
+      // en el resto de la lista, el primer tramo del primer clip hace de gancho
+      if (ci === 0 && !hookEnd) for (var z = 1; z < segs.length; z++) segs[z].role = 'process';
     }
     if (base === 'etapas') { var lbs = stageLabels || defaultStages(bodyClips.length); overlays.push({ type: 'label', text: lbs[ci] || ('PASO ' + (ci + 1)), from: a, to: b, n: ci + 1, of: bodyClips.length }); }
   });
-  if (accel > 0) {
-    var fastV = bodyClips.filter(function (c) { return c.kind === 'video'; });
-    if (fastV.length) push(chronoShots(cutsBetween(gridFor(60 / (bi / 2), T, g[0]), spanB, span1, 1, r, .25).map(function (d) { return { outDur: d, speed: P.speed * 1.4, mode: 'action' }; }), fastV.slice(-2), st, used, r), 'process');
-    else if (shots.length) shots[shots.length - 1].outDur += accel;
-  }
+  if (!hookEnd) hookEnd = Math.min(2.6, R0 * .5);
 
   // ── Resultado: una toma larga y continua (o las fotos con movimiento suave) ──
   var rev = [];
@@ -461,8 +493,17 @@ function buildEDL(o) {
     var each = (T - R0) / revItems.length;
     revItems.forEach(function (p, i) { rev.push(imgShot(p, each, i % 2 ? 1.08 : 1.0, i % 2 ? 1.0 : 1.08)); });
   } else {
-    var rs = bestShot([revItems[0]], T - R0, P.calm ? .9 : 1, 'reveal', st, used, r) || bestShot(revItems, T - R0, 1, 'reveal', st, [], r);
-    if (rs) { rs.zoomA = 1.0; rs.zoomB = 1.07; rev.push(rs); }
+    var rc = revItems[0], rd = T - R0, ravail = Math.max(.5, (rc.dur || 1) - .4);
+    if (ravail >= rd * .8) {
+      var rs = bestShot([rc], rd, Math.max(.8, Math.min(1, ravail / rd)), 'reveal', st, used, r);
+      if (rs) { rs.zoomA = 1.0; rs.zoomB = 1.07; rev.push(rs); }
+    } else {
+      // el clip final es corto: corre completo en cámara lenta suave y luego se queda en el mejor cuadro con un zoom lento
+      var part = ravail / .8;
+      rev.push({ kind: 'video', clip: rc, srcStart: .2, speed: .8, cx: .5, cy: .5, outDur: part, zoomA: 1.0, zoomB: 1.05 });
+      if (rc.still) rev.push({ kind: 'image', clip: { id: rc.id + '_st', el: rc.still, w: rc.still.width, h: rc.still.height, name: rc.name }, outDur: rd - part, cx: .5, cy: .5, zoomA: 1.05, zoomB: 1.14, still: true });
+      else rev[0].outDur = rd;
+    }
   }
   push(rev, 'reveal');
   if (rev[0] && R0 > 0 && r() < .6) rev[0].flash = true;
@@ -501,6 +542,7 @@ function buildEDL(o) {
     x.drift = (r() - .5) * 1.6; x.rot = (r() - .5) * .012;
     if (i === 0) return;
     var prev = shots[i - 1];
+    if (x.jump) { x.tr = 'dissolve'; x.trDur = .22; return; }
     if (x.role === 'reveal') { if (prev.role !== 'reveal') { x.tr = V.revTr || (r() < .5 ? 'zoom' : 'dissolve'); x.trDur = .4; } else { x.tr = 'dissolve'; x.trDur = .5; } return; }
     if (tl <= -2) { if (prev.clip !== x.clip) { x.tr = 'dissolve'; x.trDur = .3; } return; }
     if (prev.clip !== x.clip) { if (tl > -1 || r() < .5) x.tr = pool[Math.floor(r() * pool.length)]; }
@@ -545,6 +587,16 @@ function drawCover(ctx, src, sw, sh, cx, cy, zoom, dx, dy, rot) {
   if (rot) { ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(rot); ctx.translate(-W / 2, -H / 2); ctx.drawImage(src, x, y, dw, dh); ctx.restore(); }
   else ctx.drawImage(src, x, y, dw, dh);
 }
+// Igual que drawCover pero para cuadros que vienen "acostados" (videos verticales del celular)
+function drawCoverRot(ctx, src, sw, sh, deg, cx, cy, zoom, dx, rot) {
+  var side = deg === 90 || deg === 270, ew = side ? sh : sw, eh = side ? sw : sh;
+  var sc = Math.max(W / ew, H / eh) * zoom, dw = ew * sc, dh = eh * sc;
+  var x = clamp(W / 2 - cx * dw + (dx || 0), W - dw, 0), y = clamp(H / 2 - cy * dh, H - dh, 0);
+  ctx.save(); ctx.translate(W / 2, H / 2); if (rot) ctx.rotate(rot); ctx.translate(-W / 2, -H / 2);
+  ctx.translate(x + dw / 2, y + dh / 2); ctx.rotate(deg * Math.PI / 180);
+  var rw = side ? dh : dw, rh = side ? dw : dh;
+  ctx.drawImage(src, -rw / 2, -rh / 2, rw, rh); ctx.restore();
+}
 function easeOutBack(x) { x = clamp(x, 0, 1); var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
 function beatPulse(edl, t) {
   if (!edl.beats) return 0; var p = 0;
@@ -552,7 +604,7 @@ function beatPulse(edl, t) {
   return p;
 }
 // Capa base: el video/foto con movimiento de cámara, color y pulso al ritmo
-var useFilter = true;
+var useFilter = true, FX_ROT = 0;
 function drawBase(c, edl, s, t, el) {
   c.fillStyle = '#050505'; c.fillRect(0, 0, W, H);
   if (!s) return;
@@ -561,9 +613,11 @@ function drawBase(c, edl, s, t, el) {
   if (s.role === 'hook' && t < .45) z *= 1 + .22 * (1 - easeOut(t / .45));            // arranque: zoom de entrada
   if (s.role === 'process') z *= 1 + .012 * beatPulse(edl, t);                          // pulso leve al ritmo (solo en algunos reels)
   var drift = (s.drift || 0) * (p - .5) * 60, rot = (s.rot || 0) * (p - .5);
-  var src = el || s.clip.el || s.clip.still, sw = s.kind === 'image' ? s.clip.w : (src && (src.videoWidth || src.width)), sh = s.kind === 'image' ? s.clip.h : (src && (src.videoHeight || src.height));
+  var src = el || s.clip.el || s.clip.still, isVF = typeof VideoFrame !== 'undefined' && src instanceof VideoFrame;
+  var sw = s.kind === 'image' ? s.clip.w : (src && (isVF ? src.displayWidth : (src.videoWidth || src.width))), sh = s.kind === 'image' ? s.clip.h : (src && (isVF ? src.displayHeight : (src.videoHeight || src.height)));
   if (useFilter) c.filter = 'contrast(1.08) saturate(1.15) brightness(1.02)';
-  if (src) drawCover(c, src, sw, sh, s.cx == null ? .5 : clamp(s.cx, .2, .8), s.cy == null ? .5 : clamp(s.cy, .25, .75), z, drift, 0, rot);
+  if (src && isVF && FX_ROT) drawCoverRot(c, src, sw, sh, FX_ROT, s.cx == null ? .5 : clamp(s.cx, .2, .8), s.cy == null ? .5 : clamp(s.cy, .25, .75), z, drift, rot);
+  else if (src) drawCover(c, src, sw, sh, s.cx == null ? .5 : clamp(s.cx, .2, .8), s.cy == null ? .5 : clamp(s.cy, .25, .75), z, drift, 0, rot);
   c.filter = 'none';
 }
 // Desenfoque barato: reduce y vuelve a agrandar
@@ -820,8 +874,8 @@ function piperSession(onp) {
   return piperS[vid];
 }
 var VOICES = { hombre: { eleven: 'pNInz6obpgDQGcFmaJgB' }, mujer: { eleven: 'EXAVITQu4vr4xnSDxMaL' } };
-var kokoroP = null;
-function kokoro() { if (!kokoroP) kokoroP = import(new URL('vendor/kokoro/kokoro-es.js', location.href).href).catch(function (e) { kokoroP = null; throw e; }); return kokoroP; }
+var stP = null;
+function supertonic() { if (!stP) stP = import(new URL('vendor/supertonic/supertonic-es.js', location.href).href).catch(function (e) { stP = null; throw e; }); return stP; }
 function floatToWav(f, rate) {
   var b = new Uint8Array(f.length * 2), v = new DataView(b.buffer);
   for (var i = 0; i < f.length; i++) { var x = clamp(f[i], -1, 1); v.setInt16(i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
@@ -831,13 +885,11 @@ function ttsChain(onp) {
   var v = VOICES[CFG.genero] || VOICES.hombre, list = [];
   if (geminiKey()) list.push({ id: 'gemini', name: 'Voz natural (Gemini)', whole: true, fn: geminiTTS });
   if (CFG.elevenKey) list.push({ id: 'mine', name: 'ElevenLabs', fn: function (tx) { return elevenDirect(tx, v.eleven); } });
-  list.push({ id: 'kokoro', name: 'Voz natural', fn: function (tx) {
-    return kokoro().then(function (K) { return K.speak(tx, { voice: CFG.genero === 'mujer' ? 'ef_dora' : 'em_alex', speed: 1.05, onProgress: onp }); })
+  list.push({ id: 'supertonic', name: 'Voz natural', fn: function (tx) {
+    return supertonic().then(function (M) { return M.speak(tx, { sid: M.VOICES[CFG.genero] != null ? M.VOICES[CFG.genero] : M.VOICES.hombre, speed: 1.05, steps: 8, onProgress: onp }); })
       .then(function (r) { return { ab: floatToWav(r.pcm, r.rate) }; });
   } });
   list.push({ id: 'piper', name: 'Voz básica', fn: function (tx) {
-    // la voz básica no lee bien los acentos: se los quitamos para que no diga «a tilde»
-    tx = tx.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[¿¡]/g, '');
     return piperSession(onp).then(function (ses) { if (onp) onp('Generando la voz…'); return ses.predict(tx); }).then(function (blob) { return blob.arrayBuffer(); }).then(function (ab) { return { ab: ab }; });
   } });
   return list;
@@ -1032,6 +1084,112 @@ async function pickAudioConfig() {
   }
   return null;
 }
+/* ═══════════════ 6b · LECTURA EXACTA DE CLIPS (WebCodecs, cuadro por cuadro) ═══════════════
+   En vez de "reproducir" el video (lo que causaba cuadros repetidos y trabas), se decodifica
+   cada cuadro exacto del archivo, como en un editor profesional. Si el celular no puede, usa el método anterior. */
+var mp4boxP = null;
+function loadMp4box() {
+  if (window.MP4Box) return Promise.resolve(window.MP4Box);
+  if (!mp4boxP) mp4boxP = new Promise(function (res, rej) {
+    var sc = document.createElement('script'); sc.src = 'vendor/mp4box/mp4box.all.min.js';
+    sc.onload = function () { window.MP4Box ? res(window.MP4Box) : rej(new Error('mp4box')); };
+    sc.onerror = function () { mp4boxP = null; rej(new Error('No cargó el lector de video')); };
+    document.head.appendChild(sc);
+  });
+  return mp4boxP;
+}
+async function topBoxes(file) {
+  var pos = 0, size = file.size, out = [];
+  while (pos + 8 <= size && out.length < 64) {
+    var hb = new DataView(await file.slice(pos, Math.min(size, pos + 16)).arrayBuffer());
+    var sz = hb.getUint32(0), type = String.fromCharCode(hb.getUint8(4), hb.getUint8(5), hb.getUint8(6), hb.getUint8(7));
+    if (sz === 1 && hb.byteLength >= 16) sz = hb.getUint32(8) * 4294967296 + hb.getUint32(12); else if (sz === 0) sz = size - pos;
+    if (sz < 8) break;
+    out.push({ type: type, start: pos, size: sz }); pos += sz;
+  }
+  return out;
+}
+async function demux(clip) {
+  if (clip.dec !== undefined) return clip.dec;
+  clip.dec = null;
+  if (typeof VideoDecoder === 'undefined' || typeof EncodedVideoChunk === 'undefined' || !clip.file) return null;
+  try {
+    var MB = await loadMp4box(), boxes = await topBoxes(clip.file);
+    var moov = boxes.filter(function (b) { return b.type === 'moov'; })[0], ftyp = boxes.filter(function (b) { return b.type === 'ftyp'; })[0];
+    if (!moov || moov.size > 80e6) return null;
+    var mf = MB.createFile(), info = null;
+    mf.onReady = function (i) { info = i; }; mf.onError = function () {};
+    async function feed(b) { var ab = await clip.file.slice(b.start, b.start + b.size).arrayBuffer(); ab.fileStart = b.start; mf.appendBuffer(ab); }
+    if (ftyp) await feed(ftyp);
+    await feed(moov); mf.flush();
+    if (!info || !info.videoTracks || !info.videoTracks.length) return null;
+    var tr = info.videoTracks[0], trak = mf.getTrackById(tr.id), entry = trak.mdia.minf.stbl.stsd.entries[0];
+    var box = entry.avcC || entry.hvcC || entry.vpcC || entry.av1C, desc;
+    if (box) { var ds = new DataStream(undefined, 0, DataStream.BIG_ENDIAN); box.write(ds); desc = new Uint8Array(ds.buffer, 8); }
+    var cfg = { codec: tr.codec, codedWidth: tr.video.width, codedHeight: tr.video.height };
+    if (desc) cfg.description = desc;
+    var sup = await VideoDecoder.isConfigSupported(cfg);
+    if (!sup.supported) return null;
+    var smp = mf.getTrackSamplesInfo(tr.id) || [];
+    if (!smp.length) return null;
+    var m = tr.matrix || [65536, 0, 0, 0, 65536, 0, 0, 0, 1073741824];
+    var rot = Math.round(Math.atan2(m[1], m[0]) * 180 / Math.PI); rot = ((rot % 360) + 360) % 360;
+    clip.dec = {
+      cfg: cfg, rot: rot, ts: smp[0].timescale || tr.timescale,
+      samples: smp.map(function (x) { return { o: x.offset, s: x.size, cts: x.cts, dts: x.dts, d: x.duration, k: !!x.is_sync }; })
+    };
+    return clip.dec;
+  } catch (e) { console.warn('demux', e); return null; }
+}
+// Decodifica una toma y saca exactamente los cuadros que tocan (sin repetir ni congelar)
+async function decodeShot(clip, s, endF, emit, getFi, venc, drain) {
+  var D = clip.dec, ts = D.ts, smp = D.samples, err = null, ready = [], cur = null;
+  var t0 = s.srcStart, t1 = s.srcStart + (endF / FPS - s.outStart) * s.speed + .2;
+  function need(fi) { return s.srcStart + (fi / FPS - s.outStart) * s.speed; }
+  var k = 0;
+  for (var i = 0; i < smp.length; i++) { if (smp[i].k && smp[i].cts / ts <= t0 + 1e-3) k = i; if (smp[i].dts / ts > t0 + 2) break; }
+  var dec = new VideoDecoder({ output: function (f) { ready.push(f); }, error: function (e) { err = e; } });
+  dec.configure(D.cfg);
+  var idx = k, fed = false, flushing = null, buf = null, bufA = 0, bufB = 0;
+  async function bytes(x) {
+    if (!buf || x.o < bufA || x.o + x.s > bufB) {
+      bufA = x.o; bufB = Math.min(clip.file.size, x.o + Math.max(x.s, 3e6));
+      buf = new Uint8Array(await clip.file.slice(bufA, bufB).arrayBuffer());
+    }
+    return buf.subarray(x.o - bufA, x.o - bufA + x.s);
+  }
+  try {
+    while (getFi() < endF) {
+      if (err) throw err;
+      while (document.hidden) await sleep(400);
+      // alimenta el decodificador sin saturarlo
+      while (!fed && ready.length < 4 && dec.decodeQueueSize < 8) {
+        if (idx >= smp.length || smp[idx].dts / ts > t1 + 1) { fed = true; break; }
+        var x = smp[idx++];
+        dec.decode(new EncodedVideoChunk({ type: x.k ? 'key' : 'delta', timestamp: Math.round(x.cts * 1e6 / ts), duration: Math.round(x.d * 1e6 / ts), data: await bytes(x) }));
+      }
+      if (fed && !flushing) flushing = dec.flush().catch(function (e) { err = err || e; });
+      if (ready.length) {
+        var f = ready.shift(), ft = f.timestamp / 1e6;
+        while (getFi() < endF && cur && need(getFi()) < ft - 1e-4) { emit(cur); if (venc.encodeQueueSize > 6) await drain(); }
+        if (cur) cur.close();
+        cur = f;
+        continue;
+      }
+      if (flushing) {
+        await flushing;
+        if (!ready.length) { while (getFi() < endF) { emit(cur || clip.still || null); if (venc.encodeQueueSize > 6) await drain(); } break; }
+        continue;
+      }
+      await sleep(1);
+    }
+  } finally {
+    if (cur) try { cur.close(); } catch (e) {}
+    ready.forEach(function (f) { try { f.close(); } catch (e) {} });
+    try { dec.close(); } catch (e) {}
+  }
+}
+
 async function render(edl, audioBuf, onp, preview) {
   var vcfg = await pickVideoConfig(), acfg = audioBuf ? await pickAudioConfig() : null, warn = '';
   if (audioBuf && !acfg) warn = 'Tu navegador no pudo meter el audio: el video salió sin sonido.';
@@ -1079,6 +1237,13 @@ async function render(edl, audioBuf, onp, preview) {
       while (fi < endF) { while (document.hidden) await sleep(500); emit(s.clip.el); if (venc.encodeQueueSize > 6) await drain(); if (fi % 15 === 0) await sleep(0); }
       continue;
     }
+    // 1) lectura exacta cuadro por cuadro
+    var dmx = await demux(s.clip);
+    if (dmx) {
+      try { FX_ROT = dmx.rot; await decodeShot(s.clip, s, endF, emit, emit._fi, venc, drain); FX_ROT = 0; continue; }
+      catch (e) { console.warn('decode', e); FX_ROT = 0; s.clip.dec = null; }
+    }
+    // 2) respaldo: reproducir el video
     if (curId !== s.clip.id) {
       release(cur); cur = null; curId = null;
       try { cur = await openVideo(s.clip); curId = s.clip.id; } catch (e) { cur = null; }
@@ -1088,9 +1253,14 @@ async function render(edl, audioBuf, onp, preview) {
       while (fi < endF) { emit(still || null); if (venc.encodeQueueSize > 6) await drain(); if (fi % 15 === 0) await sleep(0); }
       continue;
     }
-    await seek(cur, s.srcStart);
-    cur.playbackRate = clamp(s.speed, .5, 4);
-    await playShot(cur, s, endF, emit, venc, drain);
+    // respaldo exacto: busca cada cuadro (más lento, pero nunca se traba ni repite)
+    while (fi < endF) {
+      while (document.hidden) await sleep(400);
+      var want = s.srcStart + (fi / FPS - s.outStart) * s.speed;
+      if (want > cur.duration - .05) { emit(cur); continue; }
+      if (Math.abs(cur.currentTime - want) > .001) await seekFrame(cur, want);
+      emit(cur); if (venc.encodeQueueSize > 6) await drain();
+    }
   }
   release(cur);
   while (fi < total) emit(null);
@@ -1699,7 +1869,7 @@ function setGemKey(k) {
 function renderVoice() {
   var box = $('#rv-vnat'); if (!box) return;
   box.innerHTML = geminiKey() ? '<div class="rv-ok">✓ Voz premium de Google activada</div>'
-    : '<div class="rv-ok" style="color:#9a9a9a">Voz natural gratis: la primera vez se descarga (~90 MB, mejor con wifi) y queda guardada en tu celular.</div>';
+    : '<div class="rv-ok" style="color:#9a9a9a">Voz natural gratis: la primera vez se descarga (~140 MB, mejor con wifi) y queda guardada en tu celular.</div>';
 }
 function learnText() {
   function d(x, a, b) { return x <= -1 ? a : x >= 1 ? b : 'normal'; }
