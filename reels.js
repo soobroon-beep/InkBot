@@ -36,6 +36,11 @@ var CFG = Object.assign({
 if (!CFG.handle || /victortip/i.test(CFG.handle)) CFG.handle = '@v.sobrontt';
 if (CFG.showHandle == null) CFG.showHandle = true;
 function saveCfg() { lsSet(LS.cfg, CFG); }
+// Lo que la app ha aprendido de tus gustos (se ajusta con cada cambio que pides)
+// cuts/speed/trans: -2 (mucho menos) … +2 (mucho más) · notes: reglas en tus palabras para la IA
+var LEARN = Object.assign({ cuts: -1, speed: 0, trans: 0, durMul: 1, notes: [] }, lsGet('reels-learn-v1', {}));
+function saveLearn() { lsSet('reels-learn-v1', LEARN); }
+function lvl(x) { return clamp(Math.round(x * 2) / 2, -2, 2); }
 
 /* ───────────────────────── plantillas virales ─────────────────────────
    Cada plantilla es una receta: cómo se reparte el tiempo, a qué ritmo se corta,
@@ -358,6 +363,10 @@ function buildEDL(o) {
   // o: {tpl, T, grid, plan, words, voiceStart, seed, clips}
   // Respeta el ORDEN en que subiste los archivos: el primero abre, el último es el resultado.
   var tpl = o.tpl, T = o.T, g = o.grid, r = rng(o.seed), plan = o.plan, base = tpl.base, P = paramsOf(tpl);
+  var E = o.edit || { cuts: LEARN.cuts, speed: LEARN.speed, trans: LEARN.trans };
+  var cutF = { '-2': 2.1, '-1.5': 1.75, '-1': 1.45, '-0.5': 1.2, '0': 1, '0.5': .85, '1': .7, '1.5': .6, '2': .5 }[String(lvl(E.cuts))] || 1;
+  var spdF = { '-2': .55, '-1.5': .65, '-1': .75, '-0.5': .87, '0': 1, '0.5': 1.15, '1': 1.3, '1.5': 1.45, '2': 1.6 }[String(lvl(E.speed))] || 1;
+  P.speed = Math.max(.8, P.speed * spdF);
   var clips = o.clips.filter(function (c) { return c.kind === 'image' || c.an; });
   var vids = clips.filter(function (c) { return c.kind === 'video'; });
   var st = globalStats(clips), used = [], shots = [], overlays = [];
@@ -421,18 +430,21 @@ function buildEDL(o) {
 
   // ── Proceso: cada clip en su turno, con su parte del tiempo; pocos cortes y al ritmo ──
   var span0 = hookEnd, span1 = R0;
-  var accel = P.accel && (span1 - span0) > 4 ? Math.min(1.4, bi * 3) : 0;
+  var accel = P.accel && o.musicSync && E.cuts >= 0 && (span1 - span0) > 6 ? Math.min(1.4, bi * 3) : 0;
   var spanB = span1 - accel;
   var weights = bodyClips.map(function (c) { return c.kind === 'image' ? 2.2 : Math.pow(Math.max(1, c.dur || 1), .75); });
   var wsum = weights.reduce(function (a, b) { return a + b; }, 0), tcur = span0;
-  var kMin = P.k[0], kMax = P.k[1], stageLabels = tpl.labels || (plan.lines && plan.lines.length >= bodyClips.length ? plan.lines : null);
+  // Sin canción, tomas largas y naturales; con canción, cortes al golpe pero nunca demasiado seguidos
+  var minShot = (o.musicSync ? 1.3 : (P.calm ? 3.4 : 2.8)) * cutF;
+  var kMin = Math.max(P.k[0], Math.ceil(minShot / bi)), kMax = Math.max(P.k[1], kMin), stageLabels = tpl.labels || (plan.lines && plan.lines.length >= bodyClips.length ? plan.lines : null);
   bodyClips.forEach(function (c, ci) {
     var a = tcur, b = ci === bodyClips.length - 1 ? spanB : Math.min(spanB, a + (spanB - span0) * weights[ci] / wsum);
     if (base !== 'etapas' && ci < bodyClips.length - 1 && g.length > 2) b = Math.max(a + .5, snap(g, b));
     tcur = b; if (b - a < .35) return;
     if (c.kind === 'image') { push([imgShot(c, b - a, r() < .5 ? 1.03 : 1.1, r() < .5 ? 1.1 : 1.03)], 'process'); }
     else {
-      var k = kMin + Math.floor(r() * (kMax - kMin + 1)), cuts = cutsBetween(g, a, b, Math.max(1, k), r, .6);
+      var k = kMin + Math.floor(r() * (kMax - kMin + 1));
+      var cuts = (b - a) < minShot * 1.7 ? [b - a] : cutsBetween(g, a, b, Math.max(1, k), r, Math.min(minShot * .8, b - a));
       push(chronoShots(cuts.map(function (d) { return { outDur: d, speed: P.speed * (.9 + r() * .25), mode: base === 'asmr' ? 'detail' : 'action' }; }), [c], st, used, r), 'process');
     }
     if (base === 'etapas') { var lbs = stageLabels || defaultStages(bodyClips.length); overlays.push({ type: 'label', text: lbs[ci] || ('PASO ' + (ci + 1)), from: a, to: b, n: ci + 1, of: bodyClips.length }); }
@@ -483,14 +495,16 @@ function buildEDL(o) {
   overlays.push({ type: 'mark', from: 0, to: T });
 
   // ── Transiciones: solo entre clips distintos y al entrar al resultado; nunca dentro del resultado ──
-  var pool = P.calm ? ['dissolve', 'zoom', 'dissolve'] : (V.pool || ['whip', 'zoom', 'dissolve', 'glitch']);
+  var tl = lvl(E.trans);
+  var pool = tl <= -1 || P.calm ? ['dissolve', 'zoom', 'dissolve'] : (V.pool || ['whip', 'zoom', 'dissolve', 'glitch']);
   shots.forEach(function (x, i) {
     x.drift = (r() - .5) * 1.6; x.rot = (r() - .5) * .012;
     if (i === 0) return;
     var prev = shots[i - 1];
     if (x.role === 'reveal') { if (prev.role !== 'reveal') { x.tr = V.revTr || (r() < .5 ? 'zoom' : 'dissolve'); x.trDur = .4; } else { x.tr = 'dissolve'; x.trDur = .5; } return; }
-    if (prev.clip !== x.clip) x.tr = pool[Math.floor(r() * pool.length)];
-    else if (!P.calm && r() < .12 && x.outDur > .8) x.tr = 'whip';
+    if (tl <= -2) { if (prev.clip !== x.clip) { x.tr = 'dissolve'; x.trDur = .3; } return; }
+    if (prev.clip !== x.clip) { if (tl > -1 || r() < .5) x.tr = pool[Math.floor(r() * pool.length)]; }
+    else if (!P.calm && r() < (tl >= 1 ? .45 : .1) && x.outDur > .8) x.tr = 'whip';
     if (x.tr) x.trDur = Math.min(P.calm ? .42 : .28, x.outDur * .4);
   });
   return { T: T, shots: shots, overlays: overlays, reveal: R0, beats: V.pulse ? g.filter(function (b) { return b > .3 && b < R0 - .2; }) : [] };
@@ -613,7 +627,8 @@ function drawFrame(ctx, edl, t, srcEl) {
   // grano
   ctx.save(); ctx.globalAlpha = .06; ctx.globalCompositeOperation = 'overlay';
   var gx2 = (Math.random() * 256) | 0, gy2 = (Math.random() * 256) | 0; ctx.translate(-gx2, -gy2);
-  ctx.fillStyle = ctx.createPattern(f.grain, 'repeat'); ctx.fillRect(0, 0, W + 256, H + 256); ctx.restore();
+  if (!f.gpat || f.gctx !== ctx) { f.gpat = ctx.createPattern(f.grain, 'repeat'); f.gctx = ctx; }
+  ctx.fillStyle = f.gpat; ctx.fillRect(0, 0, W + 256, H + 256); ctx.restore();
   drawOverlays(ctx, edl, t);
 }
 
@@ -1050,7 +1065,7 @@ async function render(edl, audioBuf, onp, preview) {
     if (encErr) throw encErr;
     var t = fi / FPS, a = performance.now();
     drawFrame(ctx, edl, t, el);
-    var dt = performance.now() - a; if (useFilter && dt > 45 && ++slow > 20) useFilter = false;
+    var dt = performance.now() - a; if (useFilter && dt > 30 && ++slow > 15) useFilter = false;
     var vf = new VideoFrame(cv, { timestamp: Math.round(fi * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
     venc.encode(vf, { keyFrame: fi % (FPS * 2) === 0 }); vf.close(); fi++;
     if (preview && fi % 6 === 0) { var pc = preview.getContext('2d'); pc.drawImage(cv, 0, 0, preview.width, preview.height); }
@@ -1087,11 +1102,11 @@ async function render(edl, audioBuf, onp, preview) {
 // Reproduce la toma en tiempo real y saca cada frame según el tiempo real del video (no se desincroniza)
 // Reproduce la toma y saca cada frame según el tiempo real del video (no se desincroniza).
 // La velocidad de reproducción se ajusta sola para que no se repitan cuadros (video fluido).
-var rateCap = 2;
+var rateCap = 1;
 function playShot(v, s, endF, emit, venc, drain) {
   return new Promise(function (resolve, reject) {
     var lastCT = -1, stuck = 0, finished = false, busy = false, useRVFC = 'requestVideoFrameCallback' in v, ticks = 0, multi = 0;
-    function setRate() { v.playbackRate = clamp(Math.min(s.speed, rateCap), .25, 4); }
+    function setRate() { v.playbackRate = clamp(Math.min(s.speed, rateCap), .2, 4); }
     setRate();
     function getFi() { return emit._fi(); }
     function fin() {
@@ -1102,24 +1117,28 @@ function playShot(v, s, endF, emit, venc, drain) {
     // Si minimizas la app, se pausa sin perder nada y sigue sola al volver
     function vis() { if (document.hidden) v.pause(); else if (!finished) { v.play().catch(function () {}); schedule(); } }
     document.addEventListener('visibilitychange', vis);
-    async function tick() {
+    async function tick(meta) {
       if (finished || busy) return; busy = true;
       try {
         if (document.hidden) { busy = false; return; }
-        var local = (v.currentTime - s.srcStart) / s.speed, tOut = s.outStart + local, n = 0;
+        // usa el tiempo exacto del cuadro que se está mostrando (evita cuadros repetidos = video "trabado")
+        var ct = meta && meta.mediaTime != null ? meta.mediaTime : v.currentTime;
+        var local = (ct - s.srcStart) / s.speed, tOut = s.outStart + local, n = 0;
         while (getFi() < endF && getFi() / FPS <= tOut + 1e-4) {
           emit(v); n++;
           if (venc.encodeQueueSize > 6) { v.pause(); await drain(); if (!finished && !document.hidden) v.play().catch(function () {}); }
         }
-        ticks++; if (n > 1) multi++;
-        if (ticks >= 12) { if (multi / ticks > .3 && rateCap > .3) { rateCap *= .7; setRate(); } else if (multi === 0 && rateCap < 2) { rateCap = Math.min(2, rateCap * 1.1); setRate(); } ticks = 0; multi = 0; }
+        ticks++; if (n > 1 && s.speed >= 1) multi++;
+        // si el celular no alcanza a dibujar cada cuadro, reproduce más lento (tarda más, pero sale fluido)
+        if (n > 1 && s.speed >= 1 && rateCap > .2) { rateCap *= .85; setRate(); }
+        if (ticks >= 30) { if (multi === 0 && rateCap < 1) { rateCap = Math.min(1, rateCap * 1.06); setRate(); } ticks = 0; multi = 0; }
         if (getFi() >= endF || v.ended) { busy = false; return fin(); }
         if (Math.abs(v.currentTime - lastCT) < 1e-4) { if (!v.paused && ++stuck > 150) { busy = false; return fin(); } } else stuck = 0;
         lastCT = v.currentTime;
       } catch (e) { finished = true; v.pause(); document.removeEventListener('visibilitychange', vis); return reject(e); }
       busy = false; schedule();
     }
-    function schedule() { if (finished || document.hidden) return; if (useRVFC && !v.paused) { var done = false; v.requestVideoFrameCallback(function () { if (!done) { done = true; tick(); } }); setTimeout(function () { if (!done) { done = true; tick(); } }, 60); } else setTimeout(tick, 16); }
+    function schedule() { if (finished || document.hidden) return; if (useRVFC && !v.paused) { var done = false; v.requestVideoFrameCallback(function (now, meta) { if (!done) { done = true; tick(meta); } }); setTimeout(function () { if (!done) { done = true; tick(); } }, 80); } else setTimeout(tick, 16); }
     v.play().then(function () { tick(); }).catch(function () {
       // si no deja reproducir, avanza buscando cuadro por cuadro (más lento pero funciona)
       (async function () {
@@ -1166,6 +1185,7 @@ async function aiPlan(tpl, voiceWanted, chosenHook, secs) {
     + (recent.length ? 'YA USÓ ESTOS GANCHOS (NO los repitas ni copies su estructura; cada reel debe sentirse distinto): ' + recent.join(' | ') + '\n' : '')
     + (tpl.custom && tpl.lines && tpl.lines.length ? 'TEXTOS DE REFERENCIA DEL VIRAL CLONADO: ' + tpl.lines.join(' | ') + '\n' : '')
     + (chosenHook ? 'GANCHO ELEGIDO (úsalo tal cual): ' + chosenHook + '\n' : 'Ejemplos de ganchos de este formato: ' + tpl.hooks.map(function (x) { return fillVars(x); }).join(' | ') + '\n')
+    + (LEARN.notes.length ? 'GUSTOS QUE YA APRENDISTE DE ÉL (respétalos): ' + LEARN.notes.slice(-12).join(' · ') + '\n' : '')
     + 'HOY ES: ' + days[new Date().getDay()] + perfSummary() + '\n\n'
     + 'REGLAS:\n- El gancho es lo que se ve en el PRIMER segundo: máximo 8 palabras, que dé curiosidad o emoción. Marca 1 o 2 palabras clave con *asteriscos*.\n'
     + '- Nada de introducciones lentas. Nada de datos inventados: si mencionas significados o historia, que sean verídicos.\n'
@@ -1353,24 +1373,26 @@ function targetSeconds(tpl, voiceWanted) {
   if (!S.clips.some(function (c) { return c.kind === 'video'; })) T = Math.min(T, 10 + 3 * S.clips.length);
   return Math.round(T);
 }
-async function createOne(tplKey, idx, step) {
-  var tpl = getTpl(tplKey), voiceWanted = tpl.cuts ? false : CFG.voz === 'off' ? false : (tpl.voice || CFG.voz === 'siempre');
-  step('plan', 'La IA está escribiendo el gancho, textos y caption…');
+async function createOne(tplKey, idx, step, opts) {
+  opts = opts || {};
+  var tpl = getTpl(tplKey), voiceWanted = tpl.cuts ? false : opts.voiceOff ? false : opts.voiceOn ? true : CFG.voz === 'off' ? false : (tpl.voice || CFG.voz === 'siempre');
+  step('plan', opts.plan ? 'Aplicando tus cambios…' : 'La IA está escribiendo el gancho, textos y caption…');
   var hookChoice = S.hook && idx === 0 ? S.hook : '';
-  var target = targetSeconds(tpl, voiceWanted);
-  var plan = await aiPlan(tpl, voiceWanted, hookChoice, target);
-  var voice = null, voiceErr = '';
-  if (voiceWanted && plan.narration) {
+  var target = opts.T || Math.round(targetSeconds(tpl, voiceWanted) * (LEARN.durMul || 1));
+  var plan = opts.plan || await aiPlan(tpl, voiceWanted, hookChoice, target);
+  if (voiceWanted && !plan.narration) plan.narration = localPlan(tpl, true, plan.hook).narration;
+  var voice = opts.voice && voiceWanted ? opts.voice : null, voiceErr = '';
+  if (voiceWanted && plan.narration && !voice) {
     step('voz', 'Generando la voz…');
     try { voice = await narrate(plan.narration, function (m) { step('voz', m); }); } catch (e) { voiceErr = 'No se pudo generar la voz (' + e.message + '). El reel salió con textos en pantalla; revisa tu internet la primera vez (se descarga la voz).'; }
   }
   step('arma', 'Armando cortes al ritmo…');
   var vids = S.clips.filter(function (c) { return c.kind === 'video'; });
   var T = target, voiceStart = .35, rr = rng(Date.now() + idx * 31);
-  if (voice) T = Math.max(T, Math.min(150, voice.dur + voiceStart + 2.4));
+  if (voice) T = opts.T ? Math.max(T, voice.dur + voiceStart + 1.2) : Math.max(T, Math.min(150, voice.dur + voiceStart + 2.4));
   if (tpl.cuts) T = tpl.cloneDur;
   // cada reel con su propio look y ritmo
-  var look = { hookY: [.2, .2, .26][Math.floor(rr() * 3)], hookFont: rr() < .7 ? 'bebas' : 'mont', subColor: [GOLD, GOLD, '#FF4D4D', '#3BE3A6'][Math.floor(rr() * 4)],
+  var look = opts.look || { hookY: [.2, .2, .26][Math.floor(rr() * 3)], hookFont: rr() < .7 ? 'bebas' : 'mont', subColor: [GOLD, GOLD, '#FF4D4D', '#3BE3A6'][Math.floor(rr() * 4)],
     pool: [['whip', 'zoom', 'dissolve'], ['zoom', 'dissolve', 'glitch'], ['whip', 'dissolve', 'flash'], ['dissolve', 'zoom']][Math.floor(rr() * 4)], revTr: rr() < .5 ? 'zoom' : 'dissolve', pulse: rr() < .45 };
   var music = null, grid, bpm = Math.round(tpl.bpm * (.88 + rr() * .24)), offset = 0, beat = null;
   if (S.audio === 'clone' && tpl.hasAudio) {
@@ -1390,7 +1412,8 @@ async function createOne(tplKey, idx, step) {
     }
   }
   if (!grid) grid = gridFor(bpm, T, 0);
-  var edl = buildEDL({ tpl: tpl, T: T, grid: grid, plan: plan, words: voice ? voice.words : null, voiceStart: voiceStart, seed: Date.now() + idx * 977, clips: S.clips, look: look });
+  var edit = opts.edit || { cuts: LEARN.cuts, speed: LEARN.speed, trans: LEARN.trans };
+  var edl = buildEDL({ tpl: tpl, T: T, grid: grid, plan: plan, words: voice ? voice.words : null, voiceStart: voiceStart, seed: Date.now() + idx * 977, clips: S.clips, look: look, edit: edit, musicSync: !!(music || S.audio === 'beat') });
   if (S.audio === 'beat') beat = { bpm: bpm, R: edl.reveal, hookEnd: edl.overlays[0] ? edl.overlays.filter(function (o) { return o.type === 'hook'; })[0].to : 2 };
   R._t.lastEDL = edl.shots.map(function (x) { return [x.role, x.clip.name, +x.outDur.toFixed(2), +(x.srcStart || 0).toFixed(2), +(x.speed || 1).toFixed(2)]; });
   step('audio', 'Mezclando audio…');
@@ -1408,6 +1431,7 @@ async function createOne(tplKey, idx, step) {
   var prev = $('#rv-live');
   var out = await render(edl, audio, function (f, m) { step('render', m, f); }, prev);
   var res = { id: uid(), date: Date.now(), tpl: tpl.key, tplName: tpl.name, emoji: tpl.emoji, hook: plan.hook, plan: plan, blob: out.blob, url: URL.createObjectURL(out.blob), T: T,
+    look: look, edit: edit, voiceObj: voice, voiceWanted: voiceWanted, idx: idx,
     warn: [out.warn, voiceErr, plan.aiError ? 'La IA no respondió (' + plan.aiError + '); usé textos de la plantilla.' : ''].filter(Boolean).join(' '), voice: voice ? voice.engine : '', audioMode: S.audio, secs: out.secs };
   var h = history(); h.unshift({ id: res.id, date: res.date, tpl: res.tpl, tplName: res.tplName, hook: res.hook, T: Math.round(T), rating: 0, views: 0 }); lsSet(LS.hist, h.slice(0, 80));
   return res;
@@ -1494,6 +1518,7 @@ var CSS = '\
 .rv-dd-l{display:none;border-top:1px solid #222;max-height:56vh;overflow-y:auto}.rv-dd.open .rv-dd-l{display:block}\
 .rv-grp{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#E8B64A;padding:12px 14px 4px}\
 .rv-row-it{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;position:relative}.rv-row-it.on{background:#17140c}.rv-row-it.on b{color:#E8B64A}.rv-row-it .del{border:none;background:none;color:#666;font-size:14px;cursor:pointer}\
+.rv-edit{margin-top:14px;padding:14px;border:1px solid #2a2414;background:#14110a;border-radius:14px}.rv-edit .l{font-size:14px;font-weight:500;margin-bottom:10px}\
 .rv-clone ol{margin:0 0 12px;padding-left:18px;color:#b9b9b9;font-size:13px;line-height:1.6}\
 ';
 var STEPS = ['Material', 'Estilo', 'Audio'];
@@ -1563,6 +1588,7 @@ function build() {
     + '<div class="rv-lb">Usuario</div><input class="rv-in" id="rv-c-handle"><div class="rv-lb">Ciudad</div><input class="rv-in" id="rv-c-ciudad"><div class="rv-lb">Estilo</div><input class="rv-in" id="rv-c-estilo"><div class="rv-lb">Texto final</div><input class="rv-in" id="rv-c-cta">'
     + '<div class="rv-lb">Texto final («Agenda por DM»)</div><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
     + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">La voz natural ya es gratis y sin llaves. Opcional: con una llave gratis de Google AI Studio se usa la voz premium de Google y los textos salen al instante.</p><input class="rv-in" id="rv-c-gem" type="password" placeholder="Llave gratis de Gemini (AIza…)"><div style="height:8px"></div><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)"></div>'
+    + '<div class="rv-sec"><h3>Lo que la app aprendió de ti</h3><div class="rv-p" id="rv-learn" style="white-space:pre-wrap"></div><button class="rv-b g" id="rv-learn-reset" style="padding:10px 14px">Olvidar mis gustos</button></div>'
     + '<div class="rv-sec"><h3>IA de textos</h3><p class="rv-p" id="rv-ai-info"></p></div>'
     + '<div class="rv-sec"><h3>¿Qué está pegando?</h3><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es">Canciones en tendencia de TikTok ↗</a><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es">Hashtags en tendencia de TikTok ↗</a><p class="rv-p" style="margin-top:6px">En Instagram, los audios con la flechita ↗ son los que están en tendencia.</p></div>'
     + '<button class="rv-b full" id="rv-c-save">Guardar</button></div></div></div>';
@@ -1675,7 +1701,15 @@ function renderVoice() {
   box.innerHTML = geminiKey() ? '<div class="rv-ok">✓ Voz premium de Google activada</div>'
     : '<div class="rv-ok" style="color:#9a9a9a">Voz natural gratis: la primera vez se descarga (~90 MB, mejor con wifi) y queda guardada en tu celular.</div>';
 }
+function learnText() {
+  function d(x, a, b) { return x <= -1 ? a : x >= 1 ? b : 'normal'; }
+  return 'Cortes: ' + d(LEARN.cuts, 'pocos, tomas largas', 'muchos') + ' · Velocidad: ' + d(LEARN.speed, 'natural', 'rápida') + ' · Transiciones: ' + d(LEARN.trans, 'pocas', 'muchas')
+    + (LEARN.durMul && Math.abs(LEARN.durMul - 1) > .05 ? ' · Duración: ' + (LEARN.durMul > 1 ? 'más largos' : 'más cortos') : '')
+    + (LEARN.notes.length ? '\n• ' + LEARN.notes.slice(-8).join('\n• ') : '\nCada vez que le pidas cambios a un reel, aquí se va guardando lo que te gusta.');
+}
 function fillSettings() {
+  $('#rv-learn').textContent = learnText();
+  $('#rv-learn-reset').onclick = function () { LEARN = { cuts: -1, speed: 0, trans: 0, durMul: 1, notes: [] }; saveLearn(); $('#rv-learn').textContent = learnText(); toast('Listo, empiezo de cero'); };
   ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
   $('#rv-c-eleven').value = CFG.elevenKey || ''; $('#rv-c-gem').value = CFG.geminiKey || '';
   var I = window.INKAI, own = I && I.getCfg && I.getCfg().provider !== 'auto';
@@ -1857,10 +1891,15 @@ function renderResults() {
       + (S.results.length > 1 ? '<div class="rv-lb" style="margin-top:0">' + r.emoji + ' ' + esc(r.tplName) + '</div>' : '')
       + '<video src="' + r.url + '" controls playsinline preload="metadata"></video>'
       + '<div class="rv-acts"><button class="rv-b" data-act="share">Compartir a Instagram / TikTok</button><button class="rv-b g" data-act="dl" aria-label="Descargar">⬇</button></div>'
+      + (r.okMsg ? '<div class="rv-ok">' + esc(r.okMsg) + '</div>' : '')
       + (r.warn ? '<div class="rv-warn">⚠ ' + esc(r.warn) + '</div>' : '')
       + '<div class="rv-card"><div class="l">Caption<button data-cp="1">Copiar</button></div>' + esc(p.caption + '\n\n' + p.hashtags.join(' ')) + '</div>'
       + '<div class="rv-card"><div class="l">Cuándo publicarlo</div>' + esc(cap(p.day) + ' · ' + p.time) + '</div>'
       + (r.audioMode === 'trend' ? '<div class="rv-card"><div class="l">Qué audio ponerle en IG / TikTok</div>' + esc(p.audioTip) + (r.voice ? '\nBaja ese audio a ~20 % para que se escuche la voz.' : '') + '</div>' : '')
+      + '<div class="rv-edit"><div class="l">✏️ ¿Qué le cambio?</div>'
+      + '<div class="rv-chips">' + ['Menos cortes', 'Más lento', 'Más corto', 'Más largo', 'Menos transiciones', 'Otro gancho', 'Voz de mujer', 'Voz de hombre'].map(function (q) { return '<button class="rv-chip" data-q="' + q + '">' + q + '</button>'; }).join('') + '</div>'
+      + '<div class="rv-row" style="align-items:flex-start;margin-top:10px"><textarea class="rv-in" id="rv-ed-' + i + '" rows="2" style="resize:none" placeholder="Escríbelo o díctalo: «menos cortes y que el final dure más»"></textarea><button class="rv-mic" data-for="rv-ed-' + i + '" aria-label="Dictar">🎤</button></div>'
+      + '<button class="rv-b full" data-act="edit" style="margin-top:10px">Aplicar cambios</button><div class="rv-msg" id="rv-ed-st-' + i + '"></div></div>'
       + '<div class="rv-rate">¿Te gustó? <button data-rate="2">🔥</button><button data-rate="1">👍</button><button data-rate="-1">👎</button></div></div>';
   }).join('');
   $$('.rv-res', box).forEach(function (el) {
@@ -1870,10 +1909,84 @@ function renderResults() {
         if (b.dataset.act === 'dl') download(r);
         else if (b.dataset.act === 'share') share(r);
         else if (b.dataset.cp) copy(r.plan.caption + '\n\n' + r.plan.hashtags.join(' '));
+        else if (b.dataset.q) { var ta = $('#rv-ed-' + el.dataset.i); ta.value = (ta.value ? ta.value.replace(/[.\s]*$/, '') + ', ' : '') + b.dataset.q.toLowerCase(); }
+        else if (b.dataset.act === 'edit') applyEdit(+el.dataset.i, $('#rv-ed-' + el.dataset.i).value.trim());
+        else if (b.classList.contains('rv-mic')) dictate(b);
         else if (b.dataset.rate) { rate(r.id, +b.dataset.rate); $$('[data-rate]', el).forEach(function (x) { x.classList.toggle('on', x === b); }); }
       };
     });
   });
+}
+// ── Pedirle cambios al reel (escrito o dictado) y que aprenda tus gustos ──
+function parseLocal(t) {
+  t = ' ' + String(t || '').toLowerCase() + ' ';
+  var c = { cortes: 0, velocidad: 0, transiciones: 0, dur: 0, durRel: 0, voz: 'igual', gancho: '', otroGancho: false, aprender: [] };
+  if (/menos cortes|corta menos|tantos cortes|sin cortes|no cortes|m[aá]s fluid|tomas m[aá]s largas/.test(t)) { c.cortes = /sin cortes|nada de cortes/.test(t) ? -2 : -1; c.aprender.push('prefiere menos cortes y tomas más largas'); }
+  if (/m[aá]s cortes|m[aá]s din[aá]mic|m[aá]s r[aá]pido el ritmo/.test(t)) c.cortes = 1;
+  if (/m[aá]s lento|m[aá]s despacio|velocidad normal|sin acelerar|no lo aceleres/.test(t)) { c.velocidad = -1; c.aprender.push('prefiere el video a velocidad más natural'); }
+  if (/m[aá]s r[aá]pido|acel[eé]ralo/.test(t)) c.velocidad = 1;
+  if (/menos transiciones|sin transiciones|sin efectos|menos efectos/.test(t)) { c.transiciones = /sin /.test(t) ? -2 : -1; c.aprender.push('prefiere pocas transiciones'); }
+  if (/m[aá]s transiciones|m[aá]s efectos/.test(t)) c.transiciones = 1;
+  var m = t.match(/(\d+)\s*(seg|s\b|min)/); if (m) c.dur = +m[1] * (/min/.test(m[2]) ? 60 : 1);
+  else if (/m[aá]s corto|m[aá]s breve/.test(t)) c.durRel = .7; else if (/m[aá]s largo/.test(t)) c.durRel = 1.4;
+  if (/voz de mujer|voz femenina|una mujer/.test(t)) c.voz = 'mujer'; else if (/voz de hombre|voz masculina/.test(t)) c.voz = 'hombre'; else if (/sin voz|quita la voz/.test(t)) c.voz = 'sin'; else if (/con voz|ponle voz|agrega voz/.test(t)) c.voz = 'con';
+  if (/otro gancho|cambia el gancho|otro texto|cambia el texto/.test(t)) c.otroGancho = true;
+  return c;
+}
+async function interpretEdit(text, r) {
+  var c = parseLocal(text), I = ai();
+  if (!I) return c;
+  try {
+    var j = await withTimeout(I.json('TAREA: un tatuador te pide cambios para el reel que le editaste. Interpreta qué quiere.\nPETICIÓN: ' + text
+      + '\nREEL ACTUAL: estilo ' + r.tplName + ', ' + Math.round(r.T) + ' s, gancho "' + (r.plan.hook || '') + '", ' + (r.voice ? 'con voz' : 'sin voz') + '.\n'
+      + 'Responde SOLO JSON: {"cortes":-2..2 (negativo = menos cortes/tomas más largas),"velocidad":-2..2 (negativo = más lento/natural),"transiciones":-2..2,"duracion_seg":número o 0,'
+      + '"voz":"igual|hombre|mujer|sin|con","gancho":"nuevo gancho si lo pide (máx 8 palabras, *palabra clave* entre asteriscos) o vacío","narracion":"instrucción para reescribir la narración si lo pide, o vacío",'
+      + '"caption":"instrucción para cambiar el caption si lo pide, o vacío","aprender":"regla corta de gusto GENERAL que sirva para futuros reels (ej. prefiere tomas largas), o vacío si es algo solo de este video","resumen":"qué vas a cambiar, 1 frase, en español"}',
+      { maxTokens: 500, temperature: .3, verify: false }), 100000);
+    c.cortes = clamp(+j.cortes || c.cortes, -2, 2); c.velocidad = clamp(+j.velocidad || c.velocidad, -2, 2); c.transiciones = clamp(+j.transiciones || c.transiciones, -2, 2);
+    if (+j.duracion_seg) { c.dur = clamp(+j.duracion_seg, 6, 180); c.durRel = 0; }
+    if (j.voz && j.voz !== 'igual') c.voz = j.voz;
+    if (j.gancho) c.gancho = String(j.gancho);
+    c.narracion = String(j.narracion || ''); c.caption = String(j.caption || ''); c.resumen = String(j.resumen || '');
+    if (j.aprender) c.aprender = [String(j.aprender)];
+  } catch (e) {}
+  return c;
+}
+async function applyEdit(i, text) {
+  var r = S.results[i]; if (!r || S.busy) return;
+  if (!text) return toast('Escribe o dicta qué le cambio');
+  var st = $('#rv-ed-st-' + i); st.textContent = 'Entendiendo lo que pides…';
+  var c = await interpretEdit(text, r);
+  // aprende: tus gustos se van moviendo poco a poco para los próximos reels
+  LEARN.cuts = clamp(LEARN.cuts + c.cortes * .5, -2, 2); LEARN.speed = clamp(LEARN.speed + c.velocidad * .5, -2, 2); LEARN.trans = clamp(LEARN.trans + c.transiciones * .5, -2, 2);
+  if (c.durRel) LEARN.durMul = clamp((LEARN.durMul || 1) * (c.durRel > 1 ? 1.1 : .9), .6, 1.8);
+  (c.aprender || []).forEach(function (n) { if (n && LEARN.notes.indexOf(n) < 0) LEARN.notes.push(n); });
+  LEARN.notes = LEARN.notes.slice(-20); saveLearn();
+  var edit = { cuts: clamp((r.edit.cuts || 0) + c.cortes, -2, 2), speed: clamp((r.edit.speed || 0) + c.velocidad, -2, 2), trans: clamp((r.edit.trans || 0) + c.transiciones, -2, 2) };
+  var plan = JSON.parse(JSON.stringify(r.plan)), T = c.dur || (c.durRel ? Math.round(r.T * c.durRel) : r.T), voice = r.voiceObj, opts = { edit: edit, look: r.look, plan: plan, T: T };
+  if (c.voz === 'mujer' || c.voz === 'hombre') { CFG.genero = c.voz; saveCfg(); voice = null; opts.voiceOn = r.voiceWanted || c.voz; }
+  if (c.voz === 'sin') opts.voiceOff = true;
+  if (c.voz === 'con') { opts.voiceOn = true; voice = null; }
+  var I = ai();
+  if (c.gancho) plan.hook = c.gancho;
+  else if (c.otroGancho) { try { var hs = await aiHooks(); plan.hook = hs.filter(function (h) { return h !== r.plan.hook; })[0] || plan.hook; } catch (e) {} }
+  var shorter = voice && T < voice.dur + 1.5;
+  if (I && (c.narracion || shorter) && plan.narration) {
+    st.textContent = 'Reescribiendo la narración…';
+    try { var nt = await withTimeout(I.chat('Reescribe esta narración de voz en off para un reel de tatuaje' + (c.narracion ? ' siguiendo esta instrucción: ' + c.narracion : '') + '. Debe durar unos ' + Math.max(6, T - 3) + ' segundos (unas ' + Math.round(Math.max(6, T - 3) * 2.4) + ' palabras), español de México, natural. Responde SOLO con el texto.\n\nNARRACIÓN: ' + plan.narration, { maxTokens: 600, temperature: .7 }), 100000); if (nt && nt.trim()) { plan.narration = nt.trim().replace(/^["«“]|["»”]$/g, ''); voice = null; } } catch (e) {}
+  }
+  if (I && c.caption) { try { var ct = await withTimeout(I.chat('Reescribe este caption de Instagram siguiendo esta instrucción: ' + c.caption + '. Responde SOLO con el caption.\n\nCAPTION: ' + plan.caption, { maxTokens: 400, temperature: .7 }), 100000); if (ct && ct.trim()) plan.caption = ct.trim(); } catch (e) {} }
+  opts.voice = voice;
+  S.busy = true; $('#rv-making').style.display = 'block'; $('#rv-mk-t').textContent = 'Aplicando tus cambios'; go(4);
+  var step = progress(); keepAwake(true);
+  try {
+    var nr = await createOne(r.tpl, r.idx || 0, step, opts);
+    nr.okMsg = c.resumen ? '✓ ' + c.resumen : '✓ Listo con tus cambios. Ya lo tomé en cuenta para tus próximos reels.';
+    S.results[i] = nr; step('done', '', 1); $('#rv-making').style.display = 'none'; renderResults(); await saveReel(nr);
+    if (document.hidden) notify('🎬 Tu reel con cambios está listo', 'Toca para verlo.');
+  } catch (e) {
+    $('#rv-making').style.display = 'none'; renderResults(); toast('No se pudo: ' + e.message);
+  } finally { S.busy = false; keepAwake(false); go(4); }
 }
 function cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 function fileName(r) { return 'reel-' + (r.tpl.replace(/^c_.*/, 'viral')) + '-' + new Date(r.date).toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.mp4'; }
