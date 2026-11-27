@@ -1,9 +1,11 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v20';
+const CACHE = 'inkbot-v21';
 const ASSETS = [
   './',
   './index.html',
   './reels.js',
+  './brain.js',
+  './vendor/brain-learn.js',
   './vendor/supertonic/supertonic-es.js',
   './vendor/mp4box/mp4box.all.min.js',
   './vendor/piper/piper-tts-web.js',
@@ -52,6 +54,9 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(manifestConIcono(req));
     return;
   }
+
+  // Otras apps del mismo sitio (Neural Brain, etc.): siempre de la red, sin guardarlas aquí
+  if (url.origin === self.location.origin && url.pathname.indexOf(new URL(self.registration.scope).pathname) !== 0) return;
 
   // Modelos de voz: los descarga y guarda la propia app (no duplicar en este caché)
   if ((url.origin === self.location.origin && url.pathname.indexOf('/voz/') >= 0) || url.hostname === 'huggingface.co' || /(^|\.)hf\.co$/.test(url.hostname)) return;
