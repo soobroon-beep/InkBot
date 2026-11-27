@@ -16,6 +16,11 @@ Botón **«Reels Virales»** en el menú principal. Código en `reels.js`; la vo
 - El video se reproduce a la velocidad que el celular aguante para que no se repitan cuadros (más fluido).
 - Si minimizas la app, se pausa y sigue sola al volver; la pantalla se queda encendida; los últimos 8 reels se guardan en ⚙ Tus reels.
 
+## Pedirle cambios y que aprenda
+- Debajo de cada reel: «¿Qué le cambio?» (escrito, dictado o con botones rápidos). Lo rehace con tus mismos clips, sin volver a escribir todo.
+- Cada cambio mueve poco a poco tus gustos (cortes, velocidad, transiciones, duración y reglas en tus palabras). Se ven y se borran en ⚙.
+- Por defecto: pocos cortes y tomas largas cuando no hay canción; cortes al golpe (nunca muy seguidos) cuando sí hay.
+
 ## Gratis y sin ventanas
 - **Textos:** IA abierta de Pollinations, sin cuentas (1 respuesta por minuto aprox.). Para que sea instantánea, pon una llave gratis de Gemini o Groq en el menú principal.
 - **Voz natural gratis (hombre o mujer):** Kokoro corre dentro del celular, sin llaves (descarga ~90 MB la primera vez). Trae su propio lector de español (acentos, ñ, ll). Opcional: Gemini TTS con llave gratis, o ElevenLabs.
