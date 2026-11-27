@@ -30,9 +30,11 @@ function withTimeout(p, ms, msg) { return Promise.race([p, new Promise(function 
 
 /* ───────────────────────── configuración ───────────────────────── */
 var CFG = Object.assign({
-  handle: '@victortip', ciudad: 'Orizaba, Veracruz', estilo: 'neo-japonés',
-  voz: 'auto', genero: 'hombre', elevenKey: '', cta: 'Agenda por DM 📩', marca: true
+  handle: '@v.sobrontt', ciudad: 'Orizaba, Veracruz', estilo: 'neo-japonés',
+  voz: 'auto', genero: 'hombre', elevenKey: '', geminiKey: '', cta: 'Agenda por DM 📩', marca: true, showHandle: true, sfx: true
 }, lsGet(LS.cfg, {}));
+if (!CFG.handle || /victortip/i.test(CFG.handle)) CFG.handle = '@v.sobrontt';
+if (CFG.showHandle == null) CFG.showHandle = true;
 function saveCfg() { lsSet(LS.cfg, CFG); }
 
 /* ───────────────────────── plantillas virales ─────────────────────────
@@ -394,7 +396,19 @@ function buildEDL(o) {
   if (voice) overlays.push({ type: 'subs', words: o.words, offset: o.voiceStart || 0 });
   if (CFG.marca && base !== 'encuesta') overlays.push({ type: 'cta', text: plan.endText || CFG.cta, from: Math.max(R0 + .4, T - 1.9), to: T });
   overlays.push({ type: 'mark', from: 0, to: T });
-  return { T: T, shots: shots, overlays: overlays, reveal: vids.length ? R0 : 0 };
+  // Transiciones: tranquilas en formatos narrados, dinámicas en los de ritmo; siempre en las uniones clave
+  var calm = base === 'narrado' || base === 'significado' || base === 'marca' || base === 'asmr';
+  var pool = base === 'asmr' ? ['dissolve'] : calm ? ['dissolve', 'zoom', 'dissolve', 'whip'] : ['whip', 'zoom', 'glitch', 'whip', 'zoom', 'flash'];
+  var firstRev = -1; shots.forEach(function (x, i) { if (firstRev < 0 && x.role === 'reveal') firstRev = i; });
+  shots.forEach(function (x, i) {
+    x.drift = (r() - .5) * 2; x.rot = (r() - .5) * .018;
+    if (i === 0) return;
+    if (i === firstRev && vids.length) { x.tr = 'zoom'; x.trDur = .34; return; }
+    if (shots[i - 1].role === 'hook') x.tr = r() < .5 ? 'whip' : 'zoom';
+    else if (calm || (i % 3 === 1 && x.outDur > .45) || x.outDur > 1.1) x.tr = pool[Math.floor(r() * pool.length)];
+    if (x.tr) x.trDur = Math.min(calm ? .42 : .26, x.outDur * .45);
+  });
+  return { T: T, shots: shots, overlays: overlays, reveal: vids.length ? R0 : 0, beats: g.filter(function (b) { return b > .3 && b < T - .2; }) };
 }
 function defaultStages(n) {
   var all = ['PLANTILLA', 'LÍNEA', 'SOMBRA', 'COLOR', 'DETALLES'];
@@ -404,23 +418,121 @@ function defaultStages(n) {
   return all.slice(0, n);
 }
 
-/* ═══════════════════════ 4 · DIBUJO DE CADA FRAME ═══════════════════════ */
-var vignetteCv = null;
-function vignette() {
-  if (vignetteCv) return vignetteCv;
-  vignetteCv = document.createElement('canvas'); vignetteCv.width = W; vignetteCv.height = H;
-  var c = vignetteCv.getContext('2d'), g = c.createRadialGradient(W / 2, H * .45, H * .28, W / 2, H * .5, H * .78);
-  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.42)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
-  var t = c.createLinearGradient(0, 0, 0, H * .3); t.addColorStop(0, 'rgba(0,0,0,.35)'); t.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = t; c.fillRect(0, 0, W, H * .3);
-  return vignetteCv;
+/* ═══════════════════════ 4 · DIBUJO DE CADA FRAME (efectos y transiciones) ═══════════════════════ */
+function mk(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+var FX = null;
+function fx() {
+  if (FX) return FX;
+  FX = { base: mk(W, H), prev: mk(W, H), small: mk(180, 320), small2: mk(180, 320), grain: mk(256, 256), vig: mk(W, H), hasPrev: false, lastShot: null };
+  FX.bctx = FX.base.getContext('2d', { alpha: false }); FX.pctx = FX.prev.getContext('2d', { alpha: false });
+  FX.sctx = FX.small.getContext('2d'); FX.s2ctx = FX.small2.getContext('2d');
+  // grano de película (muy sutil)
+  var g = FX.grain.getContext('2d'), id = g.createImageData(256, 256);
+  for (var i = 0; i < id.data.length; i += 4) { var v = 128 + (Math.random() - .5) * 90; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; }
+  g.putImageData(id, 0, 0);
+  // viñeta + degradado superior para que los textos se lean
+  var c = FX.vig.getContext('2d'), rg = c.createRadialGradient(W / 2, H * .45, H * .3, W / 2, H * .5, H * .8);
+  rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = rg; c.fillRect(0, 0, W, H);
+  var tg = c.createLinearGradient(0, 0, 0, H * .32); tg.addColorStop(0, 'rgba(0,0,0,.4)'); tg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = tg; c.fillRect(0, 0, W, H * .32);
+  var bg = c.createLinearGradient(0, H * .55, 0, H); bg.addColorStop(0, 'rgba(0,0,0,0)'); bg.addColorStop(1, 'rgba(0,0,0,.35)'); c.fillStyle = bg; c.fillRect(0, H * .55, W, H * .45);
+  return FX;
 }
-function drawCover(ctx, src, sw, sh, cx, cy, zoom) {
+function resetFX() { var f = fx(); f.hasPrev = false; f.lastShot = null; fitCache = {}; }
+function drawCover(ctx, src, sw, sh, cx, cy, zoom, dx, dy, rot) {
   if (!sw || !sh) return;
   var sc = Math.max(W / sw, H / sh) * zoom, dw = sw * sc, dh = sh * sc;
-  var x = W / 2 - cx * dw, y = H / 2 - cy * dh;
+  var x = W / 2 - cx * dw + (dx || 0), y = H / 2 - cy * dh + (dy || 0);
   x = clamp(x, W - dw, 0); y = clamp(y, H - dh, 0);
-  ctx.drawImage(src, x, y, dw, dh);
+  if (rot) { ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(rot); ctx.translate(-W / 2, -H / 2); ctx.drawImage(src, x, y, dw, dh); ctx.restore(); }
+  else ctx.drawImage(src, x, y, dw, dh);
 }
+function easeOutBack(x) { x = clamp(x, 0, 1); var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
+function beatPulse(edl, t) {
+  if (!edl.beats) return 0; var p = 0;
+  for (var i = 0; i < edl.beats.length; i++) { var d = t - edl.beats[i]; if (d >= 0 && d < .18) p = Math.max(p, 1 - d / .18); if (edl.beats[i] > t) break; }
+  return p;
+}
+// Capa base: el video/foto con movimiento de cámara, color y pulso al ritmo
+var useFilter = true;
+function drawBase(c, edl, s, t, el) {
+  c.fillStyle = '#050505'; c.fillRect(0, 0, W, H);
+  if (!s) return;
+  var p = clamp((t - s.outStart) / Math.max(.01, s.outEnd - s.outStart), 0, 1), z = s.zoomA + (s.zoomB - s.zoomA) * easeInOut(p);
+  if (s.punch) z *= 1 + .12 * (1 - easeOut((t - s.outStart) / .3));
+  if (s.role === 'hook' && t < .45) z *= 1 + .22 * (1 - easeOut(t / .45));            // arranque: zoom de entrada
+  z *= 1 + .028 * beatPulse(edl, t);                                                   // pulso en cada golpe
+  var drift = (s.drift || 0) * (p - .5) * 60, rot = (s.rot || 0) * (p - .5);
+  var src = el || s.clip.el || s.clip.still, sw = s.kind === 'image' ? s.clip.w : (src && (src.videoWidth || src.width)), sh = s.kind === 'image' ? s.clip.h : (src && (src.videoHeight || src.height));
+  if (useFilter) c.filter = 'contrast(1.08) saturate(1.15) brightness(1.02)';
+  if (src) drawCover(c, src, sw, sh, s.cx == null ? .5 : clamp(s.cx, .2, .8), s.cy == null ? .5 : clamp(s.cy, .25, .75), z, drift, 0, rot);
+  c.filter = 'none';
+}
+// Desenfoque barato: reduce y vuelve a agrandar
+function blurred(srcCanvas, k) { var f = fx(), sc = f.sctx; sc.drawImage(srcCanvas, 0, 0, 180, 320); if (k > 1) { f.s2ctx.drawImage(f.small, 0, 0, 90, 160); sc.drawImage(f.small2, 0, 0, 90, 160, 0, 0, 180, 320); } return f.small; }
+function drawTransition(ctx, type, p, A, B) {
+  var e = easeInOut(p);
+  ctx.save();
+  if (type === 'dissolve') { ctx.drawImage(A, 0, 0); ctx.globalAlpha = e; ctx.drawImage(B, 0, 0); }
+  else if (type === 'zoom') {
+    // entra "atravesando" la toma anterior
+    if (p < .5) { var q = p / .5, z = 1 + .45 * easeIn(q); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); ctx.drawImage(A, 0, 0); ctx.globalAlpha = q * .9; ctx.drawImage(blurred(A, 2), 0, 0, W, H); }
+    else { var q2 = (p - .5) / .5, z2 = 1.35 - .35 * easeOut(q2); ctx.translate(W / 2, H / 2); ctx.scale(z2, z2); ctx.translate(-W / 2, -H / 2); ctx.drawImage(B, 0, 0); ctx.globalAlpha = 1 - q2; ctx.drawImage(blurred(B, 2), 0, 0, W, H); }
+  } else if (type === 'whip') {
+    // barrido rápido con desenfoque de movimiento
+    var off = e * W;
+    ctx.drawImage(blurred(A, 1), 0, 0, 180, 320, -off, 0, W, H);
+    ctx.drawImage(blurred(B, 1), 0, 0, 180, 320, W - off, 0, W, H);
+    if (p > .85) { ctx.globalAlpha = (p - .85) / .15; ctx.drawImage(B, 0, 0); }
+  } else if (type === 'flash') {
+    ctx.drawImage(p < .5 ? A : B, 0, 0);
+    var a = 1 - Math.abs(p - .5) * 2; ctx.globalAlpha = Math.min(1, a * 1.1); ctx.fillStyle = '#fff6e8'; ctx.fillRect(0, 0, W, H);
+  } else if (type === 'glitch') {
+    ctx.drawImage(B, 0, 0);
+    var strips = 9, h = H / strips, r = rng(Math.floor(p * 20) + 7);
+    for (var i = 0; i < strips; i++) { if (r() < .55) { var dx = (r() - .5) * 120 * (1 - p); ctx.drawImage(p < .4 ? A : B, 0, i * h, W, h, dx, i * h, W, h); } }
+    ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = .35 * (1 - p);
+    ctx.drawImage(B, 14 * (1 - p), 0); ctx.globalCompositeOperation = 'source-over';
+  } else { ctx.drawImage(B, 0, 0); }
+  ctx.restore();
+}
+function easeIn(x) { x = clamp(x, 0, 1); return x * x * x; }
+function drawFrame(ctx, edl, t, srcEl) {
+  var f = fx(), s = shotAt(edl, t);
+  if (s !== f.lastShot) {
+    // cambio de toma: guarda el último cuadro para la transición
+    if (f.lastShot) { f.pctx.drawImage(f.base, 0, 0); f.hasPrev = true; }
+    f.lastShot = s;
+  }
+  drawBase(f.bctx, edl, s, t, srcEl);
+  var tr = s && s.tr, dur = s && s.trDur || .26;
+  if (tr && f.hasPrev && t - s.outStart < dur) drawTransition(ctx, tr, (t - s.outStart) / dur, f.prev, f.base);
+  else ctx.drawImage(f.base, 0, 0);
+  ctx.drawImage(f.vig, 0, 0);
+  // destello de luz dorado/rojo y brillo al revelar el resultado
+  if (s && s.role === 'reveal') {
+    var lt = t - s.outStart;
+    if (lt < 1.4) {
+      var a = Math.sin(clamp(lt / 1.4, 0, 1) * Math.PI) * .55, gx = W * (-.2 + 1.4 * lt / 1.4);
+      var lg = ctx.createRadialGradient(gx, H * .35, 20, gx, H * .35, W * .9);
+      lg.addColorStop(0, 'rgba(255,190,90,' + a + ')'); lg.addColorStop(.45, 'rgba(204,40,0,' + a * .45 + ')'); lg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H); ctx.restore();
+    }
+    var sp = (lt - .5) / 1.1;
+    if (sp > 0 && sp < 1) {
+      ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.translate(W * (-.4 + 1.8 * sp), 0); ctx.rotate(.35);
+      var sg = ctx.createLinearGradient(-140, 0, 140, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.5, 'rgba(255,255,255,.55)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sg; ctx.fillRect(-140, -H, 280, H * 3); ctx.restore();
+    }
+  }
+  if (s && s.flash) { var fa = .9 * (1 - (t - s.outStart) / .32); if (fa > 0) { ctx.fillStyle = 'rgba(255,248,235,' + fa + ')'; ctx.fillRect(0, 0, W, H); } }
+  // grano
+  ctx.save(); ctx.globalAlpha = .06; ctx.globalCompositeOperation = 'overlay';
+  var gx2 = (Math.random() * 256) | 0, gy2 = (Math.random() * 256) | 0; ctx.translate(-gx2, -gy2);
+  ctx.fillStyle = ctx.createPattern(f.grain, 'repeat'); ctx.fillRect(0, 0, W + 256, H + 256); ctx.restore();
+  drawOverlays(ctx, edl, t);
+}
+
+// ── Textos ──
 function tokens(text) {
   var out = [], parts = String(text || '').split(/(\*[^*]+\*)/);
   parts.forEach(function (p) {
@@ -444,67 +556,79 @@ function fitText(ctx, text, fontFn, start, min, maxW, maxLines, upper) {
   for (; size >= min; size -= 6) { ctx.font = fontFn(size); lines = layoutLines(ctx, toks, maxW); if (lines.length <= maxLines) break; }
   return { size: size, lines: lines };
 }
-function drawTextBlock(ctx, fit, fontFn, cy, opt) {
-  opt = opt || {}; ctx.font = fontFn(fit.size); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  var lh = fit.size * (opt.lh || 1.02), top = cy - (fit.lines.length - 1) * lh / 2, sp = ctx.measureText(' ').width;
-  ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+// Bloque de texto animado palabra por palabra; las palabras *clave* van en caja dorada
+function drawAnimatedBlock(ctx, fit, fontFn, cy, lt, opt) {
+  opt = opt || {}; ctx.font = fontFn(fit.size); ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+  var lh = fit.size * (opt.lh || 1.04), top = cy - (fit.lines.length - 1) * lh / 2, sp = ctx.measureText(' ').width, k = 0, stagger = opt.stagger == null ? .07 : opt.stagger;
   fit.lines.forEach(function (ln, i) {
     var x = W / 2 - ln.w / 2, y = top + i * lh;
-    ln.t.forEach(function (t) {
-      if (opt.stroke) { ctx.lineWidth = fit.size * opt.stroke; ctx.strokeStyle = 'rgba(0,0,0,.92)'; ctx.strokeText(t.w, x, y); }
-      ctx.fillStyle = t.em ? (opt.em || GOLD) : (opt.color || '#fff'); ctx.fillText(t.w, x, y);
-      x += t.width + sp;
+    ln.t.forEach(function (tk) {
+      var wt = lt - k * stagger; k++;
+      if (wt < 0) { x += tk.width + sp; return; }
+      var a = clamp(wt / .12, 0, 1), sc = easeOutBack(clamp(wt / .28, 0, 1)) * .25 + .75;
+      ctx.save(); ctx.globalAlpha *= a; ctx.translate(x + tk.width / 2, y + (1 - easeOut(wt / .25)) * fit.size * .25); ctx.scale(sc, sc);
+      if (tk.em && opt.box !== false) {
+        var pad = fit.size * .12; ctx.fillStyle = GOLD; roundRect(ctx, -tk.width / 2 - pad, -fit.size * .5, tk.width + pad * 2, fit.size * 1.0, fit.size * .14); ctx.fill();
+        ctx.fillStyle = '#0a0a0a'; ctx.fillText(tk.w, -tk.width / 2, fit.size * .03);
+      } else {
+        if (opt.stroke) { ctx.lineWidth = fit.size * opt.stroke; ctx.strokeStyle = 'rgba(0,0,0,.9)'; ctx.strokeText(tk.w, -tk.width / 2, 0); }
+        ctx.fillStyle = tk.em ? GOLD : (opt.color || '#fff'); ctx.fillText(tk.w, -tk.width / 2, 0);
+      }
+      ctx.restore(); x += tk.width + sp;
     });
   });
 }
-function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 var BEBAS = function (s) { return s + 'px "Bebas Neue", Impact, sans-serif'; };
 var MONT = function (s) { return '900 ' + s + 'px Montserrat, "DM Sans", Arial, sans-serif'; };
 var MONT8 = function (s) { return '800 ' + s + 'px Montserrat, "DM Sans", Arial, sans-serif'; };
 var fitCache = {};
 function cachedFit(ctx, key, fn) { if (!fitCache[key]) fitCache[key] = fn(); return fitCache[key]; }
-
 function drawOverlays(ctx, edl, t) {
   edl.overlays.forEach(function (o) {
     if (o.type === 'subs') return drawSubs(ctx, o, t);
     if (t < o.from || t > o.to) return;
-    var a = clamp((t - o.from) / 0.16, 0, 1) * clamp((o.to - t) / 0.16, 0, 1), pop = .94 + .06 * easeOut((t - o.from) / 0.18);
-    if (o.from === 0 && o.type === 'hook') a = clamp((o.to - t) / 0.16, 0, 1); // el gancho ya está visible en el primer frame (miniatura)
-    ctx.save(); ctx.globalAlpha = a;
+    var lt = t - o.from, out = clamp((o.to - t) / .18, 0, 1);
+    ctx.save(); ctx.globalAlpha = out;
     if (o.type === 'hook') {
-      var f = cachedFit(ctx, 'h' + o.text, function () { return fitText(ctx, o.text, BEBAS, 150, 84, W * .84, 3, true); });
-      ctx.translate(W / 2, H * .2); ctx.scale(pop, pop); ctx.translate(-W / 2, -H * .2);
-      ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 24;
-      drawTextBlock(ctx, f, BEBAS, H * .2, { stroke: .12, lh: .98 });
+      var f = cachedFit(ctx, 'h' + o.text, function () { return fitText(ctx, o.text, BEBAS, 156, 88, W * .84, 3, true); });
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 26;
+      drawAnimatedBlock(ctx, f, BEBAS, H * .2, lt + .05, { stroke: .11, lh: 1.02, stagger: .06 });
     } else if (o.type === 'big') {
-      var fb = cachedFit(ctx, 'b' + o.text, function () { return fitText(ctx, o.text, BEBAS, 190, 100, W * .84, 3, true); });
-      ctx.translate(W / 2, H * .42); ctx.scale(pop, pop); ctx.translate(-W / 2, -H * .42);
-      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 30; drawTextBlock(ctx, fb, BEBAS, H * .42, { stroke: .1 });
+      var fb = cachedFit(ctx, 'b' + o.text, function () { return fitText(ctx, o.text, BEBAS, 196, 100, W * .84, 3, true); });
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 30; drawAnimatedBlock(ctx, fb, BEBAS, H * .42, lt, { stroke: .1, stagger: .09 });
     } else if (o.type === 'pill' || o.type === 'label') {
       var txt = o.type === 'label' ? o.text.toUpperCase() : o.text;
-      var fp = cachedFit(ctx, 'p' + txt, function () { return fitText(ctx, txt, MONT8, 54, 34, W * .76, 3, false); });
+      var fp = cachedFit(ctx, 'p' + txt, function () { return fitText(ctx, txt, MONT8, 56, 34, W * .76, 3, false); });
       ctx.font = MONT8(fp.size);
-      var lh = fp.size * 1.22, bw = Math.max.apply(null, fp.lines.map(function (l) { return l.w; })) + 64, bh = fp.lines.length * lh + 40, cy = o.type === 'label' ? H * .3 : H * .36;
-      ctx.translate(W / 2, cy); ctx.scale(pop, pop); ctx.translate(-W / 2, -cy);
-      ctx.fillStyle = 'rgba(8,8,8,.72)'; roundRect(ctx, W / 2 - bw / 2, cy - bh / 2, bw, bh, 26); ctx.fill();
-      if (o.type === 'label') { ctx.fillStyle = RED; roundRect(ctx, W / 2 - bw / 2, cy - bh / 2, 12, bh, 6); ctx.fill(); }
-      drawTextBlock(ctx, fp, MONT8, cy, { lh: 1.22 });
+      var lh = fp.size * 1.22, bw = Math.max.apply(null, fp.lines.map(function (l) { return l.w; })) + 70, bh = fp.lines.length * lh + 44, cy = o.type === 'label' ? H * .3 : H * .36;
+      var e = easeOutBack(clamp(lt / .35, 0, 1)), sy = (1 - easeOut(lt / .3)) * 60;
+      ctx.globalAlpha *= clamp(lt / .15, 0, 1);
+      ctx.translate(W / 2, cy + sy); ctx.scale(.85 + .15 * e, .85 + .15 * e); ctx.translate(-W / 2, -cy);
+      ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 30;
+      ctx.fillStyle = 'rgba(10,10,10,.78)'; roundRect(ctx, W / 2 - bw / 2, cy - bh / 2, bw, bh, 28); ctx.fill(); ctx.shadowBlur = 0;
+      if (o.type === 'label') { ctx.fillStyle = GOLD; roundRect(ctx, W / 2 - bw / 2, cy - bh / 2, 12, bh, 6); ctx.fill(); }
+      drawAnimatedBlock(ctx, fp, MONT8, cy, lt, { lh: 1.22, stagger: .03, box: false });
       if (o.type === 'label' && o.of > 1) {
-        for (var i = 0; i < o.of; i++) { ctx.fillStyle = i < o.n ? GOLD : 'rgba(255,255,255,.3)'; ctx.fillRect(W / 2 - o.of * 26 + i * 52 + 6, cy + bh / 2 + 22, 40, 8); }
+        for (var i = 0; i < o.of; i++) { ctx.fillStyle = i < o.n ? GOLD : 'rgba(255,255,255,.3)'; roundRect(ctx, W / 2 - o.of * 26 + i * 52 + 6, cy + bh / 2 + 22, 40, 8, 4); ctx.fill(); }
       }
     } else if (o.type === 'cta') {
-      var fc = cachedFit(ctx, 'c' + o.text, function () { return fitText(ctx, o.text, BEBAS, 110, 70, W * .8, 2, true); });
+      var fc = cachedFit(ctx, 'c' + o.text, function () { return fitText(ctx, o.text, BEBAS, 116, 70, W * .8, 2, true); });
       ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 24;
-      drawTextBlock(ctx, fc, BEBAS, H * .2 + (1 - easeOut((t - o.from) / .3)) * 40, { stroke: .1 });
-      ctx.shadowBlur = 0; ctx.font = MONT8(46); ctx.textAlign = 'center'; ctx.fillStyle = GOLD; ctx.fillText(CFG.handle || '', W / 2, H * .2 + fc.lines.length * fc.size * .55 + 50);
-    } else if (o.type === 'mark' && CFG.handle) {
-      ctx.globalAlpha = .55; ctx.font = MONT8(34); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-      ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 8; ctx.fillText(CFG.handle, W / 2, H * .745);
+      drawAnimatedBlock(ctx, fc, BEBAS, H * .2, lt, { stroke: .1, stagger: .05 });
+      if (CFG.showHandle && CFG.handle) {
+        ctx.shadowBlur = 0; ctx.globalAlpha *= clamp((lt - .3) / .25, 0, 1); ctx.font = MONT8(48); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        var hw = ctx.measureText(CFG.handle).width + 48, hy = H * .2 + fc.lines.length * fc.size * .55 + 62;
+        ctx.fillStyle = GOLD; roundRect(ctx, W / 2 - hw / 2, hy - 38, hw, 76, 38); ctx.fill(); ctx.fillStyle = '#0a0a0a'; ctx.fillText(CFG.handle, W / 2, hy + 2);
+      }
+    } else if (o.type === 'mark' && CFG.showHandle && CFG.handle) {
+      ctx.globalAlpha *= .6; ctx.font = MONT8(32); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 8; ctx.fillText(CFG.handle, W / 2, H * .815);
     }
     ctx.restore();
   });
 }
-// Subtítulos karaoke: grupos de 2-3 palabras; la palabra que suena va en dorado
+// Subtítulos karaoke: la palabra que suena salta y se ilumina en dorado
 function subGroups(words) {
   var g = [], cur = [];
   words.forEach(function (w, i) {
@@ -520,38 +644,24 @@ function drawSubs(ctx, o, t) {
   for (var i = 0; i < o.groups.length; i++) { var G = o.groups[i], a = G[0].start, b = G[G.length - 1].end + .12; if (tt >= a - .04 && tt <= b) { grp = G; break; } }
   if (!grp) return;
   var text = grp.map(function (w) { return w.w; }).join(' ').toUpperCase(), key = 's' + text;
-  var f = cachedFit(ctx, key, function () { return fitText(ctx, text, MONT, 78, 52, W * .82, 2, false); });
+  var f = cachedFit(ctx, key, function () { return fitText(ctx, text, MONT, 80, 52, W * .82, 2, false); });
   ctx.save(); ctx.font = MONT(f.size); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-  var lh = f.size * 1.12, cy = H * .63, top = cy - (f.lines.length - 1) * lh / 2, sp = ctx.measureText(' ').width, wi = 0;
-  var pop = .9 + .1 * easeOut((tt - grp[0].start) / .12);
+  var lh = f.size * 1.14, cy = H * .63, top = cy - (f.lines.length - 1) * lh / 2, sp = ctx.measureText(' ').width, wi = 0;
+  var pop = .86 + .14 * easeOutBack(clamp((tt - grp[0].start) / .16, 0, 1));
   ctx.translate(W / 2, cy); ctx.scale(pop, pop); ctx.translate(-W / 2, -cy);
   f.lines.forEach(function (ln, li) {
     var x = W / 2 - ln.w / 2, y = top + li * lh;
     ln.t.forEach(function (tk) {
-      var w = grp[wi++] || grp[grp.length - 1], on = tt >= w.start && tt < w.end + .06;
-      ctx.lineWidth = f.size * .2; ctx.strokeStyle = '#000'; ctx.strokeText(tk.w, x, y);
-      ctx.fillStyle = on ? GOLD : '#fff'; ctx.fillText(tk.w, x, y); x += tk.width + sp;
+      var w = grp[wi++] || grp[grp.length - 1], on = tt >= w.start && tt < w.end + .06, ws = on ? 1 + .12 * (1 - easeOut((tt - w.start) / .18)) : 1;
+      ctx.save(); ctx.translate(x + tk.width / 2, y); ctx.scale(ws, ws);
+      ctx.lineWidth = f.size * .22; ctx.strokeStyle = '#000'; ctx.strokeText(tk.w, -tk.width / 2, 0);
+      ctx.fillStyle = on ? GOLD : '#fff'; ctx.fillText(tk.w, -tk.width / 2, 0); ctx.restore();
+      x += tk.width + sp;
     });
   });
   ctx.restore();
 }
 function shotAt(edl, t) { var s = edl.shots; for (var i = 0; i < s.length; i++) if (t < s[i].outEnd) return s[i]; return s[s.length - 1]; }
-var useFilter = true;
-function drawFrame(ctx, edl, t, srcEl) {
-  var s = shotAt(edl, t);
-  ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H);
-  if (s) {
-    var p = clamp((t - s.outStart) / Math.max(.01, s.outEnd - s.outStart), 0, 1), z = s.zoomA + (s.zoomB - s.zoomA) * easeInOut(p);
-    if (s.punch) z *= 1 + .1 * (1 - easeOut((t - s.outStart) / .26));
-    var el = srcEl || s.clip.el || s.clip.still, sw = s.kind === 'image' ? s.clip.w : (el && (el.videoWidth || el.width)), sh = s.kind === 'image' ? s.clip.h : (el && (el.videoHeight || el.height));
-    if (useFilter) ctx.filter = 'contrast(1.07) saturate(1.12)';
-    if (el) drawCover(ctx, el, sw, sh, s.cx == null ? .5 : clamp(s.cx, .2, .8), s.cy == null ? .5 : clamp(s.cy, .25, .75), z);
-    ctx.filter = 'none';
-  }
-  ctx.drawImage(vignette(), 0, 0);
-  if (s && s.flash) { var fa = .85 * (1 - (t - s.outStart) / .3); if (fa > 0) { ctx.fillStyle = 'rgba(255,248,235,' + fa + ')'; ctx.fillRect(0, 0, W, H); } }
-  drawOverlays(ctx, edl, t);
-}
 
 /* ═══════════════════════ 5 · AUDIO: voz, beat y mezcla ═══════════════════════ */
 var decodeCtx = null;
@@ -561,24 +671,83 @@ function decode(ab) {
 }
 // Voz gratis que corre DENTRO del celular (Piper, español de México). Sin cuentas ni ventanas.
 // La primera vez descarga la voz (~60 MB) y queda guardada en el teléfono.
-var piperP = null, PIPER_VOICE = 'es_MX-claude-high';
+// ── VOZ ──
+// 1) Voz NATURAL gratis: Gemini TTS (con tu llave gratis de Google AI Studio, sin ventanas).
+// 2) ElevenLabs con tu llave.  3) Voz básica dentro del celular (Piper), sin internet después de la 1a vez.
+var GEM_VOICES = { hombre: 'Puck', mujer: 'Zephyr' };
+function geminiKey() {
+  if (CFG.geminiKey) return CFG.geminiKey;
+  try { var c = window.INKAI && window.INKAI.getCfg && window.INKAI.getCfg(); return (c && c.keys && c.keys.gemini) || ''; } catch (e) { return ''; }
+}
+function pcmToWav(bytes, rate) {
+  var ab = new ArrayBuffer(44 + bytes.length), v = new DataView(ab), u = new Uint8Array(ab);
+  function str(o, t) { for (var i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); }
+  str(0, 'RIFF'); v.setUint32(4, 36 + bytes.length, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, bytes.length, true); u.set(bytes, 44);
+  return ab;
+}
+async function geminiTTS(text) {
+  var key = geminiKey(); if (!key) throw new Error('Sin llave de Gemini');
+  var voice = GEM_VOICES[CFG.genero] || 'Puck', models = ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts'], last = null;
+  var prompt = (CFG.genero === 'mujer' ? 'Say this in natural Mexican Spanish, warm, confident and engaging' : 'Say this in natural Mexican Spanish, warm, confident and energetic')
+    + ', like a tattoo artist telling a story in an Instagram reel. Lively pace, natural pauses, not robotic:\n\n' + text;
+  for (var i = 0; i < models.length; i++) {
+    try {
+      var r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent', {
+        method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } })
+      });
+      if (!r.ok) { var et = ''; try { et = (await r.json()).error.message; } catch (e) {} throw new Error('Gemini ' + r.status + (et ? ': ' + et.slice(0, 120) : '')); }
+      var j = await r.json(), part = null;
+      ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).forEach(function (p) { if (p.inlineData && !part) part = p.inlineData; });
+      if (!part) throw new Error('Gemini no devolvió audio');
+      var bin = atob(part.data), u = new Uint8Array(bin.length); for (var k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+      var mime = String(part.mimeType || ''), rate = +((mime.match(/rate=(\d+)/) || [])[1] || 24000);
+      return /wav/i.test(mime) ? u.buffer : pcmToWav(u, rate);
+    } catch (e) { last = e; }
+  }
+  throw last;
+}
+var piperS = {};
 function piperSession(onp) {
-  if (piperP) return piperP;
-  var base = (document.currentScript && document.currentScript.src) || location.href;
-  piperP = import(new URL('vendor/piper/piper-tts-web.js', location.href).href).then(function (m) {
+  var vid = CFG.genero === 'mujer' ? 'es_ES-sharvard-medium' : 'es_MX-claude-high';
+  if (piperS[vid]) return piperS[vid];
+  piperS[vid] = import(new URL('vendor/piper/piper-tts-web.js', location.href).href).then(function (m) {
     m.TtsSession._instance = null;
-    return m.TtsSession.create({ voiceId: PIPER_VOICE, progress: function (p) { if (onp && p && p.total) onp('Descargando la voz (solo la primera vez) · ' + Math.round(p.loaded / p.total * 100) + '%'); } });
-  }).catch(function (e) { piperP = null; throw e; });
-  return piperP;
+    return m.TtsSession.create({ voiceId: vid, progress: function (p) { if (onp && p && p.total) onp('Descargando la voz básica (solo la primera vez) · ' + Math.round(p.loaded / p.total * 100) + '%'); } });
+  }).then(function (ses) { if (vid === 'es_ES-sharvard-medium') ses.speakerId = 1; return ses; }).catch(function (e) { piperS[vid] = null; throw e; });
+  return piperS[vid];
 }
 var VOICES = { hombre: { eleven: 'pNInz6obpgDQGcFmaJgB' }, mujer: { eleven: 'EXAVITQu4vr4xnSDxMaL' } };
 function ttsChain(onp) {
   var v = VOICES[CFG.genero] || VOICES.hombre, list = [];
-  if (CFG.elevenKey) list.push({ id: 'mine', name: 'ElevenLabs (tu llave)', fn: function (tx) { return elevenDirect(tx, v.eleven); } });
-  list.push({ id: 'piper', name: 'Voz gratis', fn: function (tx) {
+  if (geminiKey()) list.push({ id: 'gemini', name: 'Voz natural (Gemini)', whole: true, fn: geminiTTS });
+  if (CFG.elevenKey) list.push({ id: 'mine', name: 'ElevenLabs', fn: function (tx) { return elevenDirect(tx, v.eleven); } });
+  list.push({ id: 'piper', name: 'Voz básica', fn: function (tx) {
     return piperSession(onp).then(function (ses) { if (onp) onp('Generando la voz…'); return ses.predict(tx); }).then(function (blob) { return blob.arrayBuffer(); }).then(function (ab) { return { ab: ab }; });
   } });
   return list;
+}
+// Reparte las palabras sobre el audio completo usando las pausas reales entre frases
+function alignWhole(buf, text) {
+  var sents = String(text).replace(/\s+/g, ' ').trim().match(/[^.!?…;:]+[.!?…;:]*/g) || [text];
+  sents = sents.map(function (x) { return x.trim(); }).filter(Boolean);
+  var d = buf.getChannelData(0), sr = buf.sampleRate, win = Math.floor(sr * .02), n = Math.floor(d.length / win), en = new Float32Array(n);
+  for (var i = 0; i < n; i++) { var s2 = 0; for (var k = i * win; k < (i + 1) * win; k++) s2 += d[k] * d[k]; en[i] = Math.sqrt(s2 / win); }
+  var thr = Math.max(.01, pct(Array.prototype.slice.call(en), .5) * .25), a = 0, b = n - 1;
+  while (a < n && en[a] < thr) a++; while (b > a && en[b] < thr) b--;
+  var gaps = [], run = 0;
+  for (var g = a; g <= b; g++) { if (en[g] < thr) run++; else { if (run >= 8) gaps.push((g - run / 2) * win / sr); run = 0; } }
+  var A = a * win / sr, B = (b + 1) * win / sr, tot = sents.reduce(function (x, y) { return x + y.length; }, 0), acc = 0, bounds = [A];
+  for (var si = 0; si < sents.length - 1; si++) {
+    acc += sents[si].length; var guess = A + (B - A) * acc / tot, best = guess, bd = .7;
+    gaps.forEach(function (gp) { var dd = Math.abs(gp - guess); if (dd < bd && gp > bounds[bounds.length - 1] + .3) { bd = dd; best = gp; } });
+    bounds.push(best);
+  }
+  bounds.push(B);
+  var words = [];
+  sents.forEach(function (st, i) { estimateWords(st, bounds[i] + (i ? .05 : 0), bounds[i + 1] - .04).forEach(function (w) { words.push(w); }); });
+  return words;
 }
 function elevenDirect(text, voice) {
   return fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voice + '/with-timestamps', {
@@ -621,6 +790,12 @@ async function narrate(text, onp) {
   var chain = ttsChain(onp), lastErr = null;
   for (var c = 0; c < chain.length; c++) {
     try {
+      if (chain[c].whole) {
+        if (onp) onp('Grabando la voz natural…');
+        var wab = await withTimeout(chain[c].fn(text), 90000, 'La voz tardó demasiado');
+        var wb = await decode(wab);
+        return { buffer: wb, words: alignWhole(wb, text), engine: chain[c].name, dur: wb.duration };
+      }
       var bufs = [];
       for (var i = 0; i < parts.length; i++) {
         if (onp) onp('Voz: ' + chain[c].name + ' · frase ' + (i + 1) + '/' + parts.length);
@@ -674,9 +849,30 @@ function makeBeat(oc, dest, bpm, T, R, hookEnd) {
     hit(R, 90, 32, 1.8, 1); nz(R, 'lowpass', 900, 1.2, .5); nz(R, 'highpass', 4000, 1.6, .22);
   }
 }
+// Efectos de sonido de edición: whoosh en transiciones y golpe en la revelación
+function makeSfx(oc, dest, list) {
+  var nb = noise(oc), out = oc.createGain(); out.gain.value = .55; out.connect(dest);
+  list.forEach(function (x) {
+    var t = Math.max(0, x.t);
+    if (x.type === 'whoosh') {
+      var s = oc.createBufferSource(), f = oc.createBiquadFilter(), g = oc.createGain(), d = x.d || .32;
+      s.buffer = nb; f.type = 'bandpass'; f.Q.value = 1.4; f.frequency.setValueAtTime(350, t); f.frequency.exponentialRampToValueAtTime(4200, t + d * .7); f.frequency.exponentialRampToValueAtTime(900, t + d);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.7, t + d * .55); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + d + .05);
+    } else if (x.type === 'impact') {
+      var o1 = oc.createOscillator(), g1 = oc.createGain(); o1.type = 'sine'; o1.frequency.setValueAtTime(110, t); o1.frequency.exponentialRampToValueAtTime(32, t + .9);
+      g1.gain.setValueAtTime(.9, t); g1.gain.exponentialRampToValueAtTime(.001, t + 1.3); o1.connect(g1); g1.connect(out); o1.start(t); o1.stop(t + 1.4);
+      var s2 = oc.createBufferSource(), f2 = oc.createBiquadFilter(), g2 = oc.createGain(); s2.buffer = nb; f2.type = 'highpass'; f2.frequency.value = 3000;
+      g2.gain.setValueAtTime(.35, t); g2.gain.exponentialRampToValueAtTime(.001, t + 1.1); s2.connect(f2); f2.connect(g2); g2.connect(out); s2.start(t); s2.stop(t + 1.2);
+    } else if (x.type === 'click') {
+      var s3 = oc.createBufferSource(), f3 = oc.createBiquadFilter(), g3 = oc.createGain(); s3.buffer = nb; f3.type = 'bandpass'; f3.frequency.value = 2400; f3.Q.value = .7;
+      g3.gain.setValueAtTime(.5, t); g3.gain.exponentialRampToValueAtTime(.001, t + .12); s3.connect(f3); f3.connect(g3); g3.connect(out); s3.start(t); s3.stop(t + .15);
+    }
+  });
+}
 async function buildAudio(o) {
   // o: {T, voice, voiceStart, music:{buffer,offset}, beat:{bpm,R,hookEnd}}
-  if (!o.voice && !o.music && !o.beat) return null;
+  if (!o.voice && !o.music && !o.beat && !(o.sfx && o.sfx.length)) return null;
   var oc = new OfflineAudioContext(2, Math.ceil(o.T * SR), SR);
   var comp = oc.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 8; comp.ratio.value = 3.5; comp.attack.value = .005; comp.release.value = .2;
   var master = oc.createGain(); master.gain.value = .8; comp.connect(master); master.connect(oc.destination);
@@ -694,6 +890,7 @@ async function buildAudio(o) {
     ms.connect(mg); mg.connect(bed); ms.start(0, o.music.offset || 0);
   }
   if (o.beat) makeBeat(oc, bed, o.beat.bpm, o.T, o.beat.R, o.beat.hookEnd);
+  if (o.sfx && o.sfx.length) makeSfx(oc, comp, o.sfx);
   if (o.voice) {
     var vs = oc.createBufferSource(), hp = oc.createBiquadFilter(), vg = oc.createGain(); vs.buffer = o.voice.buffer; hp.type = 'highpass'; hp.frequency.value = 85; vg.gain.value = 1.15;
     vs.connect(hp); hp.connect(vg); vg.connect(comp); vs.start(o.voiceStart || 0);
@@ -728,6 +925,7 @@ async function render(edl, audioBuf, onp, preview) {
   if (typeof Mp4Muxer === 'undefined') throw new Error('Falta el empaquetador MP4 (revisa tu conexión y recarga).');
   var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   var ctx = cv.getContext('2d', { alpha: false });
+  resetFX(); useFilter = true;
   var muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: FPS },
     audio: acfg ? { codec: acfg.mux, numberOfChannels: 2, sampleRate: SR } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
   var encErr = null;
@@ -764,7 +962,7 @@ async function render(edl, audioBuf, onp, preview) {
     var s = edl.shots[si], endF = si === edl.shots.length - 1 ? total : Math.min(total, Math.round(s.outEnd * FPS));
     if (fi >= endF) continue;
     if (s.kind === 'image') {
-      while (fi < endF) { emit(s.clip.el); if (venc.encodeQueueSize > 6) await drain(); if (fi % 15 === 0) await sleep(0); }
+      while (fi < endF) { while (document.hidden) await sleep(500); emit(s.clip.el); if (venc.encodeQueueSize > 6) await drain(); if (fi % 15 === 0) await sleep(0); }
       continue;
     }
     if (curId !== s.clip.id) {
@@ -788,36 +986,47 @@ async function render(edl, audioBuf, onp, preview) {
   return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), warn: warn, secs: (performance.now() - t0) / 1000 };
 }
 // Reproduce la toma en tiempo real y saca cada frame según el tiempo real del video (no se desincroniza)
+// Reproduce la toma y saca cada frame según el tiempo real del video (no se desincroniza).
+// La velocidad de reproducción se ajusta sola para que no se repitan cuadros (video fluido).
+var rateCap = 2;
 function playShot(v, s, endF, emit, venc, drain) {
   return new Promise(function (resolve, reject) {
-    var lastCT = -1, stuck = 0, finished = false, busy = false, useRVFC = 'requestVideoFrameCallback' in v;
+    var lastCT = -1, stuck = 0, finished = false, busy = false, useRVFC = 'requestVideoFrameCallback' in v, ticks = 0, multi = 0;
+    function setRate() { v.playbackRate = clamp(Math.min(s.speed, rateCap), .25, 4); }
+    setRate();
+    function getFi() { return emit._fi(); }
     function fin() {
-      if (finished) return; finished = true; v.pause();
+      if (finished) return; finished = true; v.pause(); document.removeEventListener('visibilitychange', vis);
       try { while (getFi() < endF) emit(v); } catch (e) { return reject(e); }
       resolve();
     }
-    function getFi() { return emit._fi(); }
+    // Si minimizas la app, se pausa sin perder nada y sigue sola al volver
+    function vis() { if (document.hidden) v.pause(); else if (!finished) { v.play().catch(function () {}); schedule(); } }
+    document.addEventListener('visibilitychange', vis);
     async function tick() {
       if (finished || busy) return; busy = true;
       try {
-        var local = (v.currentTime - s.srcStart) / s.speed, tOut = s.outStart + local;
+        if (document.hidden) { busy = false; return; }
+        var local = (v.currentTime - s.srcStart) / s.speed, tOut = s.outStart + local, n = 0;
         while (getFi() < endF && getFi() / FPS <= tOut + 1e-4) {
-          emit(v);
-          if (venc.encodeQueueSize > 6) { v.pause(); await drain(); if (!finished) v.play().catch(function () {}); }
+          emit(v); n++;
+          if (venc.encodeQueueSize > 6) { v.pause(); await drain(); if (!finished && !document.hidden) v.play().catch(function () {}); }
         }
+        ticks++; if (n > 1) multi++;
+        if (ticks >= 12) { if (multi / ticks > .3 && rateCap > .3) { rateCap *= .7; setRate(); } else if (multi === 0 && rateCap < 2) { rateCap = Math.min(2, rateCap * 1.1); setRate(); } ticks = 0; multi = 0; }
         if (getFi() >= endF || v.ended) { busy = false; return fin(); }
-        if (Math.abs(v.currentTime - lastCT) < 1e-4) { if (++stuck > 90) { busy = false; return fin(); } } else stuck = 0;
+        if (Math.abs(v.currentTime - lastCT) < 1e-4) { if (!v.paused && ++stuck > 150) { busy = false; return fin(); } } else stuck = 0;
         lastCT = v.currentTime;
-      } catch (e) { finished = true; v.pause(); return reject(e); }
+      } catch (e) { finished = true; v.pause(); document.removeEventListener('visibilitychange', vis); return reject(e); }
       busy = false; schedule();
     }
-    function schedule() { if (finished) return; if (useRVFC && !v.paused) { var done = false; v.requestVideoFrameCallback(function () { if (!done) { done = true; tick(); } }); setTimeout(function () { if (!done) { done = true; tick(); } }, 60); } else setTimeout(tick, 16); }
+    function schedule() { if (finished || document.hidden) return; if (useRVFC && !v.paused) { var done = false; v.requestVideoFrameCallback(function () { if (!done) { done = true; tick(); } }); setTimeout(function () { if (!done) { done = true; tick(); } }, 60); } else setTimeout(tick, 16); }
     v.play().then(function () { tick(); }).catch(function () {
       // si no deja reproducir, avanza buscando cuadro por cuadro (más lento pero funciona)
       (async function () {
         try {
-          while (getFi() < endF) { var tl = getFi() / FPS - s.outStart; await seek(v, s.srcStart + tl * s.speed); emit(v); if (venc.encodeQueueSize > 6) await drain(); }
-          resolve();
+          while (getFi() < endF) { while (document.hidden) await sleep(500); var tl = getFi() / FPS - s.outStart; await seek(v, s.srcStart + tl * s.speed); emit(v); if (venc.encodeQueueSize > 6) await drain(); }
+          document.removeEventListener('visibilitychange', vis); resolve();
         } catch (e) { reject(e); }
       })();
     });
@@ -848,6 +1057,7 @@ async function aiPlan(tpl, voiceWanted, chosenHook) {
   var p = 'TAREA: planea un REEL VIRAL de tatuaje para Instagram Reels y TikTok.\n'
     + 'TATUADOR: ' + (CFG.handle || '') + ', estilo ' + (CFG.estilo || '') + ', de ' + (CFG.ciudad || '') + ' (México). Escribe en español de México, natural, nada de "IA".\n'
     + 'TATUAJE: ' + (S.desc ? S.desc : '(no lo describió: habla del tatuaje sin inventar el diseño exacto ni datos del cliente)') + '\n'
+    + (S.about ? 'DE QUÉ QUIERE QUE TRATE EL VIDEO (PRIORIDAD, respétalo en gancho, textos y narración): ' + S.about + '\n' : '')
     + 'MATERIAL: ' + materialSummary() + '\n'
     + 'FORMATO: ' + tpl.name + ' — ' + tpl.desc + '\n'
     + (tpl.custom && tpl.lines && tpl.lines.length ? 'TEXTOS DE REFERENCIA DEL VIRAL CLONADO: ' + tpl.lines.join(' | ') + '\n' : '')
@@ -882,7 +1092,7 @@ function localPlan(tpl, voiceWanted, chosenHook) {
   var r = Math.random, hooks = tpl.hooks.map(function (x) { return fillVars(x); });
   var hook = chosenHook || hooks[Math.floor(r() * hooks.length)];
   var d = S.desc || 'este tatuaje', city = (CFG.ciudad || '').split(',')[0];
-  var narr = voiceWanted ? (hook.replace(/\*/g, '') + '. Este es ' + d + '. Cada línea y cada sombra está pensada para que dure toda la vida. Trabajo ' + (CFG.estilo || 'tatuaje') + ' desde ' + city + '. Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : '';
+  var narr = voiceWanted && S.about ? (hook.replace(/\*/g, '') + '. ' + S.about.replace(/\.?$/, '.') + ' Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : voiceWanted ? (hook.replace(/\*/g, '') + '. Este es ' + d + '. Cada línea y cada sombra está pensada para que dure toda la vida. Trabajo ' + (CFG.estilo || 'tatuaje') + ' desde ' + city + '. Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : '';
   var tg = ['#tattoo', '#tatuajes', '#tattooartist', '#tattoomexico', '#inked', '#' + (CFG.estilo || 'tattoo').normalize('NFD').replace(/[^a-z]/gi, '').toLowerCase() + 'tattoo', '#neojapanese', '#japanesetattoo', '#colortattoo', '#tatuador', '#' + city.replace(/\s/g, '').toLowerCase(), '#veracruz', '#tattooideas', '#reels'];
   return { hook: hook, lines: tpl.base === 'etapas' ? defaultStages(Math.min(5, Math.max(1, S.clips.filter(function (c) { return c.kind === 'video'; }).length))) : tpl.base === 'pov' ? ['Le dije: confía en mí', 'Horas de línea y color', 'Cada detalle a mano', '…y así quedó 🔥'] : ['Resultado final ✨'],
     narration: narr, question: tpl.base === 'encuesta' ? hook : '', seconds: Math.round((tpl.dur[0] + tpl.dur[1]) / 2),
@@ -911,11 +1121,14 @@ async function aiClone(link, what) {
 
 /* ═══════════════ 7b · CLONAR DESDE EL VIDEO VIRAL (cortes + audio) ═══════════════ */
 var IDB = {
-  db: function () { if (this._p) return this._p; this._p = new Promise(function (res, rej) { var r = indexedDB.open('inkbot-reels', 1); r.onupgradeneeded = function () { r.result.createObjectStore('audio'); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; }); return this._p; },
-  op: function (mode, fn) { return this.db().then(function (db) { return new Promise(function (res, rej) { var t = db.transaction('audio', mode), q = fn(t.objectStore('audio')); t.oncomplete = function () { res(q && q.result); }; t.onerror = function () { rej(t.error); }; }); }); },
+  db: function () { if (this._p) return this._p; this._p = new Promise(function (res, rej) { var r = indexedDB.open('inkbot-reels', 2); r.onupgradeneeded = function () { ['audio', 'reels'].forEach(function (n) { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); }); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; }); return this._p; },
+  op: function (mode, fn, store) { store = store || 'audio'; return this.db().then(function (db) { return new Promise(function (res, rej) { var t = db.transaction(store, mode), q = fn(t.objectStore(store)); t.oncomplete = function () { res(q && q.result); }; t.onerror = function () { rej(t.error); }; }); }); },
   get: function (k) { return this.op('readonly', function (s) { return s.get(k); }); },
   set: function (k, v) { return this.op('readwrite', function (s) { return s.put(v, k); }); },
-  del: function (k) { return this.op('readwrite', function (s) { return s.delete(k); }).catch(function () {}); }
+  del: function (k) { return this.op('readwrite', function (s) { return s.delete(k); }).catch(function () {}); },
+  rget: function (k) { return this.op('readonly', function (s) { return s.get(k); }, 'reels'); },
+  rset: function (k, v) { return this.op('readwrite', function (s) { return s.put(v, k); }, 'reels'); },
+  rdel: function (k) { return this.op('readwrite', function (s) { return s.delete(k); }, 'reels').catch(function () {}); }
 };
 function toWav(buf, maxSec) {
   var n = Math.min(buf.length, Math.floor((maxSec || 90) * buf.sampleRate)), ch = Math.min(2, buf.numberOfChannels), sr = buf.sampleRate;
@@ -1061,7 +1274,16 @@ async function createOne(tplKey, idx, step) {
   if (S.audio === 'beat') beat = { bpm: bpm, R: edl.reveal, hookEnd: edl.overlays[0] ? edl.overlays.filter(function (o) { return o.type === 'hook'; })[0].to : 2 };
   R._t.lastEDL = edl.shots.map(function (x) { return [x.role, x.clip.name, +x.outDur.toFixed(2), +(x.srcStart || 0).toFixed(2), +(x.speed || 1).toFixed(2)]; });
   step('audio', 'Mezclando audio…');
-  var audio = await buildAudio({ T: T, voice: voice, voiceStart: voiceStart, music: music ? { buffer: music.buffer, offset: offset } : null, beat: beat });
+  var sfx = [];
+  if (CFG.sfx) {
+    sfx.push({ t: .02, type: 'whoosh', d: .4 });
+    edl.shots.forEach(function (x) {
+      if (x.tr === 'whip' || x.tr === 'zoom') sfx.push({ t: x.outStart - .16, type: 'whoosh', d: .34 });
+      else if (x.tr === 'glitch' || x.tr === 'flash') sfx.push({ t: x.outStart, type: 'click' });
+    });
+    if (edl.reveal > 0 && !beat) sfx.push({ t: edl.reveal, type: 'impact' });
+  }
+  var audio = await buildAudio({ T: T, voice: voice, voiceStart: voiceStart, music: music ? { buffer: music.buffer, offset: offset } : null, beat: beat, sfx: sfx });
   step('render', 'Creando el video (deja la app abierta)…');
   var prev = $('#rv-live');
   var out = await render(edl, audio, function (f, m) { step('render', m, f); }, prev);
@@ -1141,6 +1363,8 @@ var CSS = '\
 .rv-a{color:#E8B64A;font-size:13.5px;line-height:1.9;text-decoration:none;display:block}\
 .rv-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d1d1d;color:#eee;padding:11px 16px;border-radius:12px;font-size:13.5px;z-index:99999;max-width:88%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}\
 .rv-clone{margin-top:10px;padding:14px;border:1px solid #2a2414;background:#14110a;border-radius:14px;display:none}.rv-clone.on{display:block}\
+.rv-vcard{margin-top:12px;padding:14px;border:1px solid #2a2414;background:#14110a;border-radius:14px;font-size:13px;line-height:1.5;color:#bdbdbd}.rv-vcard b{display:block;color:#f2f2f2;font-size:14.5px;font-weight:500;margin-bottom:2px}.rv-vcard ol{margin:8px 0 10px;padding-left:18px}.rv-vcard a{color:#E8B64A}.rv-vcard small{display:block;color:#7a7a7a;margin-top:8px;font-size:11.5px}\
+.rv-ok{margin-top:10px;font-size:13px;color:#7fd39b}\
 .rv-clone ol{margin:0 0 12px;padding-left:18px;color:#b9b9b9;font-size:13px;line-height:1.6}\
 ';
 var STEPS = ['Material', 'Estilo', 'Audio'];
@@ -1160,7 +1384,8 @@ function build() {
     + '<div class="rv-page" data-p="1"><div class="rv-h1">Sube tu tatuaje</div><p class="rv-p">Elige los clips del proceso y la foto del resultado. Se acomodan solos en el orden en que los grabaste.</p>'
     + '<label class="rv-up" for="rv-file"><div class="pl">＋</div><b>Elegir videos y fotos</b><span>Puedes elegir varios a la vez</span></label><input type="file" id="rv-file" accept="video/*,image/*" multiple hidden>'
     + '<div class="rv-thumbs" id="rv-clips"></div>'
-    + '<div class="rv-lb">¿Qué tatuaje es? (opcional)</div><div class="rv-row"><input class="rv-in" id="rv-desc" placeholder="Ej. carpa koi con flor de cerezo"><button class="rv-mic" id="rv-mic" aria-label="Dictar">🎤</button></div></div>'
+    + '<div class="rv-lb">¿Qué tatuaje es? (opcional)</div><div class="rv-row"><input class="rv-in" id="rv-desc" placeholder="Ej. carpa koi con flor de cerezo"><button class="rv-mic" data-for="rv-desc" aria-label="Dictar">🎤</button></div>'
+    + '<div class="rv-lb">¿De qué quieres que trate el video? (opcional)</div><div class="rv-row" style="align-items:flex-start"><textarea class="rv-in" id="rv-about" rows="3" style="resize:none" placeholder="Ej. que explique que el koi significa perseverancia, que fueron 6 horas y que es su primer tatuaje a color"></textarea><button class="rv-mic" data-for="rv-about" aria-label="Dictar">🎤</button></div></div>'
     // PASO 2
     + '<div class="rv-page" data-p="2"><div class="rv-h1">Elige el estilo</div><p class="rv-p">Si no sabes cuál, deja «Automático».</p>'
     + '<div class="rv-list" id="rv-tpls"></div>'
@@ -1179,14 +1404,18 @@ function build() {
     + '<div class="rv-it" data-a="beat"><div class="e">🥁</div><div class="t"><b>Música INKBOT</b><span>Música japonesa libre de derechos, con golpe en el resultado.</span></div><div class="r"></div></div>'
     + '</div><input type="file" id="rv-music" accept="audio/*,video/mp4" hidden>'
     + '<div class="rv-lb">Voz narrando</div><div class="rv-seg" id="rv-voz"><button data-v="auto">Automático</button><button data-v="siempre">Sí</button><button data-v="off">No</button></div>'
+    + '<div class="rv-lb">Tipo de voz</div><div class="rv-row"><div class="rv-seg" id="rv-gen" style="flex:1"><button data-g="hombre">Hombre</button><button data-g="mujer">Mujer</button></div><button class="rv-b g" id="rv-listen" style="padding:12px 16px">▶ Escuchar</button></div>'
+    + '<div class="rv-vnat" id="rv-vnat"></div>'
     + '<details class="rv-more"><summary>Más opciones</summary><div class="in">'
     + '<div class="rv-lb" style="margin-top:4px">Texto del primer segundo</div><div class="rv-chips" id="rv-hooks"></div>'
     + '<button class="rv-link" id="rv-hooks-ai">✨ Proponer textos con IA</button>'
     + '<input class="rv-in" id="rv-hook-own" placeholder="O escribe el tuyo (*palabra* = resaltada)">'
     + '<div class="rv-lb">¿Cuántas versiones?</div><div class="rv-seg" id="rv-ver"><button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button></div>'
+    + '<div class="rv-lb">Mostrar mi usuario (<span id="rv-hname"></span>)</div><div class="rv-seg" id="rv-showh"><button data-h="1">Sí</button><button data-h="0">No</button></div>'
+    + '<div class="rv-lb">Efectos de sonido (whoosh en transiciones)</div><div class="rv-seg" id="rv-sfx"><button data-x="1">Sí</button><button data-x="0">No</button></div>'
     + '</div></details></div>'
     // PASO 4 · crear / resultado
-    + '<div class="rv-page rv-make" data-p="4"><div id="rv-making"><div class="rv-h1" id="rv-mk-t">Creando tu reel</div><p class="rv-p" style="margin-bottom:6px">Deja la app abierta. Tarda más o menos lo que dura el video.</p>'
+    + '<div class="rv-page rv-make" data-p="4"><div id="rv-making"><div class="rv-h1" id="rv-mk-t">Creando tu reel</div><p class="rv-p" style="margin-bottom:6px">La pantalla se queda encendida. Si minimizas la app, se pausa y sigue sola cuando regreses. Al terminar se guarda en ⚙ Tus reels.</p>'
     + '<canvas class="rv-live" id="rv-live" width="180" height="320"></canvas><div class="rv-bar"><i id="rv-bar"></i></div>'
     + '<ul class="rv-chk" id="rv-chk"><li data-k="analiza">Buscando los mejores momentos</li><li data-k="plan">Escribiendo gancho y caption</li><li data-k="voz">Grabando la voz</li><li data-k="arma">Armando los cortes al ritmo</li><li data-k="render">Creando el video</li></ul><div class="rv-msg" id="rv-msg"></div></div>'
     + '<div id="rv-results" style="text-align:left"></div></div>'
@@ -1194,12 +1423,11 @@ function build() {
     + '<div class="rv-foot" id="rv-foot"><button class="rv-b g" id="rv-prev">Atrás</button><button class="rv-b" id="rv-next">Siguiente</button></div>'
     // HOJA DE AJUSTES
     + '<div class="rv-sheet" id="rv-sheet"><div class="rv-top"><span style="width:40px"></span><div class="rv-tt">Ajustes</div><button class="rv-ib" id="rv-sheet-x">✕</button></div><div class="rv-body"><div class="rv-page on">'
-    + '<div class="rv-sec"><h3>Tus reels</h3><p class="rv-p">Pon las vistas cuando los publiques: la app aprende qué te funciona.</p><div id="rv-hist"></div></div>'
+    + '<div class="rv-sec"><h3>Tus reels</h3><p class="rv-p">Los últimos 8 quedan guardados en tu celular (⬇). Pon las vistas cuando los publiques: la app aprende qué te funciona.</p><div id="rv-hist"></div></div>'
     + '<div class="rv-sec"><h3>Tu marca</h3>'
     + '<div class="rv-lb">Usuario</div><input class="rv-in" id="rv-c-handle"><div class="rv-lb">Ciudad</div><input class="rv-in" id="rv-c-ciudad"><div class="rv-lb">Estilo</div><input class="rv-in" id="rv-c-estilo"><div class="rv-lb">Texto final</div><input class="rv-in" id="rv-c-cta">'
-    + '<div class="rv-lb">Mostrar usuario y texto final</div><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
-    + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">La voz gratis se genera en tu celular (la primera vez descarga ~60 MB). Si tienes ElevenLabs, pega tu llave y se usa esa.</p><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)">'
-    + '<div class="rv-lb">Voz de ElevenLabs</div><div class="rv-seg" id="rv-gen"><button data-g="hombre">Hombre</button><button data-g="mujer">Mujer</button></div></div>'
+    + '<div class="rv-lb">Texto final («Agenda por DM»)</div><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
+    + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">Voz natural: llave gratis de Google AI Studio. Si tienes ElevenLabs, también puedes usar tu llave.</p><input class="rv-in" id="rv-c-gem" type="password" placeholder="Llave gratis de Gemini (AIza…)"><div style="height:8px"></div><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)"></div>'
     + '<div class="rv-sec"><h3>IA de textos</h3><p class="rv-p" id="rv-ai-info"></p></div>'
     + '<div class="rv-sec"><h3>¿Qué está pegando?</h3><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es">Canciones en tendencia de TikTok ↗</a><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es">Hashtags en tendencia de TikTok ↗</a><p class="rv-p" style="margin-top:6px">En Instagram, los audios con la flechita ↗ son los que están en tendencia.</p></div>'
     + '<button class="rv-b full" id="rv-c-save">Guardar</button></div></div></div>';
@@ -1246,7 +1474,8 @@ function wire() {
   $('#rv-sheet-x').onclick = function () { $('#rv-sheet').classList.remove('on'); };
   $('#rv-file').onchange = function (e) { addFiles(e.target.files); e.target.value = ''; };
   $('#rv-desc').oninput = function (e) { S.desc = e.target.value.trim(); };
-  $('#rv-mic').onclick = dictate;
+  $$('.rv-mic', root).forEach(function (b) { b.onclick = function () { dictate(b); }; });
+  $('#rv-about').oninput = function (e) { S.about = e.target.value.trim(); };
   // clonar viral
   $('#rv-cl-toggle').onclick = function () { $('#rv-clone').classList.toggle('on'); };
   $('#rv-cl-file').onchange = function (e) { var f = e.target.files[0]; if (!f) return; S.cloneFile = f; $('#rv-cl-fname').textContent = '✓ ' + f.name; e.target.value = ''; };
@@ -1274,6 +1503,16 @@ function wire() {
   segWire('#rv-voz', 'v', function (v) { CFG.voz = v; saveCfg(); }, function () { return ['auto', 'siempre', 'off'].indexOf(CFG.voz) >= 0 ? CFG.voz : 'auto'; });
   segWire('#rv-ver', 'n', function (v) { S.versions = +v; footer(); }, function () { return String(S.versions); });
   segWire('#rv-gen', 'g', function (v) { CFG.genero = v; saveCfg(); }, function () { return CFG.genero; });
+  segWire('#rv-showh', 'h', function (v) { CFG.showHandle = v === '1'; saveCfg(); }, function () { return CFG.showHandle ? '1' : '0'; });
+  segWire('#rv-sfx', 'x', function (v) { CFG.sfx = v === '1'; saveCfg(); }, function () { return CFG.sfx ? '1' : '0'; });
+  $('#rv-hname').textContent = CFG.handle;
+  $('#rv-listen').onclick = function () {
+    var b = this; if (b.disabled) return; b.disabled = true; b.textContent = '…';
+    narrate(CFG.genero === 'mujer' ? 'Hola, así quedó este tatuaje. ¿Qué te parece? Agenda tu cita por mensaje.' : 'Hola, así quedó este tatuaje. ¿Qué te parece? Agenda tu cita por mensaje.', function (m) { b.textContent = '…'; })
+      .then(function (r) { var a = new Audio(URL.createObjectURL(new Blob([toWav(r.buffer, 15)], { type: 'audio/wav' }))); a.play(); toast(r.engine); })
+      .catch(function (e) { toast('No se pudo: ' + e.message); }).then(function () { b.disabled = false; b.textContent = '▶ Escuchar'; });
+  };
+  renderVoice();
   segWire('#rv-c-marca', 'm', function (v) { CFG.marca = v === '1'; saveCfg(); }, function () { return CFG.marca ? '1' : '0'; });
   $('#rv-hooks-ai').onclick = function () {
     var b = this; b.disabled = true; b.textContent = '✨ Escribiendo… (la IA gratis puede tardar ~1 min)';
@@ -1283,13 +1522,27 @@ function wire() {
   $('#rv-hook-own').oninput = function (e) { S.hook = e.target.value.trim(); $$('.rv-chip', $('#rv-hooks')).forEach(function (c) { c.classList.toggle('on', !S.hook && c.dataset.h === ''); }); };
   $('#rv-c-save').onclick = function () {
     ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { CFG[k] = $('#rv-c-' + k).value.trim(); });
-    CFG.elevenKey = $('#rv-c-eleven').value.trim(); saveCfg(); fitCache = {}; renderHooks(); toast('Guardado'); $('#rv-sheet').classList.remove('on');
+    $('#rv-hname').textContent = CFG.handle; CFG.elevenKey = $('#rv-c-eleven').value.trim(); setGemKey($('#rv-c-gem').value.trim()); saveCfg(); renderVoice(); fitCache = {}; renderHooks(); toast('Guardado'); $('#rv-sheet').classList.remove('on');
   };
   renderTpls(); renderHooks(); renderAudio(); renderClips(); go(1);
 }
+function setGemKey(k) {
+  CFG.geminiKey = k || ''; saveCfg();
+  // la misma llave hace que los textos con IA salgan al instante
+  try { if (k && window.INKAI && INKAI.getCfg().provider === 'auto') INKAI.setCfg({ provider: 'gemini', keys: { gemini: k } }); } catch (e) {}
+}
+function renderVoice() {
+  var box = $('#rv-vnat'); if (!box) return;
+  if (geminiKey()) { box.innerHTML = '<div class="rv-ok">✓ Voz natural activada</div>'; return; }
+  box.innerHTML = '<div class="rv-vcard"><b>Voz natural gratis</b><span>Ahora mismo usa la voz básica (se oye robótica). Actívala una sola vez y suena como persona real:</span>'
+    + '<ol><li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Abre Google AI Studio ↗</a> con tu cuenta de Google.</li><li>Toca «Create API key» y cópiala.</li><li>Pégala aquí:</li></ol>'
+    + '<div class="rv-row"><input class="rv-in" id="rv-gem-in" type="password" placeholder="AIza…"><button class="rv-b" id="rv-gem-ok" style="flex:0 0 auto;padding:13px 18px">Listo</button></div>'
+    + '<small>Es gratis y sin tarjeta. También hace que los textos con IA salgan al instante.</small></div>';
+  $('#rv-gem-ok').onclick = function () { var k = $('#rv-gem-in').value.trim(); if (!/^AIza/.test(k)) return toast('Esa llave no parece de Gemini (empieza con AIza)'); setGemKey(k); renderVoice(); toast('Voz natural activada'); };
+}
 function fillSettings() {
   ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
-  $('#rv-c-eleven').value = CFG.elevenKey || '';
+  $('#rv-c-eleven').value = CFG.elevenKey || ''; $('#rv-c-gem').value = CFG.geminiKey || '';
   var I = window.INKAI, own = I && I.getCfg && I.getCfg().provider !== 'auto';
   $('#rv-ai-info').textContent = own ? 'Usando tu IA: ' + (I.PROV[I.getCfg().provider] || {}).label + '. Se cambia en el menú principal de INKBOT.'
     : 'Gratis, sin cuentas ni ventanas (Pollinations). Responde más o menos 1 vez por minuto. Si quieres que sea instantánea, en el menú principal de INKBOT pon una llave gratis de Gemini o Groq.';
@@ -1371,7 +1624,7 @@ function renderAudio() {
 function resetAll() {
   S.clips.forEach(function (c) { try { URL.revokeObjectURL(c.url); } catch (e) {} });
   S.results.forEach(function (r) { try { URL.revokeObjectURL(r.url); } catch (e) {} });
-  S.clips = []; S.results = []; S.desc = ''; $('#rv-desc').value = ''; $('#rv-results').innerHTML = ''; renderClips();
+  S.clips = []; S.results = []; S.desc = ''; S.about = ''; $('#rv-desc').value = ''; $('#rv-about').value = ''; $('#rv-results').innerHTML = ''; renderClips();
 }
 // Progreso con lista de pasos
 function progress() {
@@ -1388,6 +1641,33 @@ function progress() {
     msg.textContent = m || '';
   };
 }
+// Mantiene la pantalla encendida mientras crea; si minimizas, se pausa y sigue sola al volver
+var wake = null;
+async function keepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator && !document.hidden) { wake = await navigator.wakeLock.request('screen'); }
+    else if (!on && wake) { await wake.release(); wake = null; }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', function () { if (!document.hidden && S.busy) keepAwake(true); });
+function notify(title, body) {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    var opt = { body: body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'inkbot-reel' };
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(function (r) { r.showNotification(title, opt); }).catch(function () { new Notification(title, opt); });
+    else new Notification(title, opt);
+  } catch (e) {}
+}
+// Guarda los reels terminados en el celular (los últimos 8) para que no se pierdan
+async function saveReel(r) {
+  try {
+    await IDB.rset(r.id, { blob: r.blob, plan: r.plan, tplName: r.tplName, date: r.date });
+    var h = history(), saved = 0;
+    h.forEach(function (x) { if (x.id === r.id) x.saved = true; });
+    for (var i = 0; i < h.length; i++) if (h[i].saved) { saved++; if (saved > 8) { IDB.rdel(h[i].id); h[i].saved = false; } }
+    lsSet(LS.hist, h);
+  } catch (e) {}
+}
 async function createAll() {
   if (S.busy) return;
   if (!S.clips.length) { go(1); return toast('Primero sube tus videos o fotos'); }
@@ -1395,6 +1675,8 @@ async function createAll() {
   S.busy = true; S.results.forEach(function (r) { try { URL.revokeObjectURL(r.url); } catch (e) {} }); S.results = [];
   $('#rv-results').innerHTML = ''; $('#rv-making').style.display = 'block'; $('#rv-mk-t').textContent = S.versions > 1 ? 'Creando ' + S.versions + ' reels' : 'Creando tu reel';
   go(4);
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
+  keepAwake(true);
   var step = progress();
   try {
     try { await document.fonts.load('150px "Bebas Neue"'); await document.fonts.load('900 70px Montserrat'); await document.fonts.load('800 50px Montserrat'); } catch (e) {}
@@ -1415,16 +1697,17 @@ async function createAll() {
       if (S.versions > 1) $('#rv-mk-t').textContent = 'Reel ' + (v + 1) + ' de ' + S.versions + ' · ' + getTpl(key).name;
       var r = await createOne(key, v, step);
       if (bad.length) r.warn = (r.warn ? r.warn + ' ' : '') + 'No se pudo abrir: ' + bad.join(', ') + '.';
-      S.results.push(r); renderResults();
+      S.results.push(r); renderResults(); await saveReel(r);
     }
     step('done', '', 1);
     $('#rv-making').style.display = 'none';
+    if (document.hidden) notify('🎬 Tu reel está listo', 'Toca para verlo, compartirlo o descargarlo.');
   } catch (e) {
     console.error(e);
     $('#rv-making').style.display = 'none';
     $('#rv-results').innerHTML = (S.results.length ? $('#rv-results').innerHTML : '') + '<div class="rv-err">⚠ ' + esc(e && e.message ? e.message : e) + '</div>';
     if (S.results.length) renderResults();
-  } finally { S.busy = false; go(4); renderHistory(); }
+  } finally { S.busy = false; keepAwake(false); go(4); renderHistory(); }
 }
 function renderResults() {
   var box = $('#rv-results'); if (!box) return;
@@ -1472,18 +1755,26 @@ function renderHistory() {
   if (!h.length) { box.innerHTML = '<p class="rv-p" style="margin:0">Aún no has creado reels.</p>'; return; }
   box.innerHTML = h.slice(0, 15).map(function (x) {
     var t = TPL[x.tpl] ? TPL[x.tpl].emoji : '⭐';
-    return '<div class="rv-hi"><span>' + t + '</span><div class="hk">' + hookHTML(x.hook) + '<small>' + new Date(x.date).toLocaleDateString('es-MX') + ' · ' + esc(x.tplName || '') + (x.rating ? ' · ' + (x.rating > 1 ? '🔥' : x.rating > 0 ? '👍' : '👎') : '') + '</small></div><input type="number" min="0" inputmode="numeric" placeholder="vistas" value="' + (x.views || '') + '" data-id="' + x.id + '"></div>';
+    return '<div class="rv-hi"><span>' + t + '</span><div class="hk">' + hookHTML(x.hook) + '<small>' + new Date(x.date).toLocaleDateString('es-MX') + ' · ' + esc(x.tplName || '') + (x.rating ? ' · ' + (x.rating > 1 ? '🔥' : x.rating > 0 ? '👍' : '👎') : '') + '</small></div>' + (x.saved ? '<button class="rv-ib" data-get="' + x.id + '" aria-label="Compartir">⬇</button>' : '') + '<input type="number" min="0" inputmode="numeric" placeholder="vistas" value="' + (x.views || '') + '" data-id="' + x.id + '"></div>';
   }).join('');
+  $$('[data-get]', box).forEach(function (b) {
+    b.onclick = function () {
+      IDB.rget(b.dataset.get).then(function (v) {
+        if (!v || !v.blob) return toast('Ese video ya no está guardado');
+        share({ id: b.dataset.get, blob: v.blob, url: URL.createObjectURL(v.blob), plan: v.plan || { caption: '', hashtags: [] }, tpl: 'reel', date: v.date || Date.now() });
+      });
+    };
+  });
   $$('input', box).forEach(function (inp) { inp.onchange = function () { var hh = history(); hh.forEach(function (x) { if (x.id === inp.dataset.id) x.views = +inp.value || 0; }); lsSet(LS.hist, hh); toast('Guardado'); }; });
 }
 var rec = null;
-function dictate() {
-  var SRx = window.SpeechRecognition || window.webkitSpeechRecognition, b = $('#rv-mic');
+function dictate(b) {
+  var SRx = window.SpeechRecognition || window.webkitSpeechRecognition, inp = $('#' + b.dataset.for);
   if (!SRx) return toast('Tu navegador no permite dictar aquí');
   if (rec) { rec.stop(); return; }
   rec = new SRx(); rec.lang = 'es-MX'; rec.interimResults = true; rec.continuous = false;
-  var base = $('#rv-desc').value ? $('#rv-desc').value + ' ' : '';
-  rec.onresult = function (e) { var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; $('#rv-desc').value = base + t; S.desc = $('#rv-desc').value.trim(); };
+  var base = inp.value ? inp.value + ' ' : '';
+  rec.onresult = function (e) { var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; inp.value = base + t; inp.dispatchEvent(new Event('input')); };
   rec.onend = function () { rec = null; b.classList.remove('on'); };
   rec.onerror = function () { toast('No se pudo dictar'); };
   b.classList.add('on'); rec.start();
