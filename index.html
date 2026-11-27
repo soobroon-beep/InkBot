@@ -2121,7 +2121,7 @@ var INKAI=(function(){
   // ── Proveedores disponibles ──
   var PROV={
     auto:{label:'Automática gratis',short:'GRATIS',
-      help:'No tienes que configurar nada. Usa modelos potentes gratis (Gemini / GPT vía Puter, sin API key). La primera vez puede abrirse una ventanita de Puter para entrar o crear una cuenta gratis. Si no se puede, cambia sola a la IA abierta de Pollinations.'},
+      help:'No tienes que configurar nada ni crear cuentas: usa la IA abierta de Pollinations, gratis y sin ventanas. Sin llave responde 1 vez cada ~45 s; para que sea instantánea pon una llave GRATIS de Gemini o Groq (abajo).'},
     gemini:{label:'Google Gemini',short:'GEMINI',key:true,keyUrl:'https://aistudio.google.com/apikey',keyPh:'Llave de Gemini · AIza…',
       models:['gemini-2.5-flash','gemini-flash-latest','gemini-2.5-flash-lite'],
       help:'Recomendada para INKBOT: la que mejor sabe historia, culturas y símbolos, con muy buen español. Llave GRATIS y sin tarjeta en aistudio.google.com/apikey → «Create API key».'},
@@ -2354,6 +2354,8 @@ var INKAI=(function(){
 
   // Cadena gratis automática: Puter → Pollinations
   function runAuto(messages,o){
+    // Sin Puter: nunca abre ventanas ni pide cuenta
+    return runPollinations(messages,o);
     if(Date.now()<puterOff){lastWarn='IA gratis potente en pausa unos minutos · usando la IA abierta (más lenta). Pon Gemini o Groq gratis en el inicio para que vuele.';return runPollinations(messages,o);}
     var i=0;
     function next(){
@@ -2474,7 +2476,7 @@ window.INKAI=INKAI;
     modelRow.style.display=p==='auto'||p==='pollinations'?'none':'flex';
     model.placeholder=p==='custom'?'Modelo · ej. gpt-4o-mini, deepseek-chat, llama3.1':'Modelo (opcional) · por defecto: '+(P.models&&P.models[0]||'automático');
     model.value=c.models[p]||'';
-    puterBtn.style.display=p==='auto'?'inline-block':'none';
+    puterBtn.style.display='none';
     INKAI.status();
   }
   function store(){

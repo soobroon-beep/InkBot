@@ -1,21 +1,17 @@
 # Reels virales (módulo de INKBOT)
 
-Botón **«Reels Virales»** en el menú principal. Todo el código está en `reels.js` (no toca historias, diccionario ni Estudio).
+Botón **«Reels Virales»** en el menú principal. Código en `reels.js`; la voz gratis está en `vendor/piper/`.
 
-## Cómo se usa
-1. Sube los clips del tatuaje y la foto final (se ordenan solos por fecha de grabación).
-2. Elige un formato viral o deja **«Que la IA elija»**.
-   - **Clonar un viral:** guarda en tu celular el video que te gustó (TikTok: Compartir → Guardar video; Instagram: grabadora de pantalla) y súbelo. La app copia sus **cortes exactos**, su **ritmo** y su **audio**, y los usa con tus clips. El link es opcional (la app no puede bajar videos desde un link).
-3. Gancho: automático, generado con IA o el tuyo (`*palabra*` sale resaltada en dorado).
-4. Audio: **en tendencia** (lo eliges en IG/TikTok al subir), **tu audio** (detecta el ritmo y el drop) o **Beat INKBOT** (libre de derechos).
-5. **Crear** → MP4 1080×1920 listo, con caption, hashtags, día/hora y qué audio buscar. «Compartir» lo manda directo a Instagram/TikTok.
+## Paso a paso
+1. **Material:** sube los clips del tatuaje y la foto final (se ordenan solos). Opcional: escribe o dicta qué tatuaje es.
+2. **Estilo:** «Automático» o uno de los 8 formatos. **Copiar un viral:** guarda el video que te gustó y súbelo; la app copia sus cortes, su ritmo y su audio.
+3. **Música y voz:** audio en tendencia (lo pones al publicar), audio del viral, tu canción o música INKBOT. Voz narrando: automático / sí / no.
+4. **Crear:** sale el MP4 1080×1920 con caption, hashtags, día para publicar y qué audio ponerle. «Compartir» lo manda directo a Instagram o TikTok.
 
-## Qué hace solo
-- Analiza cada clip: movimiento, nitidez (descarta lo borroso), luz y dónde está la acción para encuadrar en vertical.
-- Corta al ritmo, acelera el proceso, y deja la revelación con destello y zoom suave.
-- Voz gratis (ElevenLabs / OpenAI / neural vía Puter) con subtítulos palabra por palabra. Si pones tu llave de ElevenLabs, se usa primero.
-- Aprende: califica tus reels o pon sus vistas y la IA usa más los formatos y ganchos que te funcionan.
+## Gratis y sin ventanas
+- **Textos:** IA abierta de Pollinations, sin cuentas (1 respuesta por minuto aprox.). Para que sea instantánea, pon una llave gratis de Gemini o Groq en el menú principal.
+- **Voz:** Piper (español de México) corre dentro del celular; la primera vez descarga ~60 MB y queda guardada. Con tu llave de ElevenLabs (⚙ Ajustes) se usa esa.
 
 ## Notas
-- Funciona en Chrome (Android o PC). Deja la app abierta mientras crea el video: tarda más o menos lo que dura el reel.
-- La primera vez que uses voz, puede pedirte entrar a Puter (gratis). Botón «CONECTAR PUTER» en el menú.
+- Funciona en Chrome. Deja la app abierta mientras crea el video.
+- Las miniaturas son imágenes y al crear se abre un solo video a la vez (los celulares tienen pocos decodificadores). Si un clip no abre, se usa un cuadro fijo nítido de ese clip.
