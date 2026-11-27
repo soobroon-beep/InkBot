@@ -872,7 +872,7 @@ transition:transform .15s;
             <div class="s-glass"><div class="s-body-txt" id="s-bod" style="color:rgba(255,255,255,.2)">Configura y presiona generar.</div></div>
           </div>
           <div class="s-div2"></div>
-          <div class="s-hdl" id="s-hdl">@victortip</div>
+          <div class="s-hdl" id="s-hdl">@v.sobrontt</div>
         </div>
         <div class="sloader" id="sloader" style="display:none"><div class="spin"></div><p style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--mut);text-transform:uppercase">Creando...</p></div>
       </div>
@@ -1214,7 +1214,7 @@ function loadFonts(){
 }
 
 // ── INIT ─────────────────────────────────────────────
-document.getElementById('s-hdl').textContent='@victortip';
+document.getElementById('s-hdl').textContent='@v.sobrontt';
 loadSaved();buildWeek();buildSchedule();buildAsianSVG();
 setTimeout(function(){startBg('photo');},100);
 loadFonts();
@@ -1694,7 +1694,7 @@ function renderFrame(c,story,handle,bgImg,bgType,W,H,t){
   c.fillStyle='rgba(255,255,255,.88)';c.font='400 '+bodyFS+'px "Cinzel",serif';
   var bodyTxtY=boxY+innerPad*.8+bodyFS*.85;bodyLines.forEach(function(line,i){c.fillText(line,pad+innerPad,bodyTxtY+i*bodyLineH);});
   var bdY=H-H*.075;var grd2=c.createLinearGradient(pad,0,W-pad,0);grd2.addColorStop(0,'transparent');grd2.addColorStop(.5,'#CC0000');grd2.addColorStop(1,'transparent');c.fillStyle=grd2;c.fillRect(pad,bdY,W-pad*2,H*.003);
-  c.fillStyle='rgba(255,255,255,.44)';c.font=Math.round(W*.038)+'px "Space Mono",monospace';c.textAlign='center';c.fillText(handle||'@victortip',W/2,H-H*.025);c.textAlign='left';
+  c.fillStyle='rgba(255,255,255,.44)';c.font=Math.round(W*.038)+'px "Space Mono",monospace';c.textAlign='center';c.fillText(handle||'@v.sobrontt',W/2,H-H*.025);c.textAlign='left';
 }
 
 function drawAsianBorderCanvas(c,W,H){
@@ -1716,31 +1716,51 @@ function getWrappedLines(c,text,maxW,fontSize){c.font='400 '+fontSize+'px "Cinze
 // ── GENERATE ─────────────────────────────────────────
 document.getElementById('btn-gen').addEventListener('click',genStory);
 document.getElementById('btn-regen').addEventListener('click',genStory);
+// ── Banco de historias: una llamada = varias historias; «otra» sale al instante ──
+var STORY_BATCH=5;
+function storyKey(){return 'h|'+selType+'|'+(window._inkbotTema||'').trim().toLowerCase();}
+function storyAccept(c){
+  var b=c&&c.body||'';if(!b)return false;
+  if(isTooSimilarToAny(b,flattenDisliked(feedbackMem.dislikedBodies)))return false;
+  if(isTooSimilarToAny(b,(feedbackMem.recentBodies||[]).slice(-20).map(function(x){return x.body;}),.55))return false;
+  return true;
+}
+function refillStories(){
+  var k=storyKey(),type=selType;
+  return IDEAS.refill(k,function(){return buildPrompt(type,'','',STORY_BATCH,IDEAS.bodies(k));},{maxTokens:2200});
+}
+function storyBankLabel(){
+  var n=IDEAS.count(storyKey());
+  return n?' · 🔋 '+n+' lista'+(n>1?'s':''):(IDEAS.busy(storyKey())?' · preparando más…':'');
+}
+function prefetchStories(){
+  if(IDEAS.count(storyKey())<3&&!IDEAS.busy(storyKey()))refillStories().catch(function(){});
+}
 function genStory(){
-  var key=getKey();
-  var handle=document.getElementById('handle').value||'@victortip',ctxTxt=document.getElementById('ctx').value;
-  document.getElementById('btn-gen').disabled=true;setSt('st-gen','Generando...','ld');document.getElementById('sloader').style.display='flex';
+  var handle=document.getElementById('handle').value||'@v.sobrontt';
   resetFeedbackBar();
-  // Resolve actual type used (handles "random" without changing the pill UI)
-  var actualType=selType;
-  if(actualType==='random'){
-    var realTypes=Object.keys(typeMap).filter(function(k){return k!=='random';});
-    var recentTypes=(feedbackMem.recentBodies||[]).slice(-6).map(function(b){return b.type;});
-    var fresh=realTypes.filter(function(t){return recentTypes.indexOf(t)===-1;});
-    var pool=fresh.length>0?fresh:realTypes;
-    actualType=pool[Math.floor(Math.random()*pool.length)];
-  }
-  var blockedGlobal=flattenDisliked(feedbackMem.dislikedBodies);
-  function attemptGen(triesLeft){
-    return callAI(key,buildPrompt(actualType,handle,ctxTxt)).then(function(raw){
-      var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());
-      if(triesLeft>0&&isTooSimilarToAny(c.body||'',blockedGlobal)){
-        return attemptGen(triesLeft-1);
-      }
-      return c;
+  var k=storyKey();
+  var c=IDEAS.take(k,storyAccept);
+  if(c){showStory(c,handle);prefetchStories();return;}
+  // Banco vacío: espera una tanda (solo esta vez) y muestra la primera
+  document.getElementById('btn-gen').disabled=true;setSt('st-gen','Preparando '+STORY_BATCH+' ideas de una vez…','ld');document.getElementById('sloader').style.display='flex';
+  function attempt(tries){
+    return refillStories().then(function(){
+      var x=IDEAS.take(k,storyAccept);
+      if(!x&&tries>0)return attempt(tries-1);
+      if(!x)throw new Error('La IA repitió temas que ya rechazaste. Intenta de nuevo.');
+      return x;
     });
   }
-  attemptGen(1).then(function(c){
+  attempt(1).then(function(x){showStory(x,handle);prefetchStories();})
+    .catch(function(e){setSt('st-gen','Error: '+(e.message||'Intenta'),'err');})
+    .finally(function(){document.getElementById('sloader').style.display='none';document.getElementById('btn-gen').disabled=false;});
+}
+function showStory(c,handle){
+  var actualType=selType;
+  if(actualType==='random')actualType=(c.tipo&&typeMap[c.tipo])?c.tipo:'dato';
+  delete c.tipo;
+  (function(){
     currentStory=c;renderStoryDOM(c,handle);
     if(!feedbackMem.recentBodies)feedbackMem.recentBodies=[];
     feedbackMem.recentBodies.push({type:actualType,body:c.body||''});
@@ -1748,14 +1768,39 @@ function genStory(){
     // Save the actualType in the bank entry so future feedback maps correctly
     bank.unshift({id:Date.now(),type:actualType,content:c,date:new Date().toLocaleDateString('es-MX'),handle:handle,bg:selBg});
     if(bank.length>200)bank=bank.slice(0,200);save();renderBank();
-    setSt('st-gen','✓ Lista — dale 👍 o 👎 abajo','ok');
+    setSt('st-gen','✓ Lista — dale 👍 o 👎 abajo'+storyBankLabel(),'ok');
     document.getElementById('btn-regen').style.display='block';document.getElementById('dl-btn-area').style.display='flex';
     // Track the actual type used so feedback works correctly
     window._lastUsedType=actualType;
     if(selBg==='photo'&&photos.length){pidx=Math.floor(Math.random()*photos.length);startBg('photo');}
-  }).catch(function(e){setSt('st-gen','Error: '+(e.message||'Intenta'),'err');}).finally(function(){document.getElementById('sloader').style.display='none';document.getElementById('btn-gen').disabled=false;});
+  })();
 }
-function buildPrompt(type,handle,ctxTxt){
+// Al abrir la app y al cambiar de tipo/tema, deja ideas listas en segundo plano
+setTimeout(prefetchStories,2500);
+document.querySelectorAll('#type-pills .pill').forEach(function(p){p.addEventListener('click',function(){setTimeout(prefetchStories,300);});});
+function buildPrompt(type,handle,ctxTxt,n,pendingBodies){
+  n=n||1;
+  if(n>1){
+    // Varias historias en una sola llamada
+    var all=Object.keys(typeMap).filter(function(k){return k!=='random';}),types=[];
+    if(type==='random'){
+      var recentT=(feedbackMem.recentBodies||[]).slice(-6).map(function(b){return b.type;});
+      var pool=all.filter(function(t){return recentT.indexOf(t)===-1;});if(pool.length<n)pool=all.slice();
+      pool=pool.sort(function(){return Math.random()-.5;});types=pool.slice(0,n);
+    }else{for(var i=0;i<n;i++)types.push(type);}
+    var one=buildPrompt(types[0],handle,ctxTxt,1);
+    var cut=one.indexOf('\n\nTema base del tatuaje:');
+    var head=one.slice(0,cut);
+    var rest=one.slice(cut).replace(/^\n\nTema base del tatuaje: [\s\S]*?(?=\n\nTEMA DE LA HISTORIA|\n\nREGLAS DE ESCRITURA)/,'');
+    rest=rest.slice(0,rest.indexOf('\n\nResponde SOLO con JSON'));
+    var uniq=types.filter(function(t,i){return types.indexOf(t)===i;});
+    var temas='\n\nTEMAS BASE (una historia por cada número):\n'+types.map(function(t,i){return (i+1)+'. ['+t+'] '+(uniq.length===1&&i>0?'mismo tema base que la 1, pero con un ángulo, dato, cultura y época TOTALMENTE distintos a las demás':typeMap[t]);}).join('\n');
+    var pend=(pendingBodies||[]).slice(-14);
+    var pendB=pend.length?'\n\nYA TIENES PREPARADAS ESTAS (no repitas nada parecido):\n'+pend.map(function(b){return '- '+b;}).join('\n'):'';
+    return head+temas+rest+pendB
+      +'\n\nGENERA '+n+' HISTORIAS DISTINTAS ENTRE SÍ (diferente dato, cultura, época, personaje y emoción cada una). Revisa que cada dato sea verídico antes de escribirlo.'
+      +'\n\nResponde SOLO con JSON válido sin markdown:\n{"ideas":[{"tipo":"la clave entre corchetes de su tema base","eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas con datos concretos. Máximo 160 caracteres.","cta":"llamada a acción corta con emoji, orientada al cliente"}, … '+n+' en total]}';
+  }
   // ── RANDOM: si el usuario eligió "random", escoge un tipo real al azar
   // que NO haya sido usado recientemente para garantizar variedad real
   if(type==='random'){
@@ -1869,7 +1914,7 @@ document.getElementById('btn-drive-png').addEventListener('click',function(){
   if(!currentStory){setSt('st-gen','Genera primero','err');return;}
   var btn=this;
   // Step 1: Export PNG as blob
-  var handle=document.getElementById('handle').value||'@victortip';
+  var handle=document.getElementById('handle').value||'@v.sobrontt';
   var bgSrc=selBg==='photo'&&photos.length?photos[pidx]:null;
   btn.disabled=true;
   setSt('st-gen','Preparando para Drive...','ld');
@@ -1947,7 +1992,7 @@ function doUpload(blob,filename,token,btn){
 document.getElementById('btn-dl-mp4').addEventListener('click',function(){
   if(!currentStory){setSt('st-gen','Genera primero','err');return;}
   var btn=this;btn.disabled=true;
-  var handle=document.getElementById('handle').value||'@victortip';
+  var handle=document.getElementById('handle').value||'@v.sobrontt';
   var bgSrc=selBg==='photo'&&photos.length?photos[pidx]:null;
   var VW=1080,VH=1920;
   showProgress(0,'Preparando...');
@@ -2035,7 +2080,7 @@ document.getElementById('btn-gen-week').addEventListener('click',function(){
 
 document.getElementById('btn-export-week').addEventListener('click',function(){
   if(!weekData.length)return;var btn=this;btn.disabled=true;setSt('st-week','Exportando...','ld');
-  var zip=new JSZip();var folder=zip.folder('inkbot-semana');var handle=document.getElementById('handle').value||'@victortip';
+  var zip=new JSZip();var folder=zip.folder('inkbot-semana');var handle=document.getElementById('handle').value||'@v.sobrontt';
   loadFonts().then(function(){
     var chain=Promise.resolve();
     weekData.forEach(function(item,i){chain=chain.then(function(){setSt('st-week','Exportando '+(i+1)+'/'+weekData.length+'...','ld');var bgSrc=item.bg==='photo'&&photos.length?photos[i%photos.length]:null;var oc=document.createElement('canvas');oc.width=EW;oc.height=EH;var c2=oc.getContext('2d');return new Promise(function(res){function go(bgImg){renderFrame(c2,item.content,handle,bgImg,item.bg,EW,EH,0);oc.toBlob(function(blob){var fn=DAYS[item.day]+'-'+TIMES[item.time].replace(':','h').replace(' ','')+'-'+item.type+'.png';folder.file(fn,blob);res();});}if(bgSrc){var img=new Image();img.onload=function(){go(img);};img.onerror=function(){go(null);};img.src=bgSrc;}else{go(null);}});});});
@@ -2047,7 +2092,7 @@ document.getElementById('btn-export-week').addEventListener('click',function(){
 document.getElementById('btn-drive-week').addEventListener('click',function(){
   if(!weekData.length)return;
   var btn=this;btn.disabled=true;setSt('st-week','Exportando PNGs para Drive...','ld');
-  var zip=new JSZip();var folder=zip.folder('inkbot-semana');var handle=document.getElementById('handle').value||'@victortip';
+  var zip=new JSZip();var folder=zip.folder('inkbot-semana');var handle=document.getElementById('handle').value||'@v.sobrontt';
   loadFonts().then(function(){
     var chain=Promise.resolve();
     weekData.forEach(function(item,i){chain=chain.then(function(){setSt('st-week','Preparando '+(i+1)+'/'+weekData.length+'...','ld');var bgSrc=item.bg==='photo'&&photos.length?photos[i%photos.length]:null;var oc=document.createElement('canvas');oc.width=EW;oc.height=EH;var c2=oc.getContext('2d');return new Promise(function(res){function go(bgImg){renderFrame(c2,item.content,handle,bgImg,item.bg,EW,EH,0);oc.toBlob(function(blob){var fn=DAYS[item.day]+'-'+TIMES[item.time].replace(':','h').replace(' ','')+'-'+item.type+'.png';folder.file(fn,blob);res();});}if(bgSrc){var img=new Image();img.onload=function(){go(img);};img.onerror=function(){go(null);};img.src=bgSrc;}else{go(null);}});});});
@@ -2062,7 +2107,7 @@ document.getElementById('btn-drive-week').addEventListener('click',function(){
 document.getElementById('btn-export-week-mp4').addEventListener('click',function(){
   if(!weekData.length)return;
   var btn=this;btn.disabled=true;setSt('st-week','Iniciando exportación...','ld');
-  var handle=document.getElementById('handle').value||'@victortip';
+  var handle=document.getElementById('handle').value||'@v.sobrontt';
   var VW=1080,VH=1920;
   var zip=new JSZip();var folder=zip.folder('inkbot-semana-mp4');
   loadFonts().then(function(){
@@ -2140,7 +2185,7 @@ var INKAI=(function(){
   // ── Proveedores disponibles ──
   var PROV={
     auto:{label:'Automática gratis',short:'GRATIS',
-      help:'No tienes que configurar nada ni crear cuentas: usa la IA abierta de Pollinations, gratis y sin ventanas. Sin llave responde 1 vez cada ~45 s; para que sea instantánea pon una llave GRATIS de Gemini o Groq (abajo).'},
+      help:'No tienes que configurar nada ni crear cuentas: usa IA gratis sin llave y sin ventanas (LLM7, rápida; si falla, la IA abierta de Pollinations). Además InkBot prepara varias ideas por adelantado, así que «otra» sale al instante.'},
     gemini:{label:'Google Gemini',short:'GEMINI',key:true,keyUrl:'https://aistudio.google.com/apikey',keyPh:'Llave de Gemini · AIza…',
       models:['gemini-2.5-flash','gemini-flash-latest','gemini-2.5-flash-lite'],
       help:'Recomendada para INKBOT: la que mejor sabe historia, culturas y símbolos, con muy buen español. Llave GRATIS y sin tarjeta en aistudio.google.com/apikey → «Create API key».'},
@@ -2371,25 +2416,37 @@ var INKAI=(function(){
   }
   function modelsFor(p){var m=String(cfg.models[p]||'').trim(),base=PROV[p].models.slice();return m?[m].concat(base.filter(function(x){return x!==m;})):base;}
 
-  // Cadena gratis automática: Puter → Pollinations
+  // ── LLM7: IA gratis SIN cuenta, SIN llave y SIN ventanas (≈30 respuestas por minuto) ──
+  var L7_URL='https://api.llm7.io/v1/chat/completions',L7_MODELS_URL='https://api.llm7.io/v1/models';
+  var L7_FALLBACK=['gpt-4o-mini','gpt-4.1-nano-2025-04-14','default'];
+  var l7Off=0,l7Cache=null;
+  function l7Models(){
+    if(l7Cache)return Promise.resolve(l7Cache);
+    return tfetch(L7_MODELS_URL,{headers:{Authorization:'Bearer unused'}},7000).then(function(r){return r.ok?r.json():{data:[]};}).then(function(j){
+      var arr=Array.isArray(j)?j:((j&&j.data)||[]);
+      var ids=arr.map(function(x){return typeof x==='string'?x:(x&&(x.id||x.name));}).filter(Boolean);
+      ids=ids.filter(function(id){return !/r1|reason|think|vision|embed|coder|audio|tts|whisper|image|search|moderat/i.test(id);});
+      function sc(id){return (/gpt-4o-mini|gpt-4\.1-mini/i.test(id)?60:0)+(/deepseek-v3|deepseek-chat|gpt-oss-120b/i.test(id)?50:0)+(/gpt-4\.1-nano|llama-3\.3-70b|qwen.*(72b|235b)|mistral-(small|medium|large)/i.test(id)?30:0)+(/^default$|^fast$/i.test(id)?10:0);}
+      var list=ids.sort(function(a,b){return sc(b)-sc(a);}).slice(0,3);
+      l7Cache=list.length?list:L7_FALLBACK.slice();return l7Cache;
+    }).catch(function(){return L7_FALLBACK.slice();});
+  }
+  function runLLM7(messages,o){
+    var oo=Object.assign({},o,{timeout:Math.min(o.timeout||45000,45000)});
+    return l7Models().then(function(list){
+      return tryModels(list,function(m){return oaCall(L7_URL,'unused',m,messages,oo,null,'LLM7');},'LLM7',1);
+    }).then(function(t){lastSource='LLM7';return t;});
+  }
+
+  // Cadena gratis automática: LLM7 (rápida, sin cuenta) → Pollinations (IA abierta, 1 cada 45 s)
+  // Nunca abre ventanas ni pide inicio de sesión.
   function runAuto(messages,o){
-    // Sin Puter: nunca abre ventanas ni pide cuenta
-    return runPollinations(messages,o);
-    if(Date.now()<puterOff){lastWarn='IA gratis potente en pausa unos minutos · usando la IA abierta (más lenta). Pon Gemini o Groq gratis en el inicio para que vuele.';return runPollinations(messages,o);}
-    var i=0;
-    function next(){
-      if(i>=PUTER_MODELS.length)return runPollinations(messages,o);
-      var m=PUTER_MODELS[i++];
-      return puterCall(m,messages,o).then(function(tx){lastModel=m;lastSource='Puter';return tx;}).catch(function(e){
-        if(e.kind==='auth'||e.kind==='quota'||e.kind==='network'){
-          puterOff=Date.now()+(e.kind==='network'?5:30)*60000;
-          lastWarn=(lastWarn?lastWarn+' ':'')+e.message+' Usando IA abierta (más lenta). En el inicio puedes poner Gemini o Groq gratis.';
-          return runPollinations(messages,o);
-        }
-        return next();
-      });
-    }
-    return next();
+    if(Date.now()<l7Off)return runPollinations(messages,o);
+    return runLLM7(messages,o).catch(function(e){
+      l7Off=Date.now()+(e.kind==='rate'?90000:10*60000);
+      lastWarn='IA rápida gratis no respondió ('+e.message+') · usando la IA abierta (más lenta) unos minutos.';
+      return runPollinations(messages,o);
+    });
   }
   function runProvider(p,prompt,messages,o){
     if(p==='gemini'){if(!keyOf('gemini'))return Promise.reject(err('Falta la llave de Gemini.','auth'));return tryModels(modelsFor('gemini'),function(m){return gemCall(m,prompt,o);},'Gemini',2).then(function(t){lastSource='Gemini';return t;});}
@@ -2477,6 +2534,43 @@ var INKAI=(function(){
     key:function(){return keyOf(cfg.provider==='auto'?'pollinations':cfg.provider);},get model(){return lastModel;},get source(){return lastSource;}};
 })();
 window.INKAI=INKAI;
+
+// ── BANCO DE IDEAS LISTAS (historias y diccionario) ─────────────────────
+// Una sola llamada a la IA genera VARIAS ideas a la vez. Se guardan aquí (y en el celular),
+// así que cuando una no te gusta la siguiente sale AL INSTANTE, y el banco se rellena solo
+// en segundo plano. Las ideas que se parecen a lo que rechazaste se descartan antes de mostrarse.
+var IDEAS=(function(){
+  var LS='inkbot_ideas_v1',MAX=14,buf={},inflight={};
+  try{buf=JSON.parse(localStorage.getItem(LS)||'{}')||{};}catch(e){buf={};}
+  function save(){try{localStorage.setItem(LS,JSON.stringify(buf));}catch(e){}}
+  function list(key){return buf[key]||[];}
+  function count(key){return list(key).length;}
+  function bodies(key){return list(key).map(function(x){return x&&x.body||'';}).filter(Boolean);}
+  // refill(key, promptFn, opts) → promesa con cuántas ideas nuevas llegaron
+  function refill(key,promptFn,o){
+    if(inflight[key])return inflight[key];
+    var p=INKAI.json(promptFn(),{maxTokens:(o&&o.maxTokens)||2000,temperature:.9}).then(function(obj){
+      var arr=Array.isArray(obj&&obj.ideas)?obj.ideas:Array.isArray(obj&&obj.historias)?obj.historias:[];
+      arr=arr.filter(function(x){return x&&typeof x==='object'&&String(x.body||'').trim();});
+      if(!arr.length&&obj&&obj.body)arr=[obj];
+      var have=bodies(key);
+      arr=arr.filter(function(x){return !isTooSimilarToAny(x.body,have,.5);});
+      buf[key]=list(key).concat(arr).slice(-MAX);save();
+      return arr.length;
+    }).finally(function(){delete inflight[key];});
+    inflight[key]=p;p.catch(function(){});
+    return p;
+  }
+  // take(key, accept) → primera idea aceptable (las rechazadas se tiran), o null
+  function take(key,accept){
+    var l=list(key),it=null;
+    while(l.length){var x=l.shift();if(!accept||accept(x)){it=x;break;}}
+    buf[key]=l;save();return it;
+  }
+  function busy(key){return !!inflight[key];}
+  return {take:take,refill:refill,count:count,bodies:bodies,busy:busy};
+})();
+window.IDEAS=IDEAS;
 
 // ── Selector de IA en el inicio ──
 (function(){
@@ -2626,6 +2720,8 @@ var inkTema=document.getElementById('inkbot-tema');
 var inkTemaLabel=document.getElementById('inkbot-tema-label');
 function updateInkTema(){var t=inkTema.value.trim();window._inkbotTema=t;if(t){inkTemaLabel.textContent='🎨 Activo: '+t;inkTemaLabel.style.display='block';}else{inkTemaLabel.style.display='none';}}
 inkTema.addEventListener('input',updateInkTema);
+var _hPf=null;function hPrefetchSoon(){clearTimeout(_hPf);_hPf=setTimeout(prefetchStories,1500);}
+inkTema.addEventListener('input',hPrefetchSoon);document.getElementById('inkbot-tema-sugs').addEventListener('click',hPrefetchSoon);
 document.getElementById('inkbot-tema-sugs').addEventListener('click',function(e){var b=e.target.closest('[data-tema]');if(!b)return;inkTema.value=b.getAttribute('data-tema');updateInkTema();});
 
 /* ── Diccionario: datos ── */
@@ -2641,7 +2737,7 @@ var dictTypeMap={
 };
 var dSelType='random',dCurrentCard=null,dPhotoB64=null,dCardPhotoB64=null;
 var dFB={liked:{},disliked:{},recent:[]};
-(function(){try{var s=JSON.parse(localStorage.getItem('inkbot_dict_fb')||'{}');if(s.liked)dFB.liked=s.liked;if(s.disliked)dFB.disliked=s.disliked;if(s.recent)dFB.recent=s.recent;}catch(e){}})();
+(function(){try{var s=JSON.parse(localStorage.getItem('inkbot_dict_fb')||'{}');if(s.liked)dFB.liked=s.liked;if(s.disliked)dFB.disliked=s.disliked;if(s.recent)dFB.recent=s.recent;if(s.recentTypes)dFB.recentTypes=s.recentTypes;}catch(e){}})();
 function saveDFB(){try{localStorage.setItem('inkbot_dict_fb',JSON.stringify(dFB));}catch(e){}}
 
 /* ── Tema dict ── */
@@ -2656,7 +2752,12 @@ document.getElementById('d-type-pills').addEventListener('click',function(e){
   var p=e.target.closest('.d-pill');if(!p)return;
   document.querySelectorAll('#d-type-pills .d-pill').forEach(function(x){x.classList.remove('on');});
   p.classList.add('on');dSelType=p.getAttribute('data-val');
+  setTimeout(prefetchDict,300);
 });
+// Deja cards listas en segundo plano (al abrir y al cambiar tema)
+var _dPf=null;function dPrefetchSoon(){clearTimeout(_dPf);_dPf=setTimeout(prefetchDict,1500);}
+dTemaInp.addEventListener('input',dPrefetchSoon);document.getElementById('d-tema-sugs').addEventListener('click',dPrefetchSoon);
+setTimeout(prefetchDict,6000);
 
 /* ── Foto sidebar ── */
 document.getElementById('d-photo-input').addEventListener('change',function(){
@@ -2802,22 +2903,63 @@ function resetDFB(){
 
 function callDictAPI(prompt){return callAI('free',prompt,null,900);}
 
+// ── Banco del diccionario: varias cards por llamada; «otra» sale al instante ──
+var DICT_BATCH=4;
+function dictKey(){return 'd|'+dSelType+'|'+(dTemaInp.value||'').trim().toLowerCase();}
+function dictAccept(c){
+  var b=c&&c.body||'';if(!b)return false;
+  if(isTooSimilarToAny(b,flattenDisliked(dFB.disliked)))return false;
+  if(isTooSimilarToAny(b,(dFB.recent||[]).slice(-15),.55))return false;
+  return true;
+}
+function buildDictBatchPrompt(type,n,pending){
+  var all=Object.keys(dictTypeMap).filter(function(k){return k!=='random';}),types=[];
+  if(type==='random'){
+    var rec=(dFB.recentTypes||[]).slice(-5);
+    var pool=all.filter(function(t){return rec.indexOf(t)===-1;});if(pool.length<n)pool=all.slice();
+    types=pool.sort(function(){return Math.random()-.5;}).slice(0,n);
+  }else{for(var i=0;i<n;i++)types.push(type);}
+  var one=buildDictPrompt(types[0]);
+  var a=one.indexOf('SÍMBOLO: '),b=one.indexOf('\n',a);
+  var lista='SÍMBOLOS (una card por cada número):\n'+types.map(function(t,i){return (i+1)+'. ['+t+'] '+dictTypeMap[t]+(types.length>1&&types[0]===types[n-1]&&i>0?' — con OTRO origen, cultura o significado distinto a las demás cards':'');}).join('\n');
+  var body=one.slice(0,a)+lista+one.slice(b,one.indexOf('\n\nResponde SOLO con JSON'));
+  if(dTemaInp.value.trim())body=body.split(' y '+dictTypeMap[types[0]]+'. ').join(' y el símbolo de cada card. ');
+  var pend=(pending||[]).slice(-12);
+  if(pend.length)body+='\n\nYA TIENES PREPARADAS ESTAS (no repitas nada parecido):\n'+pend.map(function(x){return '- '+x;}).join('\n');
+  return body+'\n\nGENERA '+n+' CARDS DISTINTAS ENTRE SÍ. Revisa que cada dato sea verídico antes de escribirlo.'
+    +'\n\nResponde SOLO con JSON válido sin markdown:\n{"ideas":[{"tipo":"la clave entre corchetes de su símbolo","eyebrow":"2-3 palabras clasificadoras MAYÚSCULAS","name1":"primera línea del nombre 1-2 palabras","name2":"segunda línea 1-2 palabras (puede vacío)","accent":"UNA palabra del nombre para dorado","nameJp":"nombre japonés si aplica, si no vacío","body":"3 o 4 oraciones con datos reales: origen + significado simbólico profundo + dato cultural o mitológico sorprendente. NUNCA menciones estilos de tatuaje. Entre 280 y 400 caracteres.","cta":"llamada a acción corta con emoji"}, … '+n+' en total]}';
+}
+function refillDict(){
+  var k=dictKey(),type=dSelType;
+  return IDEAS.refill(k,function(){return buildDictBatchPrompt(type,DICT_BATCH,IDEAS.bodies(k));},{maxTokens:2600});
+}
+function prefetchDict(){if(IDEAS.count(dictKey())<2&&!IDEAS.busy(dictKey()))refillDict().catch(function(){});}
 function genDict(){
-  document.getElementById('d-loader').classList.add('show');
   document.getElementById('d-dl-area').classList.remove('show');
+  var k=dictKey();
+  var ready=IDEAS.take(k,dictAccept);
+  if(ready){showDict(ready);prefetchDict();return;}
+  document.getElementById('d-loader').classList.add('show');
   document.getElementById('d-btn-regen').style.display='none';
-  setDSt('Generando...','ld');
-  var blockedGlobal=flattenDisliked(dFB.disliked);
-  function attemptGenDict(triesLeft){
-    return callDictAPI(buildDictPrompt(dSelType)).then(function(raw){
-      var c=JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());
-      if(triesLeft>0&&isTooSimilarToAny(c.body||'',blockedGlobal)){
-        return attemptGenDict(triesLeft-1);
-      }
-      return c;
+  setDSt('Preparando '+DICT_BATCH+' cards de una vez…','ld');
+  function attempt(tries){
+    return refillDict().then(function(){
+      var x=IDEAS.take(k,dictAccept);
+      if(!x&&tries>0)return attempt(tries-1);
+      if(!x)throw new Error('La IA repitió datos que ya rechazaste. Intenta de nuevo.');
+      return x;
     });
   }
-  attemptGenDict(3).then(function(c){
+  attempt(1).then(function(c){showDict(c);prefetchDict();}).catch(function(e){
+    document.getElementById('d-loader').classList.remove('show');
+    setDSt('Error: '+(e.message||'Intenta'),'err');
+  });
+}
+function showDict(c){
+  var t=dSelType==='random'?((c.tipo&&dictTypeMap[c.tipo])?c.tipo:'random'):dSelType;
+  window._dLastType=t;delete c.tipo;
+  if(!dFB.recentTypes)dFB.recentTypes=[];dFB.recentTypes.push(t);if(dFB.recentTypes.length>10)dFB.recentTypes=dFB.recentTypes.slice(-10);
+  (function(){
     dCurrentCard=c;
     if(!dFB.recent)dFB.recent=[];
     dFB.recent.push(c.body||'');
@@ -2828,11 +2970,9 @@ function genDict(){
     document.getElementById('d-dl-area').classList.add('show');
     document.getElementById('d-btn-regen').style.display='block';
     resetDFB();
-    setDSt('✓ Lista','ok');
-  }).catch(function(e){
-    document.getElementById('d-loader').classList.remove('show');
-    setDSt('Error: '+(e.message||'Intenta'),'err');
-  });
+    var n=IDEAS.count(dictKey());
+    setDSt('✓ Lista'+(n?' · 🔋 '+n+' más lista'+(n>1?'s':''):''),'ok');
+  })();
 }
 
 document.getElementById('d-btn-gen').addEventListener('click',genDict);
@@ -3889,7 +4029,7 @@ ES.wrap=function(ctx,text,x,y,maxW,lh){
 /* ── IA (la misma de INKBOT). Si falla, el sistema sigue con las plantillas. ── */
 ES.ai=function(instr,base){
   if(!window.INKAI||!window.INKAI.chat)return Promise.reject(new Error('IA no disponible'));
-  var p='TAREA ESPECIAL (no es una historia de Instagram): redacta UN solo mensaje de WhatsApp de un tatuador profesional ('+(ES.cfg().ig||'@victortip')+') para su cliente. '+
+  var p='TAREA ESPECIAL (no es una historia de Instagram): redacta UN solo mensaje de WhatsApp de un tatuador profesional ('+(ES.cfg().ig||'@v.sobrontt')+') para su cliente. '+
     instr+'\nReglas: español de México, cálido y profesional, breve (máx. 90 palabras), sin hashtags, sin comillas, sin inventar precios, fechas ni datos que no estén abajo, máximo 2 emojis. '+
     'Responde SOLO con el texto del mensaje.\n\nDatos y borrador base:\n'+base;
   var to=new Promise(function(_,rej){setTimeout(function(){rej(new Error('La IA tardó demasiado'));},40000);});
@@ -3902,7 +4042,7 @@ ES.ai=function(instr,base){
 
 /* ── Ajustes con valores por defecto (editables en Ajustes) ── */
 ES.DEF={
-  estudio:'Estudio de tatuajes',ig:'@victortip',direccion:'',ciudad:'Veracruz',
+  estudio:'Estudio de tatuajes',ig:'@v.sobrontt',direccion:'',ciudad:'Veracruz',
   tarifa:800,minimo:800,anticipoPct:30,horasSesion:4,intervaloSesion:21,metaMes:30000,mesesReactivar:6,
   calendario:'🔥Tatuajes🔥',notif:false,
   zonas:{'Antebrazo':1,'Brazo':1,'Hombro':1,'Pierna':1,'Pantorrilla':1,'Muslo':1,'Espalda':1,'Pecho':1.1,'Abdomen':1.15,'Costillas':1.25,'Cuello':1.3,'Mano':1.3,'Dedos':1.3,'Pie':1.25,'Rodilla / codo':1.3,'Cabeza / cara':1.4,'Manga completa':1,'Espalda completa':1},
