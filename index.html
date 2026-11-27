@@ -345,6 +345,10 @@ transition:transform .15s;
 .sp-card .sp-desc{font-size:12.5px;color:#6a6a6a;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .sp-card .sp-card-bg{font-size:46px}
 .sp-card .sp-stripe{transform:scaleX(1);height:3px}
+.sp-brain{display:flex;align-items:center;gap:12px;max-width:560px;margin:14px auto 0;padding:12px 14px;border:1px solid #2a2418;border-radius:16px;background:linear-gradient(140deg,rgba(232,182,74,.07),rgba(204,0,0,.05))}
+.sp-brain .sb-ic{font-size:24px}.sp-brain .sb-tx{flex:1;min-width:0;display:flex;flex-direction:column;font-family:'DM Sans',sans-serif;text-align:left}
+.sp-brain b{color:#E8B64A;font-size:13px}.sp-brain small{color:#8a8a8a;font-size:11.5px;line-height:1.35}
+.sb-btn{background:#E8B64A;color:#111;border:0;border-radius:11px;padding:9px 13px;font:700 12px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}.sb-btn.gh{background:none;color:#E8B64A;border:1px solid #3a3020}
 .sp-ai-toggle{background:none;border:1px solid #1f1f1f;border-radius:12px;color:#7a7a7a;font-family:'DM Sans',sans-serif;font-size:12px;padding:9px 14px;margin:14px auto 0;cursor:pointer;display:block}
 .sp-api-block.sp-hide{display:none!important}
 @media(max-width:500px){#splash-inner{justify-content:center!important;min-height:100%!important;padding:18px 14px 24px!important}}
@@ -470,6 +474,7 @@ transition:transform .15s;
 .d-btn-dl-gold{flex:1;padding:9px 6px;background:transparent;color:#E8720C;border:1px solid #E8720C;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;text-transform:uppercase;transition:all .2s}
 .d-btn-dl-gold:hover{background:#E8720C;color:#000}
 </style>
+<script src="brain.js"></script>
 </head>
 
 <!-- ═══════════ SPLASH ═══════════ -->
@@ -554,6 +559,7 @@ transition:transform .15s;
       <div class="sp-btn">ENTRAR →</div>
     </div>
   </div>
+  <div class="sp-brain" id="sp-brain"><span class="sb-ic">🧠</span><span class="sb-tx"><b>Cerebro de tatuaje</b><small id="sb-sub">Conectando con Neural Brain…</small></span><button type="button" id="sb-btn" class="sb-btn">Conectar</button></div>
   <button class="sp-ai-toggle" id="sp-ai-toggle" type="button">⚙ IA de textos</button>
   </div><!-- /#splash-inner -->
 </div>
@@ -1827,7 +1833,7 @@ document.getElementById('btn-like').addEventListener('click',function(){
     if(feedbackMem.likedBodies[t].length>12)feedbackMem.likedBodies[t]=feedbackMem.likedBodies[t].slice(-12);
   }
   for(var i=0;i<bank.length;i++){if(bank[i].content&&bank[i].content.body===body){bank[i].likes=(bank[i].likes||0)+1;break;}}
-  save();
+  save();if(window.BRAIN)BRAIN.send({act:'le gustó',type:'historia '+t,title:(currentStory.title||''),text:body});
   this.style.background='#14532d';this.style.color='#4ade80';this.style.borderColor='#4ade80';
   this.disabled=true;document.getElementById('btn-dislike').disabled=true;
   var msg=document.getElementById('feedback-msg');
@@ -1845,7 +1851,7 @@ document.getElementById('btn-dislike').addEventListener('click',function(){
     feedbackMem.dislikedBodies[t].push(body);
     if(feedbackMem.dislikedBodies[t].length>300)feedbackMem.dislikedBodies[t]=feedbackMem.dislikedBodies[t].slice(-300);
   }
-  save();
+  save();if(window.BRAIN)BRAIN.send({act:'no le gustó',type:'historia '+t,title:(currentStory.title||''),text:body});
   this.style.background='#450a0a';this.style.color='#f87171';this.style.borderColor='#f87171';
   this.disabled=true;document.getElementById('btn-like').disabled=true;
   var msg=document.getElementById('feedback-msg');
@@ -2397,7 +2403,7 @@ var INKAI=(function(){
   // chat(prompt,{maxTokens,temperature}) → texto. Siempre solo texto (las fotos se ignoran).
   function chat(prompt,o){
     o=o||{};
-    var messages=[{role:'system',content:SYSTEM},{role:'user',content:String(prompt)}];
+    var messages=[{role:'system',content:SYSTEM+(window.BRAIN&&o.brain!==false?BRAIN.context():'')},{role:'user',content:String(prompt)}];
     var p=cfg.provider;lastWarn='';
     var run=(p==='auto'||p==='pollinations')?runProvider(p,prompt,messages,o):runProvider(p,prompt,messages,o).catch(function(e){
       // Si tu IA elegida falla, no te quedas sin contenido: usa la gratis automática
@@ -2594,6 +2600,24 @@ document.getElementById('sp-estudio').addEventListener('click',goEstudio);
 // Reels virales (módulo aparte en reels.js)
 function goReels(){splash.classList.add('hide');inkbotApp.style.display='none';dictApp.classList.remove('show');btnBack.classList.remove('show');document.getElementById('d-mob-toggle').style.display='none';if(window.ESTUDIO&&ESTUDIO.hide)ESTUDIO.hide();if(window.REELS&&REELS.open)REELS.open();}
 document.getElementById('sp-reels').addEventListener('click',goReels);
+(function(){
+  var sub=document.getElementById('sb-sub'),btn=document.getElementById('sb-btn');
+  function paint(s){
+    if(!window.BRAIN)return;s=s||BRAIN.status();
+    if(!s.known){sub.textContent='Conectando con Neural Brain…';btn.style.display='none';return;}
+    btn.style.display='';
+    if(!s.user){sub.textContent='Conéctalo con tu cuenta de Neural Brain: aprende de lo que te gusta y mejora todo tu contenido.';btn.textContent='Conectar';btn.className='sb-btn';return;}
+    sub.textContent=s.learning?'Aprendiendo de tus gustos…':(s.learnedAt?'Aprendió '+s.ago+' · lo usa en historias, diccionario y reels':'Conectado · ya guarda tus 👍👎; aprende solo cada día')+(s.pending?' · '+s.pending+' por subir':'');
+    btn.textContent=s.learning?'…':'Aprender ahora';btn.className='sb-btn gh';
+  }
+  btn.addEventListener('click',function(){
+    var s=BRAIN.status();
+    if(!s.user){BRAIN.login().catch(function(e){sub.textContent='No se pudo conectar: '+(e&&e.code==='auth/popup-blocked'?'permite la ventana de Google':e.message);});return;}
+    if(s.learning)return;
+    BRAIN.learnNow().then(function(){sub.textContent='✓ Aprendido. Ya lo usa en todo lo que crea.';setTimeout(paint,4000);}).catch(function(e){sub.textContent=e.message||'La IA no respondió; inténtalo en un momento';});
+  });
+  if(window.BRAIN){BRAIN.onChange(paint);paint();}else document.getElementById('sp-brain').style.display='none';
+})();
 document.getElementById('sp-ai-toggle').addEventListener('click',function(){var b=document.getElementById('sp-ai-block'),inner=document.getElementById('splash-inner');b.classList.toggle('sp-hide');if(!b.classList.contains('sp-hide')){inner.insertBefore(b,this.nextSibling);b.scrollIntoView({behavior:'smooth',block:'center'});}});
 btnBack.addEventListener('click',goSplash);
 
@@ -2820,7 +2844,7 @@ document.getElementById('d-btn-like').addEventListener('click',function(){
   var t=window._dLastType||dSelType,b=dCurrentCard.body||'';
   if(!dFB.liked[t])dFB.liked[t]=[];
   if(dFB.liked[t].indexOf(b)===-1){dFB.liked[t].push(b);if(dFB.liked[t].length>12)dFB.liked[t]=dFB.liked[t].slice(-12);}
-  saveDFB();
+  saveDFB();if(window.BRAIN)BRAIN.send({act:'le gustó',type:'diccionario '+t,title:(dCurrentCard.title||''),text:b});
   this.style.background='#14532d';this.style.borderColor='#4ade80';this.disabled=true;
   document.getElementById('d-btn-dislike').disabled=true;
   var m=document.getElementById('d-fb-msg');m.style.display='block';m.style.color='#4ade80';m.textContent='✓ Aprendido';
@@ -2831,7 +2855,7 @@ document.getElementById('d-btn-dislike').addEventListener('click',function(){
   var t=window._dLastType||dSelType,b=dCurrentCard.body||'';
   if(!dFB.disliked[t])dFB.disliked[t]=[];
   if(dFB.disliked[t].indexOf(b)===-1){dFB.disliked[t].push(b);if(dFB.disliked[t].length>300)dFB.disliked[t]=dFB.disliked[t].slice(-300);}
-  saveDFB();
+  saveDFB();if(window.BRAIN)BRAIN.send({act:'no le gustó',type:'diccionario '+t,title:(dCurrentCard.title||''),text:b});
   this.style.background='#450a0a';this.style.borderColor='#f87171';this.disabled=true;
   document.getElementById('d-btn-like').disabled=true;
   var m=document.getElementById('d-fb-msg');m.style.display='block';m.style.color='#f87171';m.textContent='👎 Registrada — regenerando...';

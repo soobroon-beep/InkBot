@@ -31,3 +31,8 @@ Botón **«Reels Virales»** en el menú principal. Código en `reels.js`; la vo
 ## Notas
 - Funciona en Chrome. Deja la app abierta mientras crea el video.
 - Las miniaturas son imágenes y al crear se abre un solo video a la vez (los celulares tienen pocos decodificadores). Si un clip no abre, se usa un cuadro fijo nítido de ese clip.
+
+## 🧠 Cerebro de tatuaje (Neural Brain)
+- `brain.js` conecta InkBot con el cerebro «Tatuaje» de Neural Brain (misma cuenta de Google; si ya entraste en Neural Brain en el celular, se conecta solo).
+- Recuerdos que manda: 👍/👎 de historias y diccionario, reels creados/rehechos, 🔥👍👎 de reels, vistas y cambios pedidos → `users/{uid}/brains/tatuaje/inkbot/{id}`.
+- El cerebro aprende cada noche (servidor) y aquí una vez al día si hay 3+ recuerdos nuevos, o con «Aprender ahora». Su «Lo que sé de ti» se agrega a la IA de toda la app (historias, diccionario, reels).

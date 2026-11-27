@@ -1604,6 +1604,7 @@ async function createOne(tplKey, idx, step, opts) {
     look: look, edit: edit, voiceObj: voice, voiceWanted: voiceWanted, idx: idx,
     warn: [out.warn, voiceErr, plan.aiError ? 'La IA no respondió (' + plan.aiError + '); usé textos de la plantilla.' : ''].filter(Boolean).join(' '), voice: voice ? voice.engine : '', audioMode: S.audio, secs: out.secs };
   var h = history(); h.unshift({ id: res.id, date: res.date, tpl: res.tpl, tplName: res.tplName, hook: res.hook, T: Math.round(T), rating: 0, views: 0 }); lsSet(LS.hist, h.slice(0, 80));
+  brain(opts && opts.edit ? 'rehízo' : 'creó', 'reel', plan.hook, 'formato: ' + tpl.name + ' · ' + Math.round(T) + ' s · ' + (voice ? 'con voz' : 'sin voz') + ' · música: ' + S.audio + (S.desc ? ' · tatuaje: ' + S.desc : '') + (S.about ? ' · de qué trata: ' + S.about : '') + (plan.caption ? ' · caption: ' + String(plan.caption).slice(0, 200) : ''));
   return res;
 }
 
@@ -1758,6 +1759,7 @@ function build() {
     + '<div class="rv-lb">Usuario</div><input class="rv-in" id="rv-c-handle"><div class="rv-lb">Ciudad</div><input class="rv-in" id="rv-c-ciudad"><div class="rv-lb">Estilo</div><input class="rv-in" id="rv-c-estilo"><div class="rv-lb">Texto final</div><input class="rv-in" id="rv-c-cta">'
     + '<div class="rv-lb">Texto final («Agenda por DM»)</div><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
     + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">La voz natural ya es gratis y sin llaves. Opcional: con una llave gratis de Google AI Studio se usa la voz premium de Google y los textos salen al instante.</p><input class="rv-in" id="rv-c-gem" type="password" placeholder="Llave gratis de Gemini (AIza…)"><div style="height:8px"></div><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)"></div>'
+    + '<div class="rv-sec"><h3>🧠 Tu cerebro de tatuaje</h3><div class="rv-p" id="rv-brain" style="white-space:pre-wrap;max-height:260px;overflow:auto"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="rv-b g" id="rv-brain-go" style="padding:10px 14px">Aprender ahora</button><a class="rv-b g" href="../Neural-Brain-Claude/" target="_blank" rel="noopener" style="padding:10px 14px;text-decoration:none">Abrir Neural Brain</a></div></div>'
     + '<div class="rv-sec"><h3>Lo que la app aprendió de ti</h3><div class="rv-p" id="rv-learn" style="white-space:pre-wrap"></div><button class="rv-b g" id="rv-learn-reset" style="padding:10px 14px">Olvidar mis gustos</button></div>'
     + '<div class="rv-sec"><h3>IA de textos</h3><p class="rv-p" id="rv-ai-info"></p></div>'
     + '<div class="rv-sec"><h3>¿Qué está pegando?</h3><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es">Canciones en tendencia de TikTok ↗</a><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es">Hashtags en tendencia de TikTok ↗</a><p class="rv-p" style="margin-top:6px">En Instagram, los audios con la flechita ↗ son los que están en tendencia.</p></div>'
@@ -1879,6 +1881,15 @@ function learnText() {
 }
 function fillSettings() {
   $('#rv-learn').textContent = learnText();
+  (function paintBrain() {
+    var el = $('#rv-brain'), go = $('#rv-brain-go'); if (!el) return;
+    var B = window.BRAIN, st = B ? B.status() : null, l = B && B.learned();
+    if (!B) { el.textContent = 'No disponible.'; go.style.display = 'none'; return; }
+    if (!st.user) { el.textContent = 'Sin conectar. Conéctalo desde el menú principal (🧠 Cerebro de tatuaje) con tu cuenta de Neural Brain: guarda lo que te gusta y lo que no, aprende solo cada día y lo usa en todos tus reels, historias y diccionario.'; go.textContent = 'Conectar'; go.onclick = function () { B.login().then(paintBrain).catch(function (e) { toast(e.message); }); }; return; }
+    el.textContent = l && l.text ? 'Aprendió ' + st.ago + ':\n\n' + String(l.text).replace(/^#+\s*/gm, '').replace(/\*\*/g, '') : 'Conectado. Todavía no aprende: califica tus reels (🔥👍👎), pon sus vistas y pide cambios; aprende solo cada día.';
+    go.textContent = st.learning ? 'Aprendiendo…' : 'Aprender ahora';
+    go.onclick = function () { if (st.learning) return; go.textContent = 'Aprendiendo…'; B.learnNow().then(function () { toast('Aprendido'); paintBrain(); }).catch(function (e) { toast(e.message || 'La IA no respondió'); paintBrain(); }); };
+  })();
   $('#rv-learn-reset').onclick = function () { LEARN = { cuts: -1, speed: 0, trans: 0, durMul: 1, notes: [] }; saveLearn(); $('#rv-learn').textContent = learnText(); toast('Listo, empiezo de cero'); };
   ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
   $('#rv-c-eleven').value = CFG.elevenKey || ''; $('#rv-c-gem').value = CFG.geminiKey || '';
@@ -2132,6 +2143,7 @@ async function applyEdit(i, text) {
   if (c.durRel) LEARN.durMul = clamp((LEARN.durMul || 1) * (c.durRel > 1 ? 1.1 : .9), .6, 1.8);
   (c.aprender || []).forEach(function (n) { if (n && LEARN.notes.indexOf(n) < 0) LEARN.notes.push(n); });
   LEARN.notes = LEARN.notes.slice(-20); saveLearn();
+  brain('pidió cambio', 'reel', r.hook, 'pidió: ' + text + ((c.aprender || []).length ? ' · aprendí: ' + c.aprender.join('; ') : ''));
   var edit = { cuts: clamp((r.edit.cuts || 0) + c.cortes, -2, 2), speed: clamp((r.edit.speed || 0) + c.velocidad, -2, 2), trans: clamp((r.edit.trans || 0) + c.transiciones, -2, 2) };
   var plan = JSON.parse(JSON.stringify(r.plan)), T = c.dur || (c.durRel ? Math.round(r.T * c.durRel) : r.T), voice = r.voiceObj, opts = { edit: edit, look: r.look, plan: plan, T: T };
   if (c.voz === 'mujer' || c.voz === 'hombre') { CFG.genero = c.voz; saveCfg(); voice = null; opts.voiceOn = r.voiceWanted || c.voz; }
@@ -2172,7 +2184,9 @@ function copy(t, silent) {
   if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {});
   else { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} ta.remove(); }
 }
-function rate(id, v) { var h = history(); h.forEach(function (x) { if (x.id === id) x.rating = v; }); lsSet(LS.hist, h); }
+function rate(id, v) { var h = history(), it = null; h.forEach(function (x) { if (x.id === id) { x.rating = v; it = x; } }); lsSet(LS.hist, h); if (it) brain(v > 1 ? 'le encantó 🔥' : v > 0 ? 'le gustó 👍' : 'no le gustó 👎', 'reel', it.hook, 'formato: ' + (it.tplName || it.tpl) + ' · ' + (it.T || '') + ' s'); }
+// recuerdo para el cerebro de tatuaje (Neural Brain)
+function brain(act, type, title, text) { try { if (window.BRAIN) window.BRAIN.send({ act: act, type: type, title: String(title || '').replace(/\*/g, ''), text: text || '' }); } catch (e) {} }
 function renderHistory() {
   var box = $('#rv-hist'); if (!box) return; var h = history();
   if (!h.length) { box.innerHTML = '<p class="rv-p" style="margin:0">Aún no has creado reels.</p>'; return; }
@@ -2188,7 +2202,7 @@ function renderHistory() {
       });
     };
   });
-  $$('input', box).forEach(function (inp) { inp.onchange = function () { var hh = history(); hh.forEach(function (x) { if (x.id === inp.dataset.id) x.views = +inp.value || 0; }); lsSet(LS.hist, hh); toast('Guardado'); }; });
+  $$('input', box).forEach(function (inp) { inp.onchange = function () { var hh = history(); var it = null; hh.forEach(function (x) { if (x.id === inp.dataset.id) { x.views = +inp.value || 0; it = x; } }); lsSet(LS.hist, hh); if (it && it.views) brain('registró vistas', 'reel', it.hook, it.views + ' vistas · formato: ' + (it.tplName || it.tpl) + ' · ' + (it.T || '') + ' s' + (it.rating ? ' · calificación ' + it.rating : '')); toast('Guardado'); }; });
 }
 // ── Dictado: escucha sin cortarse hasta que vuelvas a tocar 🎤; luego limpia muletillas y ordena el texto ──
 var rec = null;
