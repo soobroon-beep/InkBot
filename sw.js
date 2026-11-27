@@ -1,9 +1,10 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v17';
+const CACHE = 'inkbot-v18';
 const ASSETS = [
   './',
   './index.html',
   './reels.js',
+  './vendor/kokoro/kokoro-es.js',
   './vendor/piper/piper-tts-web.js',
   './vendor/piper/piper-o91UDS6e.js',
   './vendor/piper/voices_static-D_OtJDHM.js',

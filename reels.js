@@ -66,14 +66,65 @@ var TPL = {
     desc: 'Habla de ti: tu estilo, tu ciudad y cómo agendar contigo.',
     hooks: ['Tatuador de {ciudad} haciendo *{estilo}*', 'Años tatuando y esto sigo amando', 'Si eres de Veracruz, esto es para ti'] }
 };
+// Más estilos (usan la lógica de uno de los de arriba con su propio ritmo e instrucciones para la IA)
+Object.assign(TPL, {
+  antesdespues: { like: 'revelacion', teaser: true, name: 'Antes y después', emoji: '🔄', dur: [12, 22], bpm: 96, voice: false,
+    desc: 'Arranca mostrando el resultado un segundo, regresa al inicio y termina con el tatuaje completo.',
+    hooks: ['Antes vs *después*', 'Mira cómo empezó…', 'De piel limpia a *esto*'] },
+  timelapse: { like: 'revelacion', k: [4, 6], speed: 3.2, accel: false, name: 'Timelapse del proceso', emoji: '⏩', dur: [15, 40], bpm: 92, voice: false,
+    desc: 'Todo el proceso acelerado, con pocos cortes y el resultado largo.',
+    hooks: ['Todo el proceso en *segundos*', '{horas} horas en un minuto', 'Así se hizo, de principio a fin'] },
+  diseno: { like: 'etapas', labels: ['DISEÑO', 'PLANTILLA', 'TATUAJE', 'RESULTADO'], name: 'Del diseño a la piel', emoji: '✏️', dur: [14, 28], bpm: 92, voice: false,
+    desc: 'Del boceto a la piel, cada paso con su etiqueta.',
+    hooks: ['Del papel a la *piel*', 'Así nació este *diseño*', 'De idea a tatuaje'] },
+  sanado: { like: 'revelacion', name: 'Fresco vs sanado', emoji: '🩹', dur: [10, 18], bpm: 90, voice: false, hint: 'Compara el tatuaje recién hecho contra el tatuaje ya sanado.',
+    desc: 'Compara el tatuaje recién hecho con cómo se ve sanado.',
+    hooks: ['Fresco vs *sanado*', 'Así se ve meses después', 'El color que *no se va*'] },
+  cuidados: { like: 'significado', name: 'Tips de cuidado', emoji: '🧴', dur: [20, 45], bpm: 86, voice: true, hint: 'Da 3 tips VERÍDICOS de cuidado de un tatuaje nuevo, numerados (uno, dos, tres), cortos y útiles.',
+    desc: 'Tips de cuidado narrados mientras se ve el tatuaje.',
+    hooks: ['3 errores que arruinan tu *tatuaje*', 'Si te acabas de tatuar, *mira esto*'] },
+  cliente: { like: 'narrado', name: 'Historia del cliente', emoji: '💬', dur: [20, 50], bpm: 84, voice: true, hint: 'Cuenta por qué el cliente quiso este tatuaje y qué significa para él, sin inventar datos privados; si no hay datos, habla de la idea del diseño.',
+    desc: 'La historia de por qué se tatuó esto, narrada.',
+    hooks: ['Me pidió algo con *significado*', 'La historia detrás de *su tatuaje*'] },
+  local: { like: 'marca', name: 'Tatuador en mi ciudad', emoji: '📍', dur: [15, 40], bpm: 90, voice: true, hint: 'Háblale directo a la gente de {ciudad}: si eres de {ciudad} y buscas tatuarte, quédate a ver el resultado y agenda.',
+    desc: 'Le habla a la gente de tu ciudad desde el primer segundo.',
+    hooks: ['Si eres de *{ciudad}*, mira esto', '¿Buscas tatuador en *{ciudad}*?', 'Hecho en *{ciudad}* 🔥'] },
+  tendencia: { like: 'pov', name: 'Texto de moda', emoji: '📈', dur: [10, 20], bpm: 100, voice: false, hint: 'Usa un formato de texto que esté de moda en reels (por ejemplo «Nadie: / Yo:», «Dime que eres tatuador sin decírmelo»), adaptado a tatuajes.',
+    desc: 'Formatos de texto que están de moda, adaptados a tatuajes.',
+    hooks: ['Dime que eres tatuador sin *decírmelo*', 'Nadie: / Yo a las 3 am:'] },
+  mitos: { like: 'pov', name: 'Mito o realidad', emoji: '🧐', dur: [14, 26], bpm: 92, voice: false, hint: 'Formato MITO / REALIDAD sobre tatuajes, con datos verídicos, en las líneas de texto.',
+    desc: 'Desmiente mitos de tatuajes con texto en pantalla.',
+    hooks: ['Mito o realidad: *tatuajes*', '¿De verdad duele más el *color*?'] },
+  promo: { like: 'encuesta', name: 'Agenda abierta', emoji: '📅', dur: [9, 16], bpm: 108, voice: false, hint: 'Anuncio: hay lugares disponibles para tatuarse; invita a mandar mensaje directo. La «pregunta» final debe ser un llamado a agendar.',
+    desc: 'Anuncia que tienes lugares disponibles para tatuar.',
+    hooks: ['*Agenda abierta* este mes', 'Quedan pocos lugares 🔥'] }
+});
+var GROUPS = [
+  ['Proceso y resultado', ['revelacion', 'antesdespues', 'timelapse', 'etapas', 'diseno', 'asmr', 'sanado']],
+  ['Con voz', ['narrado', 'significado', 'cuidados', 'cliente', 'marca', 'local']],
+  ['Texto en pantalla', ['pov', 'tendencia', 'mitos', 'encuesta']],
+  ['Promoción', ['promo']]
+];
+// Ritmo de edición por tipo (k = golpes por corte; menos cortes = más tiempo viendo el tatuaje)
+var PARAMS = {
+  revelacion: { k: [2, 3], speed: 1.6, revFrac: .32, accel: true },
+  pov: { k: [2, 3], speed: 1.6, revFrac: .28 },
+  etapas: { k: [2, 3], speed: 2, revFrac: .24 },
+  narrado: { k: [3, 4], speed: 2.2, revFrac: .24, calm: true },
+  significado: { k: [3, 4], speed: 2, revFrac: .24, calm: true },
+  encuesta: { k: [1, 2], speed: 2, revFrac: .38, accel: true },
+  asmr: { k: [3, 5], speed: .85, revFrac: .3, calm: true },
+  marca: { k: [2, 4], speed: 1.8, revFrac: .26, calm: true }
+};
+function paramsOf(tpl) { var p = Object.assign({}, PARAMS[tpl.base] || PARAMS.revelacion); ['k', 'speed', 'revFrac', 'accel', 'calm'].forEach(function (k) { if (tpl[k] != null) p[k] = tpl[k]; }); return p; }
 var BASES = Object.keys(TPL);
 function customTpls() { return lsGet(LS.tpl, []); }
 function getTpl(key) {
-  if (TPL[key]) return Object.assign({ key: key, base: key }, TPL[key]);
+  if (TPL[key]) return Object.assign({ key: key, base: TPL[key].like || key }, TPL[key]);
   var c = customTpls().filter(function (t) { return t.id === key; })[0];
   if (!c) return Object.assign({ key: 'revelacion', base: 'revelacion' }, TPL.revelacion);
   var b = TPL[c.base] || TPL.revelacion;
-  return Object.assign({}, b, { key: c.id, base: c.base in TPL ? c.base : 'revelacion', name: c.name, emoji: '⭐', desc: c.notes || b.desc,
+  return Object.assign({}, b, { key: c.id, base: c.base in TPL ? (TPL[c.base].like || c.base) : 'revelacion', name: c.name, emoji: '⭐', desc: c.notes || b.desc,
     hooks: [c.hook].concat(b.hooks).filter(Boolean), voice: c.voice != null ? !!c.voice : b.voice,
     dur: c.seconds ? [Math.max(8, c.seconds - 4), c.seconds + 6] : b.dur, bpm: c.pace === 'rapido' ? b.bpm + 14 : c.pace === 'lento' ? b.bpm - 14 : b.bpm, lines: c.lines || [], custom: true,
     cuts: c.cuts || null, cloneDur: c.dur || 0, hasAudio: !!c.hasAudio, voice: c.cuts ? false : (c.voice != null ? !!c.voice : b.voice) });
@@ -305,110 +356,144 @@ function cutsBetween(grid, a, b, k, r, minLen) {
 /* ═══════════════════════ 3 · ARMADO DEL REEL (EDL) ═══════════════════════ */
 function buildEDL(o) {
   // o: {tpl, T, grid, plan, words, voiceStart, seed, clips}
-  var tpl = o.tpl, T = o.T, g = o.grid, r = rng(o.seed), plan = o.plan, base = tpl.base;
-  var vids = o.clips.filter(function (c) { return c.kind === 'video' && c.an; });
-  var pics = o.clips.filter(function (c) { return c.kind === 'image'; });
-  var st = globalStats(o.clips), used = [], shots = [], overlays = [];
+  // Respeta el ORDEN en que subiste los archivos: el primero abre, el último es el resultado.
+  var tpl = o.tpl, T = o.T, g = o.grid, r = rng(o.seed), plan = o.plan, base = tpl.base, P = paramsOf(tpl);
+  var clips = o.clips.filter(function (c) { return c.kind === 'image' || c.an; });
+  var vids = clips.filter(function (c) { return c.kind === 'video'; });
+  var st = globalStats(clips), used = [], shots = [], overlays = [];
   var bi = g.length > 1 ? g[1] - g[0] : 0.6;
-  var beatsPer = bi < 0.45 ? 2 : 1;
   var voice = !!(o.words && o.words.length);
-  var revealLen = clamp(T * (base === 'encuesta' ? .38 : base === 'revelacion' ? .3 : .2), 2.6, 6);
-  if (!vids.length) revealLen = T;
-  var R0 = snap(g, T - revealLen); if (R0 > T - 1.6) R0 = T - 2.2; if (R0 < 2) R0 = Math.min(T - 1.5, 2);
-  var hookEnd = snap(g, base === 'pov' ? 3.2 : base === 'asmr' ? 3 : base === 'encuesta' ? 1.6 : 2.4);
-  if (hookEnd >= R0) hookEnd = Math.max(0.8, R0 * .3);
-  // Plantilla clonada de un video viral: se copian sus cortes exactos
-  var cloneBody = null;
-  if (tpl.cuts && tpl.cuts.length >= 3 && vids.length) {
-    var cs = tpl.cuts.slice(), ri = cs.length - 1, acc = 0, tot = cs.reduce(function (a, b) { return a + b; }, 0);
-    if (cs[ri] < 1 && cs.length > 3) { var tail = 0; while (ri > 2 && tail < tot * .15) { tail += cs[ri]; ri--; } ri++; }
-    for (var ci = 0; ci < ri; ci++) acc += cs[ci];
-    hookEnd = cs[0]; R0 = acc; cloneBody = cs.slice(1, ri);
-  }
+  var V = o.look || {};
   function push(list, role) { list.forEach(function (s) { if (s) { s.role = role; shots.push(s); } }); }
+  function imgShot(c, d, za, zb) { return { kind: 'image', clip: c, outDur: d, cx: .5, cy: .5, zoomA: za, zoomB: zb }; }
+  if (!clips.length) return { T: T, shots: [], overlays: [], reveal: 0, beats: [] };
 
-  if (vids.length) {
-    // Gancho: la toma más llamativa de todo el material
-    var hk = bestShot(vids, hookEnd, base === 'asmr' ? .85 : 1.2, base === 'asmr' ? 'detail' : 'hook', st, used, r);
-    if (hk) { hk.zoomA = 1.14; hk.zoomB = 1.04; push([hk], 'hook'); }
-    var body = [];
-    if (base === 'etapas' && !cloneBody) {
-      var stages = vids.slice(0, 5), span = (R0 - hookEnd) / stages.length, t0 = hookEnd, prevB = hookEnd;
-      var labels = (plan.lines && plan.lines.length >= stages.length ? plan.lines : defaultStages(stages.length));
-      stages.forEach(function (c, i) {
-        var a = prevB, b = i === stages.length - 1 ? R0 : snap(g, t0 + span * (i + 1));
-        if (b <= a + .4) b = Math.min(R0, a + Math.max(.6, span)); prevB = b;
-        var cuts = cutsBetween(g, a, b, beatsPer, r);
-        var sh = chronoShots(cuts.map(function (d) { return { outDur: d, speed: 2, mode: 'action' }; }), [c], st, used, r);
-        push(sh, 'process');
-        overlays.push({ type: 'label', text: labels[i] || ('PASO ' + (i + 1)), from: a, to: b, n: i + 1, of: stages.length });
-      });
-    } else if (cloneBody) {
-      body = chronoShots(cloneBody.map(function (d) { return { outDur: d, speed: d < .5 ? 2.2 : 1.6, mode: 'action' }; }), vids, st, used, r);
-      push(body, 'process');
-    } else {
-      var k = base === 'asmr' ? 3 : (base === 'narrado' || base === 'significado' || base === 'marca') ? 2 : base === 'pov' ? 2 : beatsPer;
-      var speed = base === 'asmr' ? .8 : base === 'narrado' ? 2.6 : base === 'significado' || base === 'marca' ? 2 : base === 'encuesta' ? 2.2 : 1.6;
-      var mode = base === 'asmr' ? 'detail' : 'action';
-      var accelFrom = base === 'revelacion' || base === 'encuesta' ? snap(g, R0 - Math.max(1.2, bi * 3)) : R0;
-      if (accelFrom <= hookEnd) accelFrom = R0;
-      var cuts1 = cutsBetween(g, hookEnd, accelFrom, k, r);
-      var cuts2 = accelFrom < R0 ? cutsBetween(gridFor(60 / (bi / 2), T, g[0]), accelFrom, R0, 1, r, 0.25) : [];
-      body = chronoShots(cuts1.concat(cuts2).map(function (d, i) { return { outDur: d, speed: i >= cuts1.length ? speed * 1.3 : speed, mode: mode }; }), vids, st, used, r);
-      push(body, 'process');
-    }
+  // ── Plantilla copiada de un viral: mismos cortes, en el mismo tiempo, sin efectos extra ──
+  if (tpl.cuts && tpl.cuts.length) {
+    var cs = tpl.cuts.slice(), last = clips[clips.length - 1], tot = 0;
+    var bodyClips = clips.length > 1 ? clips.slice(0, -1) : clips, bodyV = bodyClips.filter(function (c) { return c.kind === 'video'; });
+    var specs = cs.slice(0, -1).map(function (d) { return { outDur: d, speed: 1.4, mode: 'action' }; });
+    var bodyShots = bodyV.length ? chronoShots(specs, bodyV, st, used, r) : specs.map(function (sp, i) { var c = bodyClips[i % bodyClips.length]; return imgShot(c, sp.outDur, 1.02, 1.05); });
+    // las fotos se intercalan en su lugar del orden
+    var pics = bodyClips.filter(function (c) { return c.kind === 'image'; });
+    if (bodyV.length && pics.length) pics.forEach(function (pc) { var idx = Math.min(bodyShots.length - 1, Math.round(clips.indexOf(pc) / clips.length * bodyShots.length)); var d = bodyShots[idx].outDur; bodyShots[idx] = imgShot(pc, d, 1.02, 1.06); });
+    push(bodyShots, 'process');
+    if (shots[0]) shots[0].role = 'hook';
+    var lastDur = cs[cs.length - 1];
+    if (last.kind === 'image') push([imgShot(last, lastDur, 1.0, 1.06)], 'reveal');
+    else { var rv = bestShot([last], lastDur, 1, 'reveal', st, used, r); if (rv) { rv.zoomA = 1; rv.zoomB = 1.04; push([rv], 'reveal'); } }
+    shots.forEach(function (x) { x.outStart = tot; tot += x.outDur; x.outEnd = tot; if (x.zoomA == null) { x.zoomA = 1.0; x.zoomB = 1.03; } x.exact = true; });
+    shots[shots.length - 1].outEnd = T;
+    var hk = fillVars(plan.hook || tpl.hooks[0]);
+    overlays.push({ type: 'hook', text: hk, from: 0, to: Math.min(T * .3, Math.max(1.8, cs[0])), y: V.hookY, font: V.hookFont });
+    if (CFG.marca) overlays.push({ type: 'cta', text: plan.endText || CFG.cta, from: Math.max(0, T - 1.8), to: T });
+    overlays.push({ type: 'mark', from: 0, to: T });
+    var revAt = shots.filter(function (x) { return x.role === 'reveal'; })[0];
+    return { T: T, shots: shots, overlays: overlays, reveal: revAt ? revAt.outStart : 0, beats: [], exact: true };
   }
-  // Revelación: las fotos finales (con movimiento suave) o la toma más nítida y estable del último clip
-  var revDur = T - (vids.length ? R0 : 0), rev = [];
-  if (pics.length) {
-    var ps = pics.slice(-3), each = revDur / ps.length;
-    ps.forEach(function (p, i) { rev.push({ kind: 'image', clip: p, outDur: each, cx: .5, cy: .5, zoomA: i % 2 ? 1.12 : 1.02, zoomB: i % 2 ? 1.02 : 1.12 }); });
-  } else if (vids.length) {
-    var last = vids[vids.length - 1], rs = bestShot([last], revDur, 1, 'reveal', st, used, r) || bestShot(vids, revDur, 1, 'reveal', st, [], r);
-    if (rs) { rs.zoomA = 1.0; rs.zoomB = 1.1; rev.push(rs); }
+
+  // ── El resultado: las últimas fotos seguidas (hasta 3) o el último video. Se muestra largo y sin cortes ──
+  var revItems = [];
+  for (var ri = clips.length - 1; ri >= 0 && clips[ri].kind === 'image' && revItems.length < 3; ri--) revItems.unshift(clips[ri]);
+  if (!revItems.length) revItems = [clips[clips.length - 1]];
+  if (revItems.length === clips.length && clips.length > 1) revItems = revItems.slice(-1);
+  var revLen = clamp(T * P.revFrac * (.9 + r() * .25), 3.5, Math.min(14, T * .5));
+  if (revItems[0].kind === 'video') revLen = Math.min(revLen, Math.max(2.5, revItems[0].dur - .3));
+  if (clips.length === 1 && clips[0].kind === 'image') revLen = T;
+  var R0 = Math.max(0, T - revLen);
+  var bodyClips = clips.filter(function (c) { return revItems.indexOf(c) < 0; });
+  if (!bodyClips.length) bodyClips = clips.slice(); // un solo clip: el proceso sale del mismo
+  var first = bodyClips[0];
+
+  // ── Gancho: siempre el PRIMER clip que subiste (si son tomas de la ciudad, abre con la ciudad) ──
+  var hookLen = R0 > 0 ? clamp((base === 'pov' ? 3 : base === 'encuesta' ? 1.6 : 2.2) * (.85 + r() * .35), 1.2, R0 * .45) : 0;
+  if (tpl.teaser && R0 > 4) {
+    // antes y después: un vistazo del resultado y luego regresa al inicio
+    var tz = revItems[revItems.length - 1];
+    if (tz.kind === 'image') push([imgShot(tz, 1.3, 1.12, 1.02)], 'hook');
+    else { var tsh = bestShot([tz], 1.3, 1, 'reveal', st, [], r); if (tsh) { tsh.zoomA = 1.1; tsh.zoomB = 1.02; push([tsh], 'hook'); } }
+    hookLen = 1.3;
+  } else if (hookLen > 0) {
+    if (first.kind === 'image') push([imgShot(first, hookLen, 1.16, 1.04)], 'hook');
+    else { var hs = bestShot([first], hookLen, 1.1, base === 'asmr' ? 'detail' : 'hook', st, used, r); if (hs) { hs.zoomA = 1.12; hs.zoomB = 1.03; push([hs], 'hook'); } }
+  }
+  var hookEnd = shots.length ? hookLen : 0;
+
+  // ── Proceso: cada clip en su turno, con su parte del tiempo; pocos cortes y al ritmo ──
+  var span0 = hookEnd, span1 = R0;
+  var accel = P.accel && (span1 - span0) > 4 ? Math.min(1.4, bi * 3) : 0;
+  var spanB = span1 - accel;
+  var weights = bodyClips.map(function (c) { return c.kind === 'image' ? 2.2 : Math.pow(Math.max(1, c.dur || 1), .75); });
+  var wsum = weights.reduce(function (a, b) { return a + b; }, 0), tcur = span0;
+  var kMin = P.k[0], kMax = P.k[1], stageLabels = tpl.labels || (plan.lines && plan.lines.length >= bodyClips.length ? plan.lines : null);
+  bodyClips.forEach(function (c, ci) {
+    var a = tcur, b = ci === bodyClips.length - 1 ? spanB : Math.min(spanB, a + (spanB - span0) * weights[ci] / wsum);
+    if (base !== 'etapas' && ci < bodyClips.length - 1 && g.length > 2) b = Math.max(a + .5, snap(g, b));
+    tcur = b; if (b - a < .35) return;
+    if (c.kind === 'image') { push([imgShot(c, b - a, r() < .5 ? 1.03 : 1.1, r() < .5 ? 1.1 : 1.03)], 'process'); }
+    else {
+      var k = kMin + Math.floor(r() * (kMax - kMin + 1)), cuts = cutsBetween(g, a, b, Math.max(1, k), r, .6);
+      push(chronoShots(cuts.map(function (d) { return { outDur: d, speed: P.speed * (.9 + r() * .25), mode: base === 'asmr' ? 'detail' : 'action' }; }), [c], st, used, r), 'process');
+    }
+    if (base === 'etapas') { var lbs = stageLabels || defaultStages(bodyClips.length); overlays.push({ type: 'label', text: lbs[ci] || ('PASO ' + (ci + 1)), from: a, to: b, n: ci + 1, of: bodyClips.length }); }
+  });
+  if (accel > 0) {
+    var fastV = bodyClips.filter(function (c) { return c.kind === 'video'; });
+    if (fastV.length) push(chronoShots(cutsBetween(gridFor(60 / (bi / 2), T, g[0]), spanB, span1, 1, r, .25).map(function (d) { return { outDur: d, speed: P.speed * 1.4, mode: 'action' }; }), fastV.slice(-2), st, used, r), 'process');
+    else if (shots.length) shots[shots.length - 1].outDur += accel;
+  }
+
+  // ── Resultado: una toma larga y continua (o las fotos con movimiento suave) ──
+  var rev = [];
+  if (revItems[0].kind === 'image') {
+    var each = (T - R0) / revItems.length;
+    revItems.forEach(function (p, i) { rev.push(imgShot(p, each, i % 2 ? 1.08 : 1.0, i % 2 ? 1.0 : 1.08)); });
+  } else {
+    var rs = bestShot([revItems[0]], T - R0, P.calm ? .9 : 1, 'reveal', st, used, r) || bestShot(revItems, T - R0, 1, 'reveal', st, [], r);
+    if (rs) { rs.zoomA = 1.0; rs.zoomB = 1.07; rev.push(rs); }
   }
   push(rev, 'reveal');
-  if (rev[0] && vids.length) { rev[0].flash = true; rev[0].punch = true; }
+  if (rev[0] && R0 > 0 && r() < .6) rev[0].flash = true;
 
-  // Tiempos de salida + movimiento de cámara sutil
+  // ── Tiempos y movimiento de cámara (suave; el rebote solo a veces) ──
   var t = 0;
-  shots.forEach(function (s, i) {
+  shots.forEach(function (s) {
     s.outStart = t; s.outEnd = t + s.outDur; t = s.outEnd;
-    if (s.zoomA == null) { var inw = r() < .5; s.zoomA = inw ? 1.04 : 1.1; s.zoomB = inw ? 1.1 : 1.04; }
-    if (s.role === 'process' && r() < .3) s.punch = true;
+    if (s.zoomA == null) { var inw = r() < .5; s.zoomA = inw ? 1.02 : 1.07; s.zoomB = inw ? 1.07 : 1.02; }
+    if (s.role === 'process' && r() < .12) s.punch = true;
   });
   if (shots.length) shots[shots.length - 1].outEnd = T;
 
-  // Textos en pantalla
+  // ── Textos ──
   var hook = fillVars(plan.hook || tpl.hooks[0]);
-  overlays.push({ type: 'hook', text: hook, from: 0, to: Math.max(voice ? 2.8 : hookEnd, 1.8) });
+  overlays.push({ type: 'hook', text: hook, from: 0, to: Math.max(voice ? 2.8 : hookEnd, 1.8), y: V.hookY, font: V.hookFont });
   var lines = (plan.lines || []).filter(Boolean);
   if (base === 'pov' && lines.length) {
-    var bodyA = hookEnd, bodyB = R0, n = Math.min(3, lines.length);
+    var bodyA = Math.max(hookEnd, 1.8), bodyB = R0, n = Math.min(3, lines.length);
     for (var i = 0; i < n; i++) overlays.push({ type: 'pill', text: lines[i], from: bodyA + (bodyB - bodyA) * i / n, to: bodyA + (bodyB - bodyA) * (i + 1) / n - .1 });
-    if (lines[n]) overlays.push({ type: 'pill', text: lines[n], from: R0 + .3, to: T - 1.6 });
+    if (lines[n]) overlays.push({ type: 'pill', text: lines[n], from: R0 + .4, to: T - 1.8 });
   } else if (base === 'asmr' && lines[0] && !voice) {
     overlays.push({ type: 'pill', text: lines[0], from: hookEnd + .3, to: Math.min(R0, hookEnd + 3.5) });
-  } else if ((base === 'revelacion') && lines[0] && !voice) {
-    overlays.push({ type: 'pill', text: lines[0], from: R0 + .35, to: T - 1.7 });
+  } else if (base === 'revelacion' && lines[0] && !voice) {
+    overlays.push({ type: 'pill', text: lines[0], from: R0 + .5, to: Math.min(T - 1.9, R0 + 3.5) });
   }
-  if (base === 'encuesta') overlays.push({ type: 'big', text: plan.question || hook, from: R0 + .25, to: T });
-  if (voice) overlays.push({ type: 'subs', words: o.words, offset: o.voiceStart || 0 });
-  if (CFG.marca && base !== 'encuesta') overlays.push({ type: 'cta', text: plan.endText || CFG.cta, from: Math.max(R0 + .4, T - 1.9), to: T });
+  if (base === 'encuesta') overlays.push({ type: 'big', text: plan.question || hook, from: R0 + .3, to: T });
+  if (voice) overlays.push({ type: 'subs', words: o.words, offset: o.voiceStart || 0, color: V.subColor });
+  if (CFG.marca && base !== 'encuesta') overlays.push({ type: 'cta', text: plan.endText || CFG.cta, from: Math.max(R0 + .5, T - 1.9), to: T });
   overlays.push({ type: 'mark', from: 0, to: T });
-  // Transiciones: tranquilas en formatos narrados, dinámicas en los de ritmo; siempre en las uniones clave
-  var calm = base === 'narrado' || base === 'significado' || base === 'marca' || base === 'asmr';
-  var pool = base === 'asmr' ? ['dissolve'] : calm ? ['dissolve', 'zoom', 'dissolve', 'whip'] : ['whip', 'zoom', 'glitch', 'whip', 'zoom', 'flash'];
-  var firstRev = -1; shots.forEach(function (x, i) { if (firstRev < 0 && x.role === 'reveal') firstRev = i; });
+
+  // ── Transiciones: solo entre clips distintos y al entrar al resultado; nunca dentro del resultado ──
+  var pool = P.calm ? ['dissolve', 'zoom', 'dissolve'] : (V.pool || ['whip', 'zoom', 'dissolve', 'glitch']);
   shots.forEach(function (x, i) {
-    x.drift = (r() - .5) * 2; x.rot = (r() - .5) * .018;
+    x.drift = (r() - .5) * 1.6; x.rot = (r() - .5) * .012;
     if (i === 0) return;
-    if (i === firstRev && vids.length) { x.tr = 'zoom'; x.trDur = .34; return; }
-    if (shots[i - 1].role === 'hook') x.tr = r() < .5 ? 'whip' : 'zoom';
-    else if (calm || (i % 3 === 1 && x.outDur > .45) || x.outDur > 1.1) x.tr = pool[Math.floor(r() * pool.length)];
-    if (x.tr) x.trDur = Math.min(calm ? .42 : .26, x.outDur * .45);
+    var prev = shots[i - 1];
+    if (x.role === 'reveal') { if (prev.role !== 'reveal') { x.tr = V.revTr || (r() < .5 ? 'zoom' : 'dissolve'); x.trDur = .4; } else { x.tr = 'dissolve'; x.trDur = .5; } return; }
+    if (prev.clip !== x.clip) x.tr = pool[Math.floor(r() * pool.length)];
+    else if (!P.calm && r() < .12 && x.outDur > .8) x.tr = 'whip';
+    if (x.tr) x.trDur = Math.min(P.calm ? .42 : .28, x.outDur * .4);
   });
-  return { T: T, shots: shots, overlays: overlays, reveal: vids.length ? R0 : 0, beats: g.filter(function (b) { return b > .3 && b < T - .2; }) };
+  return { T: T, shots: shots, overlays: overlays, reveal: R0, beats: V.pulse ? g.filter(function (b) { return b > .3 && b < R0 - .2; }) : [] };
 }
 function defaultStages(n) {
   var all = ['PLANTILLA', 'LÍNEA', 'SOMBRA', 'COLOR', 'DETALLES'];
@@ -460,7 +545,7 @@ function drawBase(c, edl, s, t, el) {
   var p = clamp((t - s.outStart) / Math.max(.01, s.outEnd - s.outStart), 0, 1), z = s.zoomA + (s.zoomB - s.zoomA) * easeInOut(p);
   if (s.punch) z *= 1 + .12 * (1 - easeOut((t - s.outStart) / .3));
   if (s.role === 'hook' && t < .45) z *= 1 + .22 * (1 - easeOut(t / .45));            // arranque: zoom de entrada
-  z *= 1 + .028 * beatPulse(edl, t);                                                   // pulso en cada golpe
+  if (s.role === 'process') z *= 1 + .012 * beatPulse(edl, t);                          // pulso leve al ritmo (solo en algunos reels)
   var drift = (s.drift || 0) * (p - .5) * 60, rot = (s.rot || 0) * (p - .5);
   var src = el || s.clip.el || s.clip.still, sw = s.kind === 'image' ? s.clip.w : (src && (src.videoWidth || src.width)), sh = s.kind === 'image' ? s.clip.h : (src && (src.videoHeight || src.height));
   if (useFilter) c.filter = 'contrast(1.08) saturate(1.15) brightness(1.02)';
@@ -591,9 +676,10 @@ function drawOverlays(ctx, edl, t) {
     var lt = t - o.from, out = clamp((o.to - t) / .18, 0, 1);
     ctx.save(); ctx.globalAlpha = out;
     if (o.type === 'hook') {
-      var f = cachedFit(ctx, 'h' + o.text, function () { return fitText(ctx, o.text, BEBAS, 156, 88, W * .84, 3, true); });
+      var FF = o.font === 'mont' ? MONT : BEBAS;
+      var f = cachedFit(ctx, 'h' + o.font + o.text, function () { return fitText(ctx, o.text, FF, o.font === 'mont' ? 104 : 156, 64, W * .84, 3, true); });
       ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 26;
-      drawAnimatedBlock(ctx, f, BEBAS, H * .2, lt + .05, { stroke: .11, lh: 1.02, stagger: .06 });
+      drawAnimatedBlock(ctx, f, FF, H * (o.y || .2), lt + .05, { stroke: .11, lh: 1.04, stagger: .06 });
     } else if (o.type === 'big') {
       var fb = cachedFit(ctx, 'b' + o.text, function () { return fitText(ctx, o.text, BEBAS, 196, 100, W * .84, 3, true); });
       ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 30; drawAnimatedBlock(ctx, fb, BEBAS, H * .42, lt, { stroke: .1, stagger: .09 });
@@ -655,7 +741,7 @@ function drawSubs(ctx, o, t) {
       var w = grp[wi++] || grp[grp.length - 1], on = tt >= w.start && tt < w.end + .06, ws = on ? 1 + .12 * (1 - easeOut((tt - w.start) / .18)) : 1;
       ctx.save(); ctx.translate(x + tk.width / 2, y); ctx.scale(ws, ws);
       ctx.lineWidth = f.size * .22; ctx.strokeStyle = '#000'; ctx.strokeText(tk.w, -tk.width / 2, 0);
-      ctx.fillStyle = on ? GOLD : '#fff'; ctx.fillText(tk.w, -tk.width / 2, 0); ctx.restore();
+      ctx.fillStyle = on ? (o.color || GOLD) : '#fff'; ctx.fillText(tk.w, -tk.width / 2, 0); ctx.restore();
       x += tk.width + sp;
     });
   });
@@ -719,11 +805,24 @@ function piperSession(onp) {
   return piperS[vid];
 }
 var VOICES = { hombre: { eleven: 'pNInz6obpgDQGcFmaJgB' }, mujer: { eleven: 'EXAVITQu4vr4xnSDxMaL' } };
+var kokoroP = null;
+function kokoro() { if (!kokoroP) kokoroP = import(new URL('vendor/kokoro/kokoro-es.js', location.href).href).catch(function (e) { kokoroP = null; throw e; }); return kokoroP; }
+function floatToWav(f, rate) {
+  var b = new Uint8Array(f.length * 2), v = new DataView(b.buffer);
+  for (var i = 0; i < f.length; i++) { var x = clamp(f[i], -1, 1); v.setInt16(i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return pcmToWav(b, rate);
+}
 function ttsChain(onp) {
   var v = VOICES[CFG.genero] || VOICES.hombre, list = [];
   if (geminiKey()) list.push({ id: 'gemini', name: 'Voz natural (Gemini)', whole: true, fn: geminiTTS });
   if (CFG.elevenKey) list.push({ id: 'mine', name: 'ElevenLabs', fn: function (tx) { return elevenDirect(tx, v.eleven); } });
+  list.push({ id: 'kokoro', name: 'Voz natural', fn: function (tx) {
+    return kokoro().then(function (K) { return K.speak(tx, { voice: CFG.genero === 'mujer' ? 'ef_dora' : 'em_alex', speed: 1.05, onProgress: onp }); })
+      .then(function (r) { return { ab: floatToWav(r.pcm, r.rate) }; });
+  } });
   list.push({ id: 'piper', name: 'Voz básica', fn: function (tx) {
+    // la voz básica no lee bien los acentos: se los quitamos para que no diga «a tilde»
+    tx = tx.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[¿¡]/g, '');
     return piperSession(onp).then(function (ses) { if (onp) onp('Generando la voz…'); return ses.predict(tx); }).then(function (blob) { return blob.arrayBuffer(); }).then(function (ab) { return { ab: ab }; });
   } });
   return list;
@@ -799,7 +898,7 @@ async function narrate(text, onp) {
       var bufs = [];
       for (var i = 0; i < parts.length; i++) {
         if (onp) onp('Voz: ' + chain[c].name + ' · frase ' + (i + 1) + '/' + parts.length);
-        var r = await withTimeout(chain[c].fn(parts[i]), i === 0 ? 240000 : 60000, 'La voz tardó demasiado');
+        var r = await withTimeout(chain[c].fn(parts[i]), i === 0 ? 900000 : 120000, 'La voz tardó demasiado');
         var buf = await decode(r.ab);
         bufs.push({ buf: buf, words: r.words && r.words.length ? r.words : null, text: parts[i] });
       }
@@ -1050,8 +1149,10 @@ function materialSummary() {
   var secs = v.reduce(function (a, c) { return a + (c.dur || 0); }, 0);
   return v.length + ' clips de video (' + Math.round(secs) + ' s en total)' + (p.length ? ' y ' + p.length + ' foto(s) del resultado' : ' sin foto final');
 }
-async function aiPlan(tpl, voiceWanted, chosenHook) {
+async function aiPlan(tpl, voiceWanted, chosenHook, secs) {
   var fb = localPlan(tpl, voiceWanted, chosenHook), I = ai();
+  var nCity = S.clips.filter(function (c) { return c.city; }).length, city = (CFG.ciudad || '').split(',')[0];
+  var recent = history().slice(0, 8).map(function (x) { return x.hook; }).filter(Boolean);
   if (!I) return fb;
   var days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   var p = 'TAREA: planea un REEL VIRAL de tatuaje para Instagram Reels y TikTok.\n'
@@ -1059,25 +1160,28 @@ async function aiPlan(tpl, voiceWanted, chosenHook) {
     + 'TATUAJE: ' + (S.desc ? S.desc : '(no lo describió: habla del tatuaje sin inventar el diseño exacto ni datos del cliente)') + '\n'
     + (S.about ? 'DE QUÉ QUIERE QUE TRATE EL VIDEO (PRIORIDAD, respétalo en gancho, textos y narración): ' + S.about + '\n' : '')
     + 'MATERIAL: ' + materialSummary() + '\n'
-    + 'FORMATO: ' + tpl.name + ' — ' + tpl.desc + '\n'
+    + 'FORMATO: ' + tpl.name + ' — ' + tpl.desc + (tpl.hint ? ' INSTRUCCIÓN DEL FORMATO: ' + fillVars(tpl.hint) : '') + '\n'
+    + 'DURACIÓN DEL REEL: ' + Math.round(secs) + ' segundos.\n'
+    + (nCity ? 'LOS PRIMEROS ' + nCity + ' CLIPS MUESTRAN LA CIUDAD DE ' + city.toUpperCase() + ': el gancho y los primeros segundos deben hablarle directo a la gente de ' + city + ' (por ejemplo: si eres de ' + city + ' y buscas tatuarte, quédate a ver cómo quedó), sin sonar repetitivo.\n' : '')
+    + (recent.length ? 'YA USÓ ESTOS GANCHOS (NO los repitas ni copies su estructura; cada reel debe sentirse distinto): ' + recent.join(' | ') + '\n' : '')
     + (tpl.custom && tpl.lines && tpl.lines.length ? 'TEXTOS DE REFERENCIA DEL VIRAL CLONADO: ' + tpl.lines.join(' | ') + '\n' : '')
     + (chosenHook ? 'GANCHO ELEGIDO (úsalo tal cual): ' + chosenHook + '\n' : 'Ejemplos de ganchos de este formato: ' + tpl.hooks.map(function (x) { return fillVars(x); }).join(' | ') + '\n')
     + 'HOY ES: ' + days[new Date().getDay()] + perfSummary() + '\n\n'
     + 'REGLAS:\n- El gancho es lo que se ve en el PRIMER segundo: máximo 8 palabras, que dé curiosidad o emoción. Marca 1 o 2 palabras clave con *asteriscos*.\n'
     + '- Nada de introducciones lentas. Nada de datos inventados: si mencionas significados o historia, que sean verídicos.\n'
-    + (voiceWanted ? '- "narracion": guion para voz en off de ' + (tpl.base === 'marca' ? '20 a 35' : '20 a 45') + ' segundos (unas 2.6 palabras por segundo). La PRIMERA frase repite la idea del gancho. Frases cortas. Termina invitando a agendar o comentar.\n' : '- "narracion": "" (este formato va sin voz).\n')
+    + (voiceWanted ? '- "narracion": guion para voz en off de unos ' + Math.max(8, Math.round(secs - 3)) + ' segundos (unas ' + Math.round(Math.max(8, secs - 3) * 2.4) + ' palabras). La PRIMERA frase repite la idea del gancho. Frases cortas. Termina invitando a agendar o comentar.\n' : '- "narracion": "" (este formato va sin voz).\n')
     + (tpl.base === 'pov' ? '- "lineas": 3 o 4 textos cortos tipo POV que cuentan la historia en orden (máx 9 palabras cada uno); el último va con el resultado.\n'
       : tpl.base === 'etapas' ? '- "lineas": nombres cortos de cada etapa en orden (ej. PLANTILLA, LÍNEA, SOMBRA, COLOR).\n'
       : '- "lineas": 1 texto corto para el resultado final (máx 6 palabras).\n')
     + (tpl.base === 'encuesta' ? '- "pregunta": pregunta final corta para que comenten.\n' : '')
-    + '- "segundos": duración ideal del reel para este formato hoy (número).\n'
+
     + '- "caption": 2 a 4 líneas con emojis, gancho + valor + llamada a agendar por DM.\n- "hashtags": 12 a 16, mezcla de grandes, de nicho (' + (CFG.estilo || '') + ') y locales (' + (CFG.ciudad || '') + ').\n'
     + '- "dia" y "hora": mejor día y hora para publicarlo (zona centro de México) en los próximos 7 días.\n'
     + '- "audio": qué tipo de audio en tendencia elegir en Instagram/TikTok para este reel (estilo, energía, si debe tener un golpe fuerte) en 1 frase.\n'
     + '- "cierre": texto final corto de llamada a la acción (máx 5 palabras).\n\n'
-    + 'Responde SOLO JSON con estas claves: gancho, lineas, narracion, pregunta, segundos, caption, hashtags, dia, hora, audio, cierre.';
+    + 'Responde SOLO JSON con estas claves: gancho, lineas, narracion, pregunta, caption, hashtags, dia, hora, audio, cierre.';
   try {
-    var j = await withTimeout(I.json(p, { maxTokens: 1400, temperature: .9, verify: tpl.base === 'significado' }), 120000, 'La IA tardó demasiado');
+    var j = await withTimeout(I.json(p, { maxTokens: 1600, temperature: 1, verify: tpl.base === 'significado' }), 120000, 'La IA tardó demasiado');
     var tags = Array.isArray(j.hashtags) ? j.hashtags : String(j.hashtags || '').split(/[\s,]+/);
     tags = tags.map(function (x) { x = String(x).trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return x ? (x[0] === '#' ? x : '#' + x) : ''; }).filter(Boolean);
     return {
@@ -1092,7 +1196,7 @@ function localPlan(tpl, voiceWanted, chosenHook) {
   var r = Math.random, hooks = tpl.hooks.map(function (x) { return fillVars(x); });
   var hook = chosenHook || hooks[Math.floor(r() * hooks.length)];
   var d = S.desc || 'este tatuaje', city = (CFG.ciudad || '').split(',')[0];
-  var narr = voiceWanted && S.about ? (hook.replace(/\*/g, '') + '. ' + S.about.replace(/\.?$/, '.') + ' Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : voiceWanted ? (hook.replace(/\*/g, '') + '. Este es ' + d + '. Cada línea y cada sombra está pensada para que dure toda la vida. Trabajo ' + (CFG.estilo || 'tatuaje') + ' desde ' + city + '. Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : '';
+  var narr = voiceWanted && S.about ? (hook.replace(/\*/g, '') + '. ' + S.about.replace(/\.?$/, '.') + ' Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : voiceWanted ? (hook.replace(/\*/g, '') + '. Hoy toca: ' + d + '. Cada línea y cada sombra está pensada para que dure toda la vida. Trabajo ' + (CFG.estilo || 'tatuaje') + ' desde ' + city + '. Si quieres el tuyo, mándame mensaje y lo diseñamos juntos.') : '';
   var tg = ['#tattoo', '#tatuajes', '#tattooartist', '#tattoomexico', '#inked', '#' + (CFG.estilo || 'tattoo').normalize('NFD').replace(/[^a-z]/gi, '').toLowerCase() + 'tattoo', '#neojapanese', '#japanesetattoo', '#colortattoo', '#tatuador', '#' + city.replace(/\s/g, '').toLowerCase(), '#veracruz', '#tattooideas', '#reels'];
   return { hook: hook, lines: tpl.base === 'etapas' ? defaultStages(Math.min(5, Math.max(1, S.clips.filter(function (c) { return c.kind === 'video'; }).length))) : tpl.base === 'pov' ? ['Le dije: confía en mí', 'Horas de línea y color', 'Cada detalle a mano', '…y así quedó 🔥'] : ['Resultado final ✨'],
     narration: narr, question: tpl.base === 'encuesta' ? hook : '', seconds: Math.round((tpl.dur[0] + tpl.dur[1]) / 2),
@@ -1147,7 +1251,7 @@ function detectCuts(file, onp) {
     v.muted = true; v.playsInline = true; v.src = url;
     var cv = document.createElement('canvas'), cw = 48, chh = 86; cv.width = cw; cv.height = chh;
     var ctx = cv.getContext('2d', { willReadFrequently: true }), prevH = null, prevG = null, diffs = [], done = false;
-    function frame() {
+    function frame(mt) {
       ctx.drawImage(v, 0, 0, cw, chh);
       var d = ctx.getImageData(0, 0, cw, chh).data, hst = new Float32Array(48), g = new Float32Array(cw * chh);
       for (var i = 0, j = 0; i < d.length; i += 4, j++) { hst[d[i] >> 4]++; hst[16 + (d[i + 1] >> 4)]++; hst[32 + (d[i + 2] >> 4)]++; g[j] = (d[i] + d[i + 1] + d[i + 2]) / 3; }
@@ -1155,7 +1259,7 @@ function detectCuts(file, onp) {
         var hd = 0, pd = 0, N = cw * chh;
         for (var k = 0; k < 48; k++) hd += Math.abs(hst[k] - prevH[k]); hd /= (N * 6);
         for (var q = 0; q < N; q++) pd += Math.abs(g[q] - prevG[q]); pd /= (N * 255);
-        diffs.push({ t: v.currentTime, d: hd * .6 + pd * 1.4 });
+        diffs.push({ t: mt != null ? mt : v.currentTime, d: hd * .6 + pd * 1.4 });
       }
       prevH = hst; prevG = g;
     }
@@ -1174,9 +1278,9 @@ function detectCuts(file, onp) {
     v.onloadedmetadata = function () {
       if (!isFinite(v.duration) || v.duration <= 0) { reject(new Error('No se pudo leer el video')); return; }
       if (v.duration > 90) { reject(new Error('El video viral debe durar menos de 90 s')); return; }
-      v.playbackRate = 2;
+      v.playbackRate = 1; // a velocidad normal: cada cuadro se revisa y los cortes salen exactos
       var useR = 'requestVideoFrameCallback' in v;
-      function loop() { if (done) return; frame(); if (onp) onp(v.currentTime / v.duration); if (v.ended) return finish(); if (useR) v.requestVideoFrameCallback(loop); else setTimeout(loop, 20); }
+      function loop(now, meta) { if (done) return; frame(meta && meta.mediaTime); if (onp) onp(v.currentTime / v.duration); if (v.ended) return finish(); if (useR) v.requestVideoFrameCallback(loop); else setTimeout(loop, 20); }
       v.onended = function () { setTimeout(finish, 100); };
       v.play().then(function () { if (useR) v.requestVideoFrameCallback(loop); else loop(); }).catch(function () { reject(new Error('El navegador no dejó reproducir el video')); });
     };
@@ -1222,6 +1326,8 @@ function autoTemplate(exclude) {
     if ((b === 'narrado' || b === 'marca') && secs > 40) x += .3;
     if (b === 'significado') x *= S.desc ? 1.3 : .25;
     if (t.custom) x += .4;
+    if (S.clips.some(function (c) { return c.city; })) { if (k === 'local') x += 1.5; else if (b === 'marca') x += .4; }
+    if (t.cuts) x *= .5;
     return Math.max(.02, x);
   });
   var tot = w.reduce(function (a, b) { return a + b; }, 0), pick = r() * tot;
@@ -1235,11 +1341,24 @@ async function prepareMusic() {
   S.music = { file: S.musicFile, buffer: buf, beats: bt };
   return S.music;
 }
+// Duración: la que elijas, o automática según cuánto material subiste (más clips = reel más largo)
+function targetSeconds(tpl, voiceWanted) {
+  if (tpl.cuts) return tpl.cloneDur;
+  if (S.dur && S.dur !== 'auto') return +S.dur;
+  var M = S.clips.reduce(function (a, c) { return a + (c.kind === 'image' ? 2.5 : (c.dur || 6)); }, 0), r = Math.random();
+  var T = voiceWanted ? M * (.4 + r * .15) : M * (.3 + r * .15);
+  T = clamp(T, voiceWanted ? 18 : 10, 120);
+  T = Math.max(T, tpl.dur[0] * .85);
+  if (tpl.base === 'encuesta') T = Math.min(T, 20);
+  if (!S.clips.some(function (c) { return c.kind === 'video'; })) T = Math.min(T, 10 + 3 * S.clips.length);
+  return Math.round(T);
+}
 async function createOne(tplKey, idx, step) {
   var tpl = getTpl(tplKey), voiceWanted = tpl.cuts ? false : CFG.voz === 'off' ? false : (tpl.voice || CFG.voz === 'siempre');
   step('plan', 'La IA está escribiendo el gancho, textos y caption…');
   var hookChoice = S.hook && idx === 0 ? S.hook : '';
-  var plan = await aiPlan(tpl, voiceWanted, hookChoice);
+  var target = targetSeconds(tpl, voiceWanted);
+  var plan = await aiPlan(tpl, voiceWanted, hookChoice, target);
   var voice = null, voiceErr = '';
   if (voiceWanted && plan.narration) {
     step('voz', 'Generando la voz…');
@@ -1247,12 +1366,13 @@ async function createOne(tplKey, idx, step) {
   }
   step('arma', 'Armando cortes al ritmo…');
   var vids = S.clips.filter(function (c) { return c.kind === 'video'; });
-  var T = clamp(plan.seconds || tpl.dur[0], tpl.dur[0], tpl.dur[1]), voiceStart = .35;
-  if (voice) T = clamp(voice.dur + voiceStart + 2.6, 12, 75);
-  else if (voiceWanted) T = Math.min(T, 22); // sin voz, un reel narrado largo aburre
-  if (!vids.length) T = Math.min(T, 12);
-  if (tpl.cuts && vids.length) T = tpl.cloneDur;
-  var music = null, grid, bpm = tpl.bpm, offset = 0, beat = null;
+  var T = target, voiceStart = .35, rr = rng(Date.now() + idx * 31);
+  if (voice) T = Math.max(T, Math.min(150, voice.dur + voiceStart + 2.4));
+  if (tpl.cuts) T = tpl.cloneDur;
+  // cada reel con su propio look y ritmo
+  var look = { hookY: [.2, .2, .26][Math.floor(rr() * 3)], hookFont: rr() < .7 ? 'bebas' : 'mont', subColor: [GOLD, GOLD, '#FF4D4D', '#3BE3A6'][Math.floor(rr() * 4)],
+    pool: [['whip', 'zoom', 'dissolve'], ['zoom', 'dissolve', 'glitch'], ['whip', 'dissolve', 'flash'], ['dissolve', 'zoom']][Math.floor(rr() * 4)], revTr: rr() < .5 ? 'zoom' : 'dissolve', pulse: rr() < .45 };
+  var music = null, grid, bpm = Math.round(tpl.bpm * (.88 + rr() * .24)), offset = 0, beat = null;
   if (S.audio === 'clone' && tpl.hasAudio) {
     var ab = await IDB.get(tpl.key);
     if (ab) { var cb = await decode(ab); music = { buffer: cb, beats: detectBeats(cb) }; bpm = music.beats.bpm; grid = music.beats.beats.slice(); if (!grid.length || grid[0] > .05) grid.unshift(0); }
@@ -1270,12 +1390,12 @@ async function createOne(tplKey, idx, step) {
     }
   }
   if (!grid) grid = gridFor(bpm, T, 0);
-  var edl = buildEDL({ tpl: tpl, T: T, grid: grid, plan: plan, words: voice ? voice.words : null, voiceStart: voiceStart, seed: Date.now() + idx * 977, clips: S.clips });
+  var edl = buildEDL({ tpl: tpl, T: T, grid: grid, plan: plan, words: voice ? voice.words : null, voiceStart: voiceStart, seed: Date.now() + idx * 977, clips: S.clips, look: look });
   if (S.audio === 'beat') beat = { bpm: bpm, R: edl.reveal, hookEnd: edl.overlays[0] ? edl.overlays.filter(function (o) { return o.type === 'hook'; })[0].to : 2 };
   R._t.lastEDL = edl.shots.map(function (x) { return [x.role, x.clip.name, +x.outDur.toFixed(2), +(x.srcStart || 0).toFixed(2), +(x.speed || 1).toFixed(2)]; });
   step('audio', 'Mezclando audio…');
   var sfx = [];
-  if (CFG.sfx) {
+  if (CFG.sfx && !edl.exact) {
     sfx.push({ t: .02, type: 'whoosh', d: .4 });
     edl.shots.forEach(function (x) {
       if (x.tr === 'whip' || x.tr === 'zoom') sfx.push({ t: x.outStart - .16, type: 'whoosh', d: .34 });
@@ -1365,6 +1485,15 @@ var CSS = '\
 .rv-clone{margin-top:10px;padding:14px;border:1px solid #2a2414;background:#14110a;border-radius:14px;display:none}.rv-clone.on{display:block}\
 .rv-vcard{margin-top:12px;padding:14px;border:1px solid #2a2414;background:#14110a;border-radius:14px;font-size:13px;line-height:1.5;color:#bdbdbd}.rv-vcard b{display:block;color:#f2f2f2;font-size:14.5px;font-weight:500;margin-bottom:2px}.rv-vcard ol{margin:8px 0 10px;padding-left:18px}.rv-vcard a{color:#E8B64A}.rv-vcard small{display:block;color:#7a7a7a;margin-top:8px;font-size:11.5px}\
 .rv-ok{margin-top:10px;font-size:13px;color:#7fd39b}\
+.rv-hint{font-size:12px;color:#777;line-height:1.45;margin-top:10px}\
+.rv-th .pin{position:absolute;left:5px;bottom:28px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.6);font-size:12px;cursor:pointer;opacity:.55;padding:0}.rv-th .pin.on{background:#E8B64A;opacity:1}\
+.rv-dd{border:1px solid #2a2a2a;border-radius:14px;background:#121212;overflow:hidden}\
+.rv-dd-h{width:100%;display:flex;align-items:center;gap:12px;padding:14px;background:none;border:none;color:#f2f2f2;text-align:left;cursor:pointer;font-family:inherit}\
+.rv-dd-h .e,.rv-row-it .e{font-size:22px;width:30px;text-align:center;flex:none}.rv-dd-h .t,.rv-row-it .t{flex:1;min-width:0}.rv-dd-h b,.rv-row-it b{display:block;font-size:15px;font-weight:500}.rv-dd-h small,.rv-row-it small{display:block;font-size:12px;color:#868686;line-height:1.35;margin-top:2px}\
+.rv-dd-h .ar{color:#E8B64A;font-size:16px;transition:transform .2s}.rv-dd.open .rv-dd-h .ar{transform:rotate(180deg)}\
+.rv-dd-l{display:none;border-top:1px solid #222;max-height:56vh;overflow-y:auto}.rv-dd.open .rv-dd-l{display:block}\
+.rv-grp{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#E8B64A;padding:12px 14px 4px}\
+.rv-row-it{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;position:relative}.rv-row-it.on{background:#17140c}.rv-row-it.on b{color:#E8B64A}.rv-row-it .del{border:none;background:none;color:#666;font-size:14px;cursor:pointer}\
 .rv-clone ol{margin:0 0 12px;padding-left:18px;color:#b9b9b9;font-size:13px;line-height:1.6}\
 ';
 var STEPS = ['Material', 'Estilo', 'Audio'];
@@ -1381,14 +1510,16 @@ function build() {
     + '<div class="rv-steps" id="rv-steps">' + STEPS.map(function (x) { return '<div><i></i>' + x + '</div>'; }).join('') + '</div>'
     + '<div class="rv-body" id="rv-body">'
     // PASO 1
-    + '<div class="rv-page" data-p="1"><div class="rv-h1">Sube tu tatuaje</div><p class="rv-p">Elige los clips del proceso y la foto del resultado. Se acomodan solos en el orden en que los grabaste.</p>'
+    + '<div class="rv-page" data-p="1"><div class="rv-h1">Sube tu tatuaje</div><p class="rv-p">Súbelos en el orden en que quieres que salgan: el primero abre el video y el último es el resultado. Puedes moverlos con ‹ ›.</p>'
     + '<label class="rv-up" for="rv-file"><div class="pl">＋</div><b>Elegir videos y fotos</b><span>Puedes elegir varios a la vez</span></label><input type="file" id="rv-file" accept="video/*,image/*" multiple hidden>'
-    + '<div class="rv-thumbs" id="rv-clips"></div>'
+    + '<div class="rv-thumbs" id="rv-clips"></div><div class="rv-hint" id="rv-city-hint">📍 Toca el pin en los clips que son de tu ciudad: el video empezará hablándole a la gente de ahí.</div>'
     + '<div class="rv-lb">¿Qué tatuaje es? (opcional)</div><div class="rv-row"><input class="rv-in" id="rv-desc" placeholder="Ej. carpa koi con flor de cerezo"><button class="rv-mic" data-for="rv-desc" aria-label="Dictar">🎤</button></div>'
     + '<div class="rv-lb">¿De qué quieres que trate el video? (opcional)</div><div class="rv-row" style="align-items:flex-start"><textarea class="rv-in" id="rv-about" rows="3" style="resize:none" placeholder="Ej. que explique que el koi significa perseverancia, que fueron 6 horas y que es su primer tatuaje a color"></textarea><button class="rv-mic" data-for="rv-about" aria-label="Dictar">🎤</button></div></div>'
     // PASO 2
     + '<div class="rv-page" data-p="2"><div class="rv-h1">Elige el estilo</div><p class="rv-p">Si no sabes cuál, deja «Automático».</p>'
-    + '<div class="rv-list" id="rv-tpls"></div>'
+    + '<div class="rv-dd" id="rv-dd"><button class="rv-dd-h" id="rv-dd-h"></button><div class="rv-dd-l" id="rv-tpls"></div></div>'
+    + '<div class="rv-lb">Duración del reel</div><div class="rv-seg" id="rv-dur"><button data-d="auto">Auto</button><button data-d="15">15 s</button><button data-d="30">30 s</button><button data-d="60">1 min</button><button data-d="120">2 min</button></div>'
+    + '<div class="rv-hint">En «Auto» se ajusta a tu material: pocos clips → reel corto, muchos clips → 1 o 2 minutos.</div>'
     + '<button class="rv-link" id="rv-cl-toggle">🔁 Copiar un video viral que te gustó</button>'
     + '<div class="rv-clone" id="rv-clone"><ol><li>Guarda el video en tu celular (TikTok: Compartir → Guardar video. Instagram: grabación de pantalla).</li><li>Súbelo aquí. La app copia sus cortes, su ritmo y su audio.</li></ol>'
     + '<label class="rv-up" for="rv-cl-file" style="padding:16px"><b id="rv-cl-fname">Subir el video viral</b><span>Máximo 90 segundos</span></label><input type="file" id="rv-cl-file" accept="video/*" hidden>'
@@ -1400,7 +1531,11 @@ function build() {
     + '<div class="rv-list" id="rv-audio">'
     + '<div class="rv-it" data-a="trend"><div class="e">🔥</div><div class="t"><b>Audio en tendencia<i class="rv-tag">MEJOR</i></b><span>Al subirlo a Instagram o TikTok le pones el audio que está pegando. El algoritmo te empuja más.</span></div><div class="r"></div></div>'
     + '<div class="rv-it" data-a="clone" id="rv-a-clone" style="display:none"><div class="e">🔁</div><div class="t"><b>Audio del viral</b><span>El mismo audio del video que copiaste.</span></div><div class="r"></div></div>'
-    + '<div class="rv-it" data-a="mine"><div class="e">🎵</div><div class="t"><b>Mi canción</b><span id="rv-music-st">Sube un audio; los cortes caen en cada golpe.</span></div><div class="r"></div></div>'
+    + '<div class="rv-it" data-a="mine"><div class="e">🎵</div><div class="t"><b>Audio de un TikTok o mi canción</b><span id="rv-music-st">Usa el audio de cualquier video o canción; los cortes caen en cada golpe.</span></div><div class="r"></div></div>'
+    + '<div class="rv-clone" id="rv-tk"><ol><li>Pega el link y ábrelo, o búscalo en TikTok.</li><li>En TikTok: Compartir → <b>Guardar video</b> (en Instagram: grabación de pantalla).</li><li>Súbelo aquí: tomo su audio completo y su ritmo.</li></ol>'
+    + '<div class="rv-row"><input class="rv-in" id="rv-tk-link" placeholder="Link del TikTok (opcional)"><button class="rv-b g" id="rv-tk-open" style="flex:0 0 auto;padding:13px 16px">Abrir ↗</button></div>'
+    + '<button class="rv-b full" id="rv-tk-up" style="margin-top:10px">Subir el video o el audio</button>'
+    + '<div class="rv-hint">Con solo el link no se puede: TikTok no deja que una app web descargue sus videos.</div></div>'
     + '<div class="rv-it" data-a="beat"><div class="e">🥁</div><div class="t"><b>Música INKBOT</b><span>Música japonesa libre de derechos, con golpe en el resultado.</span></div><div class="r"></div></div>'
     + '</div><input type="file" id="rv-music" accept="audio/*,video/mp4" hidden>'
     + '<div class="rv-lb">Voz narrando</div><div class="rv-seg" id="rv-voz"><button data-v="auto">Automático</button><button data-v="siempre">Sí</button><button data-v="off">No</button></div>'
@@ -1427,7 +1562,7 @@ function build() {
     + '<div class="rv-sec"><h3>Tu marca</h3>'
     + '<div class="rv-lb">Usuario</div><input class="rv-in" id="rv-c-handle"><div class="rv-lb">Ciudad</div><input class="rv-in" id="rv-c-ciudad"><div class="rv-lb">Estilo</div><input class="rv-in" id="rv-c-estilo"><div class="rv-lb">Texto final</div><input class="rv-in" id="rv-c-cta">'
     + '<div class="rv-lb">Texto final («Agenda por DM»)</div><div class="rv-seg" id="rv-c-marca"><button data-m="1">Sí</button><button data-m="0">No</button></div></div>'
-    + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">Voz natural: llave gratis de Google AI Studio. Si tienes ElevenLabs, también puedes usar tu llave.</p><input class="rv-in" id="rv-c-gem" type="password" placeholder="Llave gratis de Gemini (AIza…)"><div style="height:8px"></div><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)"></div>'
+    + '<div class="rv-sec"><h3>Voz</h3><p class="rv-p">La voz natural ya es gratis y sin llaves. Opcional: con una llave gratis de Google AI Studio se usa la voz premium de Google y los textos salen al instante.</p><input class="rv-in" id="rv-c-gem" type="password" placeholder="Llave gratis de Gemini (AIza…)"><div style="height:8px"></div><input class="rv-in" id="rv-c-eleven" type="password" placeholder="Llave de ElevenLabs (opcional)"></div>'
     + '<div class="rv-sec"><h3>IA de textos</h3><p class="rv-p" id="rv-ai-info"></p></div>'
     + '<div class="rv-sec"><h3>¿Qué está pegando?</h3><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es">Canciones en tendencia de TikTok ↗</a><a class="rv-a" target="_blank" rel="noopener" href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es">Hashtags en tendencia de TikTok ↗</a><p class="rv-p" style="margin-top:6px">En Instagram, los audios con la flechita ↗ son los que están en tendencia.</p></div>'
     + '<button class="rv-b full" id="rv-c-save">Guardar</button></div></div></div>';
@@ -1477,6 +1612,8 @@ function wire() {
   $$('.rv-mic', root).forEach(function (b) { b.onclick = function () { dictate(b); }; });
   $('#rv-about').oninput = function (e) { S.about = e.target.value.trim(); };
   // clonar viral
+  $('#rv-dd-h').onclick = function () { $('#rv-dd').classList.toggle('open'); };
+  segWire('#rv-dur', 'd', function (v) { S.dur = v; }, function () { return S.dur || 'auto'; });
   $('#rv-cl-toggle').onclick = function () { $('#rv-clone').classList.toggle('on'); };
   $('#rv-cl-file').onchange = function (e) { var f = e.target.files[0]; if (!f) return; S.cloneFile = f; $('#rv-cl-fname').textContent = '✓ ' + f.name; e.target.value = ''; };
   $('#rv-cl-go').onclick = function () {
@@ -1493,11 +1630,13 @@ function wire() {
   };
   // audio
   $$('.rv-it', $('#rv-audio')).forEach(function (o) {
-    o.onclick = function () { S.audio = o.dataset.a; renderAudio(); if (S.audio === 'mine' && !S.musicFile) $('#rv-music').click(); };
+    o.onclick = function () { S.audio = o.dataset.a; renderAudio(); };
   });
+  $('#rv-tk-up').onclick = function () { $('#rv-music').click(); };
+  $('#rv-tk-open').onclick = function () { var u = $('#rv-tk-link').value.trim(); if (/^https?:\/\//.test(u)) window.open(u, '_blank', 'noopener'); else window.open('https://www.tiktok.com/', '_blank', 'noopener'); };
   $('#rv-music').onchange = function (e) {
     var f = e.target.files[0]; if (!f) return; S.musicFile = f; S.music = null; $('#rv-music-st').textContent = 'Leyendo el ritmo…';
-    prepareMusic().then(function (m) { $('#rv-music-st').textContent = '✓ ' + f.name + ' · ' + Math.round(m.beats.bpm) + ' BPM'; })
+    prepareMusic().then(function (m) { $('#rv-music-st').textContent = '✓ Audio listo: ' + f.name + ' · ' + Math.round(m.buffer.duration) + ' s · ' + Math.round(m.beats.bpm) + ' BPM'; })
       .catch(function () { S.musicFile = null; $('#rv-music-st').textContent = '⚠ No se pudo leer ese audio. Prueba con un MP3.'; });
   };
   segWire('#rv-voz', 'v', function (v) { CFG.voz = v; saveCfg(); }, function () { return ['auto', 'siempre', 'off'].indexOf(CFG.voz) >= 0 ? CFG.voz : 'auto'; });
@@ -1508,9 +1647,9 @@ function wire() {
   $('#rv-hname').textContent = CFG.handle;
   $('#rv-listen').onclick = function () {
     var b = this; if (b.disabled) return; b.disabled = true; b.textContent = '…';
-    narrate(CFG.genero === 'mujer' ? 'Hola, así quedó este tatuaje. ¿Qué te parece? Agenda tu cita por mensaje.' : 'Hola, así quedó este tatuaje. ¿Qué te parece? Agenda tu cita por mensaje.', function (m) { b.textContent = '…'; })
-      .then(function (r) { var a = new Audio(URL.createObjectURL(new Blob([toWav(r.buffer, 15)], { type: 'audio/wav' }))); a.play(); toast(r.engine); })
-      .catch(function (e) { toast('No se pudo: ' + e.message); }).then(function () { b.disabled = false; b.textContent = '▶ Escuchar'; });
+    narrate('Hola, así quedó este tatuaje. ¿Qué te parece? Agenda tu cita por mensaje.', function (m) { $('#rv-vnat').innerHTML = '<div class="rv-ok" style="color:#E8B64A">' + esc(m) + '</div>'; })
+      .then(function (r) { renderVoice(); var a = new Audio(URL.createObjectURL(new Blob([toWav(r.buffer, 15)], { type: 'audio/wav' }))); a.play(); toast(r.engine); })
+      .catch(function (e) { renderVoice(); toast('No se pudo: ' + e.message); }).then(function () { b.disabled = false; b.textContent = '▶ Escuchar'; });
   };
   renderVoice();
   segWire('#rv-c-marca', 'm', function (v) { CFG.marca = v === '1'; saveCfg(); }, function () { return CFG.marca ? '1' : '0'; });
@@ -1533,12 +1672,8 @@ function setGemKey(k) {
 }
 function renderVoice() {
   var box = $('#rv-vnat'); if (!box) return;
-  if (geminiKey()) { box.innerHTML = '<div class="rv-ok">✓ Voz natural activada</div>'; return; }
-  box.innerHTML = '<div class="rv-vcard"><b>Voz natural gratis</b><span>Ahora mismo usa la voz básica (se oye robótica). Actívala una sola vez y suena como persona real:</span>'
-    + '<ol><li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Abre Google AI Studio ↗</a> con tu cuenta de Google.</li><li>Toca «Create API key» y cópiala.</li><li>Pégala aquí:</li></ol>'
-    + '<div class="rv-row"><input class="rv-in" id="rv-gem-in" type="password" placeholder="AIza…"><button class="rv-b" id="rv-gem-ok" style="flex:0 0 auto;padding:13px 18px">Listo</button></div>'
-    + '<small>Es gratis y sin tarjeta. También hace que los textos con IA salgan al instante.</small></div>';
-  $('#rv-gem-ok').onclick = function () { var k = $('#rv-gem-in').value.trim(); if (!/^AIza/.test(k)) return toast('Esa llave no parece de Gemini (empieza con AIza)'); setGemKey(k); renderVoice(); toast('Voz natural activada'); };
+  box.innerHTML = geminiKey() ? '<div class="rv-ok">✓ Voz premium de Google activada</div>'
+    : '<div class="rv-ok" style="color:#9a9a9a">Voz natural gratis: la primera vez se descarga (~90 MB, mejor con wifi) y queda guardada en tu celular.</div>';
 }
 function fillSettings() {
   ['handle', 'ciudad', 'estilo', 'cta'].forEach(function (k) { $('#rv-c-' + k).value = CFG[k] || ''; });
@@ -1572,7 +1707,6 @@ function addFiles(list) {
   var files = Array.prototype.slice.call(list || []).filter(function (f) { return /^(video|image)\//.test(f.type) || /\.(mp4|mov|m4v|webm|3gp|jpe?g|png|webp|heic)$/i.test(f.name); });
   if (!files.length) return;
   files.forEach(function (f) { S.clips.push({ id: uid(), file: f, name: f.name, kind: /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name) ? 'image' : 'video', url: URL.createObjectURL(f), lm: f.lastModified || 0 }); });
-  S.clips.sort(function (a, b) { if (a.kind !== b.kind) return a.kind === 'video' ? -1 : 1; return a.lm - b.lm; });
   renderClips(); S.clips.forEach(makeThumb);
 }
 function renderClips() {
@@ -1582,31 +1716,36 @@ function renderClips() {
     if (inner) return inner;
     return '<div class="rv-th">' + (c.thumb === 'x' ? '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:24px">🎬</div>' : '<img src="' + c.thumb + '" alt="">')
       + '<span class="n">' + (i + 1) + '</span><span class="k">' + (c.kind === 'video' ? (c.dur ? Math.round(c.dur) + ' s' : 'video') : 'foto') + '</span>'
-      + '<button class="x" data-act="x" data-i="' + i + '">✕</button><div class="mv"><button data-act="u" data-i="' + i + '">‹</button><button data-act="d" data-i="' + i + '">›</button></div></div>';
+      + '<button class="x" data-act="x" data-i="' + i + '">✕</button><button class="pin' + (c.city ? ' on' : '') + '" data-act="c" data-i="' + i + '" aria-label="Clip de mi ciudad">📍</button><div class="mv"><button data-act="u" data-i="' + i + '">‹</button><button data-act="d" data-i="' + i + '">›</button></div></div>';
   }).join('');
   $$('button', box).forEach(function (b) {
     b.onclick = function () {
       var i = +b.dataset.i, a = b.dataset.act;
       if (a === 'x') { URL.revokeObjectURL(S.clips[i].url); S.clips.splice(i, 1); }
+      if (a === 'c') { S.clips[i].city = !S.clips[i].city; if (S.clips[i].city) toast('📍 Clip de ' + (CFG.ciudad || '').split(',')[0] + ': el video abrirá hablándole a la gente de ahí'); }
       if (a === 'u' && i > 0) S.clips.splice(i - 1, 0, S.clips.splice(i, 1)[0]);
       if (a === 'd' && i < S.clips.length - 1) S.clips.splice(i + 1, 0, S.clips.splice(i, 1)[0]);
       renderClips();
     };
   });
   if (UI.step === 1) footer();
+  var ch = $('#rv-city-hint'); if (ch) ch.style.display = S.clips.length ? 'block' : 'none';
 }
+function tplItem(k) { if (k === 'auto') return { key: 'auto', emoji: '✨', name: 'Automático', desc: 'La app elige el mejor formato para tu material.', tag: 'RECOMENDADO' }; var t = getTpl(k); return { key: k, emoji: t.custom ? (t.cuts ? '🔁' : '⭐') : t.emoji, name: t.name, desc: t.desc, custom: !!t.custom }; }
 function renderTpls() {
-  var box = $('#rv-tpls'), cs = customTpls();
-  var items = [{ key: 'auto', emoji: '✨', name: 'Automático', desc: 'La app elige el mejor formato para tu material.', tag: 'RECOMENDADO' }]
-    .concat(cs.map(function (c) { return { key: c.id, emoji: c.cuts ? '🔁' : '⭐', name: c.name, desc: c.notes || 'Plantilla copiada', custom: true }; }))
-    .concat(BASES.map(function (k) { return { key: k, emoji: TPL[k].emoji, name: TPL[k].name, desc: TPL[k].desc }; }));
-  box.innerHTML = items.map(function (t) { return '<div class="rv-it' + (S.tpl === t.key ? ' on' : '') + '" data-k="' + t.key + '"><div class="e">' + t.emoji + '</div><div class="t"><b>' + esc(t.name) + (t.tag ? '<i class="rv-tag">' + t.tag + '</i>' : '') + '</b><span>' + esc(t.desc) + '</span></div>' + (t.custom ? '<button class="del" data-del="' + t.key + '" aria-label="Borrar">✕</button>' : '') + '<div class="r"></div></div>'; }).join('');
-  $$('.rv-it', box).forEach(function (el) {
+  var box = $('#rv-tpls'), cs = customTpls(), cur = tplItem(TPL[S.tpl] || S.tpl === 'auto' || cs.some(function (c) { return c.id === S.tpl; }) ? S.tpl : 'auto');
+  $('#rv-dd-h').innerHTML = '<span class="e">' + cur.emoji + '</span><span class="t"><b>' + esc(cur.name) + '</b><small>' + esc(cur.desc) + '</small></span><span class="ar">▾</span>';
+  function row(k) { var t = tplItem(k); return '<div class="rv-row-it' + (S.tpl === k ? ' on' : '') + '" data-k="' + k + '"><span class="e">' + t.emoji + '</span><span class="t"><b>' + esc(t.name) + (t.tag ? '<i class="rv-tag">' + t.tag + '</i>' : '') + '</b><small>' + esc(t.desc) + '</small></span>' + (t.custom ? '<button class="del" data-del="' + k + '" aria-label="Borrar">✕</button>' : '') + '</div>'; }
+  var html = row('auto');
+  if (cs.length) html += '<div class="rv-grp">Copiados de virales</div>' + cs.map(function (c) { return row(c.id); }).join('');
+  GROUPS.forEach(function (g) { html += '<div class="rv-grp">' + g[0] + '</div>' + g[1].map(row).join(''); });
+  box.innerHTML = html;
+  $$('.rv-row-it', box).forEach(function (el) {
     el.onclick = function (e) {
       if (e.target.dataset.del) { IDB.del(e.target.dataset.del); lsSet(LS.tpl, customTpls().filter(function (c) { return c.id !== e.target.dataset.del; })); if (S.tpl === e.target.dataset.del) S.tpl = 'auto'; if (S.audio === 'clone') S.audio = 'trend'; renderTpls(); renderAudio(); return; }
       S.tpl = el.dataset.k; S.hooksAI = []; S.hook = ''; var tt = S.tpl !== 'auto' && getTpl(S.tpl);
       if (tt && tt.hasAudio) S.audio = 'clone'; else if (S.audio === 'clone') S.audio = 'trend';
-      renderTpls(); renderHooks(); renderAudio();
+      $('#rv-dd').classList.remove('open'); renderTpls(); renderHooks(); renderAudio();
     };
   });
 }
@@ -1619,6 +1758,7 @@ function renderHooks() {
 }
 function renderAudio() {
   var tt = S.tpl !== 'auto' && getTpl(S.tpl), ca = $('#rv-a-clone'); if (ca) ca.style.display = tt && tt.hasAudio ? 'flex' : 'none';
+  var tk = $('#rv-tk'); if (tk) tk.classList.toggle('on', S.audio === 'mine');
   $$('.rv-it', $('#rv-audio')).forEach(function (o) { o.classList.toggle('on', o.dataset.a === S.audio); });
 }
 function resetAll() {
@@ -1767,17 +1907,49 @@ function renderHistory() {
   });
   $$('input', box).forEach(function (inp) { inp.onchange = function () { var hh = history(); hh.forEach(function (x) { if (x.id === inp.dataset.id) x.views = +inp.value || 0; }); lsSet(LS.hist, hh); toast('Guardado'); }; });
 }
+// ── Dictado: escucha sin cortarse hasta que vuelvas a tocar 🎤; luego limpia muletillas y ordena el texto ──
 var rec = null;
+function cleanLocal(t) {
+  var fill = /\b(e+h+|m+|mmm+|este+|o sea|pues|bueno|digamos|tipo|verdad|¿?no\?|osea|ajá|aja|ok|okay)\b[,.]?\s*/gi;
+  t = ' ' + t + ' ';
+  t = t.replace(fill, ' ').replace(/\b(\w+)(\s+\1\b)+/gi, '$1').replace(/\s+/g, ' ').replace(/\s+([,.?!])/g, '$1').trim();
+  if (t) t = t.charAt(0).toUpperCase() + t.slice(1);
+  if (t && !/[.!?]$/.test(t)) t += '.';
+  return t;
+}
 function dictate(b) {
   var SRx = window.SpeechRecognition || window.webkitSpeechRecognition, inp = $('#' + b.dataset.for);
   if (!SRx) return toast('Tu navegador no permite dictar aquí');
-  if (rec) { rec.stop(); return; }
-  rec = new SRx(); rec.lang = 'es-MX'; rec.interimResults = true; rec.continuous = false;
-  var base = inp.value ? inp.value + ' ' : '';
-  rec.onresult = function (e) { var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; inp.value = base + t; inp.dispatchEvent(new Event('input')); };
-  rec.onend = function () { rec = null; b.classList.remove('on'); };
-  rec.onerror = function () { toast('No se pudo dictar'); };
-  b.classList.add('on'); rec.start();
+  if (rec) { rec.active = false; try { rec.r.stop(); } catch (e) {} return; }
+  var base = inp.value ? inp.value + ' ' : '', finals = '', interim = '';
+  rec = { active: true, r: null };
+  b.classList.add('on'); inp.placeholder = 'Te escucho… toca 🎤 otra vez para terminar';
+  function show() { inp.value = base + finals + interim; }
+  function start() {
+    var r = new SRx(); rec.r = r; r.lang = 'es-MX'; r.interimResults = true; r.continuous = true;
+    r.onresult = function (e) {
+      interim = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) { var tx = e.results[i][0].transcript; if (e.results[i].isFinal) finals += tx.trim() + ' '; else interim += tx; }
+      show();
+    };
+    r.onerror = function (e) { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { rec.active = false; toast('Permite el micrófono para dictar'); } };
+    r.onend = function () {
+      if (rec && rec.active) { setTimeout(function () { if (rec && rec.active) try { start(); } catch (e) {} }, 150); return; } // se pausó por silencio: sigue escuchando
+      finish();
+    };
+    r.start();
+  }
+  function finish() {
+    var raw = (finals + interim).trim(); rec = null; b.classList.remove('on'); inp.placeholder = '';
+    if (!raw) { inp.value = base.trim(); return; }
+    var quick = cleanLocal(raw); inp.value = base + quick; inp.dispatchEvent(new Event('input'));
+    var I = window.INKAI; if (!I || !I.chat) return;
+    b.disabled = true; b.textContent = '✨';
+    I.chat('TAREA: limpia este dictado de un tatuador. Quita muletillas (este, o sea, pues, eh, bueno…), palabras repetidas y frases que se corrigió a sí mismo; ordena las ideas y escríbelo claro, con buena puntuación y ortografía, en español de México. NO agregues información nueva ni cambies el sentido. Responde SOLO con el texto final, sin comillas.\n\nDICTADO: ' + raw, { maxTokens: 500, temperature: .3 })
+      .then(function (t) { t = String(t || '').replace(/^["«“]|["»”]$/g, '').trim(); if (t && inp.value === base + quick) { inp.value = base + t; inp.dispatchEvent(new Event('input')); } })
+      .catch(function () {}).then(function () { b.disabled = false; b.textContent = '🎤'; });
+  }
+  try { start(); } catch (e) { rec = null; b.classList.remove('on'); toast('No se pudo dictar'); }
 }
 
 R.open = function () { build(); root.classList.add('show'); if (!S.busy && UI.step === 4 && !S.results.length) go(1); document.body.style.overflow = 'hidden'; };
