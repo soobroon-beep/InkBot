@@ -8,9 +8,14 @@ Botón **«Reels Virales»** en el menú principal. Código en `reels.js`; la vo
 3. **Música y voz:** audio en tendencia (lo pones al publicar), audio del viral, tu canción o música INKBOT. Voz narrando: automático / sí / no.
 4. **Crear:** sale el MP4 1080×1920 con caption, hashtags, día para publicar y qué audio ponerle. «Compartir» lo manda directo a Instagram o TikTok.
 
+## Edición
+- Transiciones (zoom, barrido, glitch, destello, disolvencia), pulso al ritmo, movimiento de cámara, grano, luz dorada y brillo en el resultado, textos animados palabra por palabra con caja dorada en la palabra clave, whoosh en las transiciones.
+- El video se reproduce a la velocidad que el celular aguante para que no se repitan cuadros (más fluido).
+- Si minimizas la app, se pausa y sigue sola al volver; la pantalla se queda encendida; los últimos 8 reels se guardan en ⚙ Tus reels.
+
 ## Gratis y sin ventanas
 - **Textos:** IA abierta de Pollinations, sin cuentas (1 respuesta por minuto aprox.). Para que sea instantánea, pon una llave gratis de Gemini o Groq en el menú principal.
-- **Voz:** Piper (español de México) corre dentro del celular; la primera vez descarga ~60 MB y queda guardada. Con tu llave de ElevenLabs (⚙ Ajustes) se usa esa.
+- **Voz natural (hombre o mujer):** Gemini TTS con una llave gratis de Google AI Studio (se pega una vez en el paso 3). Sin llave: voz básica dentro del celular (Piper). ElevenLabs opcional.
 
 ## Notas
 - Funciona en Chrome. Deja la app abierta mientras crea el video.

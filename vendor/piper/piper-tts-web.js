@@ -321,7 +321,7 @@ const _TtsSession = class _TtsSession {
         "/espeak-ng-data"
       ]);
     });
-    const speakerId = 0;
+    const speakerId = this.speakerId || 0;
     const sampleRate = __privateGet(this, _modelConfig).audio.sample_rate;
     const noiseScale = __privateGet(this, _modelConfig).inference.noise_scale;
     const lengthScale = __privateGet(this, _modelConfig).inference.length_scale;
