@@ -1,10 +1,11 @@
 // INKBOT PRO — Service Worker con cache offline
-const CACHE = 'inkbot-v19';
+const CACHE = 'inkbot-v20';
 const ASSETS = [
   './',
   './index.html',
   './reels.js',
-  './vendor/kokoro/kokoro-es.js',
+  './vendor/supertonic/supertonic-es.js',
+  './vendor/mp4box/mp4box.all.min.js',
   './vendor/piper/piper-tts-web.js',
   './vendor/piper/piper-o91UDS6e.js',
   './vendor/piper/voices_static-D_OtJDHM.js',
@@ -34,7 +35,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'inkbot-settings').map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'inkbot-settings' && k.indexOf('inkbot-voz') !== 0).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -51,6 +52,9 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(manifestConIcono(req));
     return;
   }
+
+  // Modelos de voz: los descarga y guarda la propia app (no duplicar en este caché)
+  if ((url.origin === self.location.origin && url.pathname.indexOf('/voz/') >= 0) || url.hostname === 'huggingface.co' || /(^|\.)hf\.co$/.test(url.hostname)) return;
 
   // Estudio: las llamadas a Google/Firebase (datos, login, Calendar, Drive) van directo a la red, sin caché
   if (/(^|\.)googleapis\.com$|(^|\.)firebaseapp\.com$|^accounts\.google\.com$|^apis\.google\.com$|(^|\.)firebaseio\.com$/.test(url.hostname)) return;

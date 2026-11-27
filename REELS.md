@@ -9,6 +9,8 @@ Botón **«Reels Virales»** en el menú principal. Código en `reels.js`; la vo
 4. **Crear:** sale el MP4 1080×1920 con caption, hashtags, día para publicar y qué audio ponerle. «Compartir» lo manda directo a Instagram o TikTok.
 
 ## Edición
+- **Lectura exacta de los clips:** cada cuadro se decodifica con WebCodecs (mp4box + VideoDecoder), respetando la rotación del celular. Nada se reproduce en tiempo real, así que no hay cuadros repetidos ni trabas. Si el celular no puede leer un formato, busca cada cuadro uno por uno (más lento, igual de exacto).
+- **Montaje que deja correr el video:** una toma continua por clip, en tu orden; solo si un clip es muy largo para su tiempo se hace un salto hacia adelante con una disolvencia corta. Nunca se repite un tramo ni se congela la imagen.
 - Respeta el orden en que subes los archivos: el primero abre, el último es el resultado (toma larga, sin cortes). 📍 marca clips de tu ciudad para un gancho local.
 - Duración automática según el material (de ~10 s hasta 2 min) o eliges 15 s / 30 s / 1 min / 2 min. Cada reel cambia de ritmo, textos, colores y transiciones.
 - Copiar un viral: mismos cortes exactos y mismo audio, sin efectos extra.
@@ -23,7 +25,7 @@ Botón **«Reels Virales»** en el menú principal. Código en `reels.js`; la vo
 
 ## Gratis y sin ventanas
 - **Textos:** IA abierta de Pollinations, sin cuentas (1 respuesta por minuto aprox.). Para que sea instantánea, pon una llave gratis de Gemini o Groq en el menú principal.
-- **Voz natural gratis (hombre o mujer):** Kokoro corre dentro del celular, sin llaves (descarga ~90 MB la primera vez). Trae su propio lector de español (acentos, ñ, ll). Opcional: Gemini TTS con llave gratis, o ElevenLabs.
+- **Voz natural gratis (hombre o mujer):** Supertonic 3 corre dentro del celular, sin llaves ni cuentas. El modelo (~140 MB, en `voz/st3/`, partido en piezas de 24 MB) se descarga la primera vez y queda guardado. Opcional: Gemini TTS con llave gratis, o ElevenLabs. Respaldo: Piper.
 - **Dictado:** escucha sin cortarse hasta que vuelves a tocar 🎤 y luego limpia muletillas y repeticiones.
 
 ## Notas
