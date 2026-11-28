@@ -1271,6 +1271,117 @@ function flattenDisliked(dislikedObj){
 }
 window.normalizeTxt=normalizeTxt;window.textSimilarity=textSimilarity;window.isTooSimilarToAny=isTooSimilarToAny;window.flattenDisliked=flattenDisliked;
 
+// ── TEMA: que lo que pidas sea DE VERDAD el tema (no solo la palabra) ─────────
+// Biblioteca de ideas auténticas por cultura/fecha → la IA elige símbolos que SÍ pertenecen al tema.
+// Filtros: descarta textos que digan «no tiene nada que ver», que metan símbolos de otra cultura
+// como protagonista, o que repitan un símbolo/nombre usado hace poco.
+var TEMA=(function(){
+  var LIB=[
+    {id:'japon',re:/jap[oó]n|japones|nip[oó]n|irezumi|samur|yokai|edo\b|tokio|kioto/i,
+     mk:['kitsune','tanuki','tengu','kappa','namakubi','fujin','raijin','ryujin','tsuru','daruma','kintaro','momotaro','suikoden','kuniyoshi','hokusai','yurei','jorogumo','komainu','baku','orochi','susanoo','oni','hannya','kabuki','horiyoshi','maneki','koi','sakura'],
+     ideas:['Kitsune, el zorro de nueve colas y mensajero de Inari','Tanuki y su fama de embaucador alegre','Tengu, el yōkai de la montaña con nariz larga','Kappa, el yōkai del agua y su plato en la cabeza','Namakubi, la cabeza cortada del irezumi clásico','Fūjin y Raijin, dioses del viento y el trueno (biombo de Sōtatsu)','Ryūjin, el dios dragón del mar','Hōō, el fénix japonés','Tsuru, la grulla y las mil grullas de Sadako Sasaki','Daruma y el ritual de pintarle los ojos','Kintarō, el niño fuerte que luchaba con una carpa','Momotarō, el niño que nació de un durazno y venció a los oni','El Suikoden ilustrado por Kuniyoshi (1827) y el boom del irezumi','La gran ola de Hokusai (c. 1831)','Yūrei, los fantasmas de cabello largo','Jorōgumo, la mujer araña','Komainu, los perros-león guardianes de los templos','Baku, el devorador de pesadillas','Yamata no Orochi y Susanoo','Fudō Myōō, el guardián del fuego','Kannon, la diosa de la compasión','Gama Sennin, el ermitaño del sapo','La prohibición del tatuaje en la era Meiji (1872)','Tomoe Gozen, la mujer samurái','Miyamoto Musashi','Los 47 rōnin','Botan, la peonía japonesa','Kiku, el crisantemo imperial','Momiji, la hoja de arce y el paso del tiempo','Horiyoshi III y el tebori a mano']},
+    {id:'mexico',re:/m[eé]xic|mexica|azteca|prehisp|mesoam|n[aá]huatl|chicano|veracruz|oaxaca/i,
+     mk:['quetzal','quetzalcoatl','mexica','azteca','catrina','xolotl','coatlicue','tezcatlipoca','huitzilopochtli','mictlan','tlaloc','alebrije','guadalupe','cempasuchil','nahual'],
+     ideas:['Quetzalcóatl, la serpiente emplumada','Xólotl y el xoloitzcuintle que guía al Mictlán','Coatlicue, la de la falda de serpientes','Tezcatlipoca y su espejo humeante','Huitzilopochtli y el colibrí guerrero','La Catrina de José Guadalupe Posada (c. 1912)','Los alebrijes de Pedro Linares (1936)','Tláloc, dios de la lluvia','Mayahuel y el maguey','Guerreros águila y jaguar','La piedra del sol','El águila y la serpiente de la fundación de Tenochtitlan','El nahual','La mariposa monarca y Michoacán','El corazón sagrado mexicano','El pachuco y el black and grey chicano']},
+    {id:'nordico',re:/n[oó]rdic|viking|escandinav|odin|od[ií]n|thor|asgard|runa/i,
+     mk:['yggdrasil','valknut','vegvisir','mjolnir','huginn','muninn','fenrir','jormungandr','sleipnir','valquiria','odin','thor','loki','freyja','ragnarok','runa'],
+     ideas:['Yggdrasil, el árbol que une los nueve mundos','El valknut y los caídos de Odín','Huginn y Muninn, pensamiento y memoria','Fenrir, el lobo encadenado','Jörmungandr, la serpiente del mundo','Mjölnir, el martillo de Thor','Sleipnir, el caballo de ocho patas','Las valquirias','El Ragnarök','Las runas del futhark antiguo','Ibn Fadlán (922) y los rus cubiertos de diseños','Vegvísir: un símbolo islandés del s. XIX, no vikingo','Freyja y sus gatos','Loki, el embaucador']},
+    {id:'celta',re:/celt|irland|escoc|druid|pict/i,
+     mk:['triskel','triquetra','cernunnos','brigid','morrigan','claddagh','druida','picto','samhain'],
+     ideas:['El triskel','La triquetra','El nudo celta sin principio ni fin','Cernunnos, el dios astado','La Morrígan y los cuervos','Brigid, diosa del fuego y la poesía','Los pictos y la piel pintada que contaron los romanos','El anillo de Claddagh','La cruz celta','Cú Chulainn','Samhain, el fin del verano']},
+    {id:'egipto',re:/egip|fara[oó]n|nilo|faraon/i,
+     mk:['ankh','horus','khepri','anubis','bastet','isis','amunet','gebelein','djed','osiris'],
+     ideas:['El ankh, la llave de la vida','El ojo de Horus','Khepri, el escarabajo que empuja el sol','Anubis y el pesaje del corazón','Bastet, la diosa gata','Isis alada','Las momias de Gebelein, tatuadas hace más de 5000 años','Amunet, sacerdotisa tatuada','Bes, el protector tatuado en bailarinas','El pilar djed de Osiris']},
+    {id:'china',re:/china|chin[oa]s?\b|mandar[ií]n|shaol|kung/i,
+     mk:['fenghuang','qilin','wukong','yue fei','nuwa','change','yin','fu'],
+     ideas:['El dragón imperial de cinco garras','Fenghuang, el fénix chino','Qilin','La carpa que salta la Puerta del Dragón','Los cuatro símbolos: dragón azul, tigre blanco, ave roja y tortuga negra','Sun Wukong, el Rey Mono','Yue Fei y la frase que su madre le tatuó en la espalda','Los leones guardianes Fu','Nüwa, la creadora','Chang\'e y la luna']},
+    {id:'grecia',re:/grieg|grecia|roma|romano|olimp|mitolog[ií]a cl[aá]sica/i,
+     mk:['medusa','minotauro','icaro','hydra','atenea','poseidon','pegaso','aquiles','prometeo','zeus','hades'],
+     ideas:['Medusa','El Minotauro y el laberinto','Ícaro','La hidra de Lerna','La lechuza de Atenea','Poseidón y su tridente','Pegaso','Aquiles y su talón','Prometeo y el fuego','El stigma griego: el tatuaje como marca de esclavos y prisioneros','Cerbero','Orfeo y Eurídice']},
+    {id:'maya',re:/maya|yucat|kukulk|popol/i,
+     mk:['kukulkan','itzamna','ixchel','balam','hunahpu','ixbalanque','ceiba','chaac','xibalba'],
+     ideas:['Kukulkán','Itzamná','Ixchel, la diosa de la luna','Balam, el jaguar','Los gemelos Hunahpú e Ixbalanqué del Popol Vuh','La ceiba sagrada','Chaac y la lluvia','Xibalbá, el inframundo','Gonzalo Guerrero, el español que se tatuó como maya']},
+    {id:'polinesia',re:/polines|maor[ií]|samoa|hawai|tahit|tonga|marquesas/i,
+     mk:['manaia','koru','hei-tiki','moko','pe\'a','malu','honu','mango'],
+     ideas:['El tā moko maorí','El koru, la espiral del helecho','Manaia, el guardián','Hei-tiki','El pe\'a samoano','El malu de las mujeres samoanas','Honu, la tortuga','Mangō, el tiburón','El capitán Cook y la palabra «tatau» (1769)']},
+    {id:'navidad',re:/navid|christmas|nochebuen|yule|reyes magos/i,
+     mk:['krampus','yule','julbock','muerdago','acebo','nochebuena','befana','belen','reno'],
+     ideas:['Krampus, el demonio que castiga a los niños malos','Yule, el invierno nórdico','Julbock, la cabra de Yule','El muérdago de los druidas','La estrella de Belén y la estrella náutica','La flor de nochebuena (cuetlaxóchitl)','La Befana italiana','El acebo','Santa Lucía y la luz de invierno','Los reyes magos y los tres dones']},
+    {id:'halloween',re:/hallow|samhain|bruj|terror|miedo/i,
+     mk:['samhain','jack','banshee','vampiro','dracula','bruja','murcielago','cuervo','hombre lobo'],
+     ideas:['Samhain, la noche celta en que se abre el velo','Stingy Jack y la calabaza','La banshee','Vlad III y Drácula','Las brujas y el gato negro','El cuervo de Poe','El hombre lobo y la luna llena','El memento mori','La araña y su tela','El murciélago']},
+    {id:'muertos',re:/muert|catrin|ofrend|cempas/i,
+     mk:['catrina','cempasuchil','xolo','mictlan','mictecacihuatl','calaverita','papel picado','ofrenda','monarca'],
+     ideas:['El cempasúchil y su camino de olor','La Catrina de Posada','El xoloitzcuintle que guía a las almas','Los nueve niveles del Mictlán','Mictecacíhuatl, la señora de los muertos','Las calaveritas de azúcar','La ofrenda y sus elementos','La mariposa monarca como alma que regresa','El colibrí y las almas de los guerreros']},
+    {id:'amor',re:/amor|valent|pareja|enamor|coraz[oó]n/i,
+     mk:['hilo rojo','eros','psique','golondrina','claddagh','cisne','candado','tristan','iztaccihuatl'],
+     ideas:['El hilo rojo del destino','Eros y Psique','Las golondrinas de los marineros','El corazón con la palabra «Mom»','El anillo de Claddagh','Popocatépetl e Iztaccíhuatl','Tristán e Isolda','La rosa y la daga','El candado y la llave','Orfeo y Eurídice']},
+    {id:'anionuevo',re:/a[nñ]o nuevo|new year|fin de a[nñ]o/i,
+     mk:['jano','ouroboros','daruma','kadomatsu','fenix','reloj'],
+     ideas:['Jano, el dios de dos caras que da nombre a enero','El ouroboros','El daruma de inicio de año','El fénix que renace','El reloj de arena','El kadomatsu japonés','El año nuevo chino y su animal']},
+    {id:'mar',re:/verano|mar\b|playa|marin|oc[eé]ano|sailor|puerto/i,
+     mk:['golondrina','ancla','sirena','faro','sailor jerry','pulpo','kraken','tortuga','tiburon','barco'],
+     ideas:['La golondrina y las 5000 millas náuticas','El ancla','La sirena','El faro','Sailor Jerry en Honolulu','El kraken','La tortuga marina','El barco de vela','La rosa de los vientos','El cerdo y el gallo en los pies de los marineros']}
+  ];
+  function norm(s){return (window.normalizeTxt?normalizeTxt(s):String(s||'').toLowerCase());}
+  function match(tema){tema=String(tema||'');return LIB.filter(function(e){return e.re.test(tema)||e.re.test(norm(tema));});}
+  function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+  // Ideas auténticas del tema, sin las que ya salieron hace poco
+  function ideas(tema,n,usados){
+    var m=match(tema),all=[];m.forEach(function(e){all=all.concat(e.ideas);});
+    var u=norm((usados||[]).join(' | '));
+    var fresh=all.filter(function(x){var k=norm(x).split(' ').filter(function(w){return w.length>4;})[0]||'';return !k||u.indexOf(k)===-1;});
+    return shuffle(fresh.length>=3?fresh:all).slice(0,n||10);
+  }
+  var CULT=['japon','mexico','nordico','celta','egipto','china','grecia','maya','polinesia'];
+  function isCultural(tema){var m=match(tema);return !m.length||m.some(function(e){return CULT.indexOf(e.id)!==-1;});}
+  function isMexican(tema){return match(tema).some(function(e){return e.id==='mexico'||e.id==='muertos'||e.id==='maya';});}
+  // Marcadores de OTRAS culturas (para no meter el quetzal en Japón, ni un kitsune en México)
+  function foreign(tema){
+    var own=match(tema),ownIds=own.map(function(e){return e.id;}),ownMk={};
+    own.forEach(function(e){e.mk.forEach(function(k){ownMk[k]=1;});});
+    var cult=CULT;if(!ownIds.some(function(id){return cult.indexOf(id)!==-1;}))return [];
+    var out=[];LIB.forEach(function(e){if(ownIds.indexOf(e.id)===-1&&cult.indexOf(e.id)!==-1)e.mk.forEach(function(k){if(!ownMk[k]&&k.length>3)out.push(k);});});
+    return out;
+  }
+  var OFF=/(no tiene (nada )?que ver|no tiene (ninguna |una )?(relaci[oó]n|conexi[oó]n)|sin (ninguna )?(relaci[oó]n|conexi[oó]n) (directa )?con|no (est[aá]|esta) relacionad|no pertenece a la cultura|aunque no (es|sea|tenga|pertenece)|aunque (el|la|los|las) [^.]{1,40} no (es|son|tiene|tienen|pertenece|forma))/i;
+  function offTopic(txt){return OFF.test(String(txt||''))||OFF.test(norm(txt));}
+  // ¿El contenido trae como protagonista un símbolo de otra cultura?
+  function wrongCulture(tema,c){
+    if(!tema||!c)return false;var f=foreign(tema);if(!f.length||!match(tema).length)return false;
+    var head=' '+norm([c.name1,c.name2,c.title1,c.title2,c.eyebrow].join(' '))+' ';
+    var body=' '+norm(c.body)+' ';
+    return f.some(function(k){var kk=norm(k);return head.indexOf(' '+kk)!==-1||(body.split(' '+kk).length>2);});
+  }
+  // Palabras que se repiten demasiado en lo último generado (ej. «quetzal» una y otra vez)
+  var STOP={};('tatuaje tatuajes tatuarse tatuado tatuada tatuados tatuadas tatuador tatuadores piel porque desde sobre entre cuando donde tambien historia historias simbolo simbolos significa significado cultura culturas antigua antiguo antiguos siglo siglos personas quienes durante representa representan puede pueden tiene tienen hacia segun mismo misma otros otras este esta estos estas parte forma tiempo mundo veces nombre nombres llevar lleva llevan hasta todos todas siempre nunca hacer hecho hechos solo cuerpo vida muerte mientras ellos ellas aunque despues antes manera sigue tambien primera primer primero dato datos real reales elige quiere quieres cual cuales donde fueron fueron hacia nuestra nuestro cada').split(' ').forEach(function(w){STOP[w]=1;});
+  function overused(texts,tema,min){
+    min=min||3;var cnt={},tw={};norm(tema).split(' ').forEach(function(w){tw[w]=1;});
+    (texts||[]).forEach(function(t){var seen={};norm(t).split(' ').forEach(function(w){if(w.length<5||STOP[w]||tw[w]||seen[w]||/^\d+$/.test(w))return;seen[w]=1;cnt[w]=(cnt[w]||0)+1;});});
+    return Object.keys(cnt).filter(function(w){return cnt[w]>=min;}).sort(function(a,b){return cnt[b]-cnt[a];}).slice(0,8);
+  }
+  // Bloque de reglas que va en el prompt cuando hay tema
+  function block(tema,kind,usados){
+    var hints=ideas(tema,10,usados);
+    var known=match(tema).length>0;
+    return '\n\n'+(kind==='card'?'TEMA DE LA CARD: ':'TEMA DE LA HISTORIA: ')+tema+'\n'
+      +'REGLA TEMÁTICA ABSOLUTA (manda sobre todo lo demás):\n'
+      +'- El contenido debe TRATAR DE '+tema+': un símbolo, diseño, personaje, criatura, mito, leyenda, tradición o hecho histórico que PERTENEZCA de verdad a '+tema+' y se tatúe o tenga relación real con el tatuaje.\n'
+      +'- PROHIBIDO tomar un símbolo de otra cultura y solo agregarle la palabra «'+tema+'». PROHIBIDO escribir frases como «aunque X no tiene que ver con '+tema+'» o «no tiene relación». Si no existe una conexión real, NO uses ese símbolo: elige otro que sí sea de '+tema+'.\n'
+      +'- Todo el texto (título, nombre y cuerpo) se queda DENTRO de '+tema+'. '+(isCultural(tema)?'No mezcles culturas ajenas'+(isMexican(tema)?'':' (nada de quetzal, Quetzalcóatl, mexicas, mayas ni Catrina si el tema no es mexicano)')+'.':'Si usas una tradición de otra cultura, que esté ligada DE VERDAD a '+tema+'.')+'\n'
+      +'- Cada pieza con un elemento DISTINTO de '+tema+'; no repitas el mismo símbolo ni el mismo personaje.\n'
+      +(hints.length?'- Elementos AUTÉNTICOS de '+tema+' para inspirarte (puedes usar otros igual de reales; elige los menos obvios): '+hints.join('; ')+'.\n':(!known?'- Antes de escribir, piensa en 10 símbolos, personajes o historias reales de '+tema+' relacionados con el tatuaje y usa los menos obvios.\n':''));
+  }
+  // Descripción corta del tipo (sin la lista de ejemplos, que jalaba la IA a otras culturas)
+  function shortType(desc){
+    var s=String(desc||'');var cut=s.search(/\.\s*(Rota|Cada vez|Cada generación|REGLA DE ORO|NUNCA repitas|Ángulos únicos|Rota ángulo)|\s(Rota|Rota ángulo|Ángulos únicos)[\s:]|\(1\)|\(A\)/);
+    if(cut>20)s=s.slice(0,cut);
+    return s.replace(/[:\s]+$/,'').trim()+'. Aplícalo al tema pedido.';
+  }
+  return {match:match,ideas:ideas,isMexican:isMexican,offTopic:offTopic,wrongCulture:wrongCulture,overused:overused,block:block,shortType:shortType};
+})();
+window.TEMA=TEMA;
+
 // ── SAVE/LOAD ─────────────────────────────────────────
 function loadSaved(){
   try{
@@ -1721,6 +1832,8 @@ var STORY_BATCH=5;
 function storyKey(){return 'h|'+selType+'|'+(window._inkbotTema||'').trim().toLowerCase();}
 function storyAccept(c){
   var b=c&&c.body||'';if(!b)return false;
+  var _t=(window._inkbotTema||'').trim();
+  if(TEMA.offTopic(b)||(_t&&TEMA.wrongCulture(_t,c)))return false;
   if(isTooSimilarToAny(b,flattenDisliked(feedbackMem.dislikedBodies)))return false;
   if(isTooSimilarToAny(b,(feedbackMem.recentBodies||[]).slice(-20).map(function(x){return x.body;}),.55))return false;
   return true;
@@ -1736,6 +1849,7 @@ function storyBankLabel(){
 function prefetchStories(){
   if(IDEAS.count(storyKey())<3&&!IDEAS.busy(storyKey()))refillStories().catch(function(){});
 }
+window.prefetchStories=prefetchStories;
 function genStory(){
   var handle=document.getElementById('handle').value||'@v.sobrontt';
   resetFeedbackBar();
@@ -1778,11 +1892,21 @@ function showStory(c,handle){
 // Al abrir la app y al cambiar de tipo/tema, deja ideas listas en segundo plano
 setTimeout(prefetchStories,2500);
 document.querySelectorAll('#type-pills .pill').forEach(function(p){p.addEventListener('click',function(){setTimeout(prefetchStories,300);});});
+// Tipos que son de México por definición: con un tema de otra cultura no se usan en RANDOM
+var MX_TYPES=['mexico','prehispanico','narcocultura','luchalibre','leyenda','mitoregional'];
+function storyTypePool(){
+  var all=Object.keys(typeMap).filter(function(k){return k!=='random';});
+  var tema=(window._inkbotTema||'').trim();
+  if(tema&&!TEMA.isMexican(tema))all=all.filter(function(k){return MX_TYPES.indexOf(k)===-1;});
+  return all;
+}
+// Con tema, la lista de ejemplos del tipo (Quetzalcóatl, samuráis, Ötzi…) jalaba a la IA fuera del tema
+function typeDesc(t){return (window._inkbotTema||'').trim()?TEMA.shortType(typeMap[t]):typeMap[t];}
 function buildPrompt(type,handle,ctxTxt,n,pendingBodies){
   n=n||1;
   if(n>1){
     // Varias historias en una sola llamada
-    var all=Object.keys(typeMap).filter(function(k){return k!=='random';}),types=[];
+    var all=storyTypePool(),types=[];
     if(type==='random'){
       var recentT=(feedbackMem.recentBodies||[]).slice(-6).map(function(b){return b.type;});
       var pool=all.filter(function(t){return recentT.indexOf(t)===-1;});if(pool.length<n)pool=all.slice();
@@ -1794,24 +1918,27 @@ function buildPrompt(type,handle,ctxTxt,n,pendingBodies){
     var rest=one.slice(cut).replace(/^\n\nTema base del tatuaje: [\s\S]*?(?=\n\nTEMA DE LA HISTORIA|\n\nREGLAS DE ESCRITURA)/,'');
     rest=rest.slice(0,rest.indexOf('\n\nResponde SOLO con JSON'));
     var uniq=types.filter(function(t,i){return types.indexOf(t)===i;});
-    var temas='\n\nTEMAS BASE (una historia por cada número):\n'+types.map(function(t,i){return (i+1)+'. ['+t+'] '+(uniq.length===1&&i>0?'mismo tema base que la 1, pero con un ángulo, dato, cultura y época TOTALMENTE distintos a las demás':typeMap[t]);}).join('\n');
+    var temas='\n\nTEMAS BASE (una historia por cada número):\n'+types.map(function(t,i){return (i+1)+'. ['+t+'] '+(uniq.length===1&&i>0?((window._inkbotTema||'').trim()?'mismo tema base que la 1, pero con otro símbolo, personaje, época o dato TOTALMENTE distinto, siempre dentro del tema':'mismo tema base que la 1, pero con un ángulo, dato, cultura y época TOTALMENTE distintos a las demás'):typeDesc(t));}).join('\n');
     var pend=(pendingBodies||[]).slice(-14);
     var pendB=pend.length?'\n\nYA TIENES PREPARADAS ESTAS (no repitas nada parecido):\n'+pend.map(function(b){return '- '+b;}).join('\n'):'';
     return head+temas+rest+pendB
-      +'\n\nGENERA '+n+' HISTORIAS DISTINTAS ENTRE SÍ (diferente dato, cultura, época, personaje y emoción cada una). Revisa que cada dato sea verídico antes de escribirlo.'
+      +'\n\nGENERA '+n+' HISTORIAS DISTINTAS ENTRE SÍ ('+((window._inkbotTema||'').trim()?'TODAS de verdad sobre '+window._inkbotTema.trim()+', cada una con otro símbolo, personaje, época o emoción DENTRO de ese tema':'diferente dato, cultura, época, personaje y emoción cada una')+'). Revisa que cada dato sea verídico antes de escribirlo.'
       +'\n\nResponde SOLO con JSON válido sin markdown:\n{"ideas":[{"tipo":"la clave entre corchetes de su tema base","eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas con datos concretos. Máximo 160 caracteres.","cta":"llamada a acción corta con emoji, orientada al cliente"}, … '+n+' en total]}';
   }
   // ── RANDOM: si el usuario eligió "random", escoge un tipo real al azar
   // que NO haya sido usado recientemente para garantizar variedad real
   if(type==='random'){
-    var realTypes=Object.keys(typeMap).filter(function(k){return k!=='random';});
+    var realTypes=storyTypePool();
     var recentTypes=(feedbackMem.recentBodies||[]).slice(-6).map(function(b){return b.type;});
     var fresh=realTypes.filter(function(t){return recentTypes.indexOf(t)===-1;});
     var pool=fresh.length>0?fresh:realTypes;
     type=pool[Math.floor(Math.random()*pool.length)];
   }
 
-  var antiRepeat='REGLA ABSOLUTA DE VARIEDAD: Esta historia debe ser RADICALMENTE DIFERENTE a cualquier historia anterior. Cambia el ángulo, la cultura, el dato, el siglo, la geografía, el personaje y el enfoque emocional. Si la historia anterior habló de Japón, ahora habla de México o Egipto o Rusia. Si habló de muerte, ahora habla de amor o de dinero o de ciencia. NUNCA repitas el mismo símbolo, nombre, fecha, dato, cultura o ángulo. Si percibes que estás por escribir algo similar — DETENTE y elige el ángulo MÁS DIFERENTE POSIBLE.';
+  var _tema=(window._inkbotTema||'').trim();
+  var antiRepeat=_tema
+    ?'REGLA ABSOLUTA DE VARIEDAD: Esta historia debe ser RADICALMENTE DIFERENTE a las anteriores, pero SIN salirte de '+_tema+'. Cambia el símbolo, el personaje, la época, el lugar y el enfoque emocional DENTRO de '+_tema+'. NUNCA repitas el mismo símbolo, nombre, fecha o dato.'
+    :'REGLA ABSOLUTA DE VARIEDAD: Esta historia debe ser RADICALMENTE DIFERENTE a cualquier historia anterior. Cambia el ángulo, la cultura, el dato, el siglo, la geografía, el personaje y el enfoque emocional. Si la historia anterior habló de Japón, ahora habla de México o Egipto o Rusia. Si habló de muerte, ahora habla de amor o de dinero o de ciencia. NUNCA repitas el mismo símbolo, nombre, fecha, dato, cultura o ángulo. Si percibes que estás por escribir algo similar — DETENTE y elige el ángulo MÁS DIFERENTE POSIBLE.';
   var clientFocus='ENFOQUE: Contenido para personas interesadas en tatuajes como clientes/aficionados. No hables del tatuador ni de su técnica. Habla de lo que le interesa, emociona o educa al cliente.';
   var rules='REGLAS DE ESCRITURA:\n- Texto directo, claro y apasionante\n- Nada de frases mamonas, ni autoexaltación, ni lugares comunes\n- Primera oración: gancho que detenga el scroll\n- Segunda oración: el dato, historia o idea con ESPECIFICIDAD (nombres, fechas, lugares, cifras)\n- Sin mencionar al tatuador\n- Body máximo 160 caracteres\n- Título corto e impactante (máx 5 palabras entre las dos líneas)\n- PROHIBIDO el cliché: "el tatuaje es arte", "el dolor vale la pena", "tu piel cuenta una historia". SIEMPRE datos concretos.';
 
@@ -1832,22 +1959,16 @@ function buildPrompt(type,handle,ctxTxt,n,pendingBodies){
     learnBlock+='\n\nEL USUARIO YA RECHAZÓ ESTOS TEMAS/ÁNGULOS EN CUALQUIER CATEGORÍA (PROHIBICIÓN ABSOLUTA — ni con otras palabras, ni adaptado, ni parecido):\n';
     globalDisliked.slice(-30).forEach(function(b){learnBlock+='- '+b+'\n';});
   }
-  var likedB=(feedbackMem.likedBodies||{})[type]||[];
+  var cansa=TEMA.overused(globalRecent,_tema,3);
+  if(cansa.length)learnBlock+='\n\nPALABRAS QUE YA SE REPITIERON DEMASIADO (no las uses como protagonista): '+cansa.join(', ')+'\n';
+  var likedB=_tema?[]:((feedbackMem.likedBodies||{})[type]||[]);
   if(likedB.length){
     learnBlock+='\n\nESTOS ÁNGULOS GUSTARON MUCHO (inspírate SOLO en el ESTILO y profundidad — el contenido debe ser COMPLETAMENTE diferente):\n';
     likedB.slice(-4).forEach(function(b){learnBlock+='- '+b+'\n';});
   }
 
-  var _tema=window._inkbotTema||'';
-  var temaInstruccion='';
-  if(_tema){
-    temaInstruccion='\n\nTEMA DE LA HISTORIA: '+_tema+'\n'
-    +'REGLA TEMÁTICA ABSOLUTA: La historia COMPLETA debe ser sobre '+_tema+' y tatuajes. '
-    +'Busca hechos REALES e históricos que conecten directamente '+_tema+' con la cultura del tatuaje — no adaptes datos genéricos. '
-    +'Si el tema es Halloween: habla de tatuajes en rituales celtas de Samhain, o calaveras en marineros del s.XVIII. '
-    +'Si es Navidad: marineros nórdicos tatuados en invierno, etc. El dato debe ser 100% sobre '+_tema+'.';
-  }
-  var prompt='Eres un experto en cultura del tatuaje, antropología, historia y comunicación para redes sociales. Creas contenido cautivador para Instagram Stories que sorprende, educa y se siente fresco siempre.\n\n'+antiRepeat+'\n\n'+clientFocus+'\n\nTema base del tatuaje: '+typeMap[type]+temaInstruccion+'\n\n'+rules+learnBlock+'\n\nResponde SOLO con JSON válido sin markdown:\n{"eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas y apasionantes con datos concretos. Primera: gancho. Segunda: el dato o idea con nombres/fechas/lugares específicos. Máximo 160 caracteres total.","cta":"llamada a acción corta con emoji, orientada al cliente"}';
+  var temaInstruccion=_tema?TEMA.block(_tema,'historia',globalRecent):'';
+  var prompt='Eres un experto en cultura del tatuaje, antropología, historia y comunicación para redes sociales. Creas contenido cautivador para Instagram Stories que sorprende, educa y se siente fresco siempre.\n\n'+antiRepeat+'\n\n'+clientFocus+'\n\nTema base del tatuaje: '+typeDesc(type)+temaInstruccion+'\n\n'+rules+learnBlock+'\n\nResponde SOLO con JSON válido sin markdown:\n{"eyebrow":"etiqueta 2-3 palabras MAYÚSCULAS (ej: ¿SABÍAS QUE? / MITO ROTO / DATO CURIOSO / TU TURNO)","title1":"primera línea 2-3 palabras impactante","title2":"segunda línea 2-3 palabras que completen el gancho","accent":"UNA palabra exacta del título para resaltar en rojo","body":"2 oraciones directas y apasionantes con datos concretos. Primera: gancho. Segunda: el dato o idea con nombres/fechas/lugares específicos. Máximo 160 caracteres total.","cta":"llamada a acción corta con emoji, orientada al cliente"}';
   return prompt;
 }
 function renderStoryDOM(c,handle){
@@ -2165,6 +2286,7 @@ var INKAI=(function(){
   var SYSTEM='Eres la IA creativa de INKBOT PRO, el sistema de contenido para Instagram de un tatuador profesional. Escribes siempre en español de México, claro, directo y apasionante.\n\n'
     +'TU ÚNICO MUNDO ES EL TATUAJE: historia del tatuaje, culturas y tradiciones tatuadas, símbolos y su significado, estilos, técnica, máquinas y tintas, cuidados y cicatrización, tatuadores y personas tatuadas célebres, el negocio del tatuaje y decisiones del cliente.\n'
     +'- Si un pedido trae un tema que no es de tatuajes, conéctalo SIEMPRE con el tatuaje (cómo se tatúa, qué simboliza en la piel, quién lo lleva tatuado). Nunca te salgas del tatuaje.\n'
+    +'- Cuando el pedido trae un TEMA (Japón, Navidad, nórdico, lo que sea), EL TEMA MANDA: el contenido debe tratar de un símbolo, personaje, mito, diseño o historia que PERTENEZCA de verdad a ese tema. Nunca tomes un símbolo de otra cultura y le pegues la palabra del tema, y nunca escribas «aunque X no tiene que ver con…». Lo que aprendiste de los gustos del usuario solo define el estilo: nunca te obliga a meter un símbolo concreto (por ejemplo, el quetzal) en temas ajenos.\n'
     +'- SOLO TEXTO: no generas, describes como adjuntas ni enlazas fotos o imágenes, y no pides fotos.\n'
     +'- PROHIBIDO hablar de ti o de tus límites: nada de "no puedo", "no tengo acceso", "lo siento", "como IA", avisos, disculpas ni explicaciones de lo que no das. Entrega directamente el contenido pedido.\n'
     +'- Nada de relleno genérico ("el tatuaje es una forma de expresión…"). Cada texto debe tener algo concreto: un nombre, una fecha, un lugar, una técnica, un símbolo con su origen.\n\n'
@@ -2503,6 +2625,7 @@ var INKAI=(function(){
       +'REVISA cada afirmación, nombre, fecha, lugar, cifra y cita:\n'
       +'1. ¿Es VERÍDICA y comprobable? Si es falsa, inventada, exagerada, dudosa o un mito presentado como hecho → corrígela con un dato real que conozcas con certeza, o cambia el contenido por otro dato verídico del mismo tema.\n'
       +'2. ¿Está relacionada con el TATUAJE? Si no tiene relación clara → reemplázala por algo verídico y relacionado con tatuajes.\n'
+      +'2b. Si el PEDIDO trae un TEMA (línea «TEMA DE LA HISTORIA» o «TEMA DE LA CARD»): cada contenido debe tratar DE VERDAD de ese tema (un símbolo, personaje, mito, diseño o historia que pertenezca a él). Si solo le agrega la palabra del tema, usa un símbolo de otra cultura o dice que algo «no tiene que ver» con el tema → REESCRÍBELO COMPLETO con un elemento auténtico de ese tema, verídico y distinto de los demás.\n'
       +'3. Si hay frases donde la IA habla de sí misma, se disculpa o dice que "no puede" dar algo → bórralas y deja solo el contenido.\n'
       +'4. Si todo es correcto, devuelve el contenido igual, sin cambiar nada.\n'
       +'No cambies la descripción del tatuaje propio del usuario ni su handle. Conserva el estilo, el tono, los emojis y la longitud pedida.\n\n'
@@ -2540,7 +2663,9 @@ window.INKAI=INKAI;
 // así que cuando una no te gusta la siguiente sale AL INSTANTE, y el banco se rellena solo
 // en segundo plano. Las ideas que se parecen a lo que rechazaste se descartan antes de mostrarse.
 var IDEAS=(function(){
-  var LS='inkbot_ideas_v1',MAX=14,buf={},inflight={};
+  var LS='inkbot_ideas_v2',MAX=14,buf={},inflight={};
+  // v2: se tiran las ideas guardadas con la versión anterior (las que mezclaban el quetzal en todo)
+  try{localStorage.removeItem('inkbot_ideas_v1');}catch(e){}
   try{buf=JSON.parse(localStorage.getItem(LS)||'{}')||{};}catch(e){buf={};}
   function save(){try{localStorage.setItem(LS,JSON.stringify(buf));}catch(e){}}
   function list(key){return buf[key]||[];}
@@ -2720,7 +2845,7 @@ var inkTema=document.getElementById('inkbot-tema');
 var inkTemaLabel=document.getElementById('inkbot-tema-label');
 function updateInkTema(){var t=inkTema.value.trim();window._inkbotTema=t;if(t){inkTemaLabel.textContent='🎨 Activo: '+t;inkTemaLabel.style.display='block';}else{inkTemaLabel.style.display='none';}}
 inkTema.addEventListener('input',updateInkTema);
-var _hPf=null;function hPrefetchSoon(){clearTimeout(_hPf);_hPf=setTimeout(prefetchStories,1500);}
+var _hPf=null;function hPrefetchSoon(){clearTimeout(_hPf);_hPf=setTimeout(function(){if(window.prefetchStories)window.prefetchStories();},2500);}
 inkTema.addEventListener('input',hPrefetchSoon);document.getElementById('inkbot-tema-sugs').addEventListener('click',hPrefetchSoon);
 document.getElementById('inkbot-tema-sugs').addEventListener('click',function(e){var b=e.target.closest('[data-tema]');if(!b)return;inkTema.value=b.getAttribute('data-tema');updateInkTema();});
 
@@ -2737,7 +2862,7 @@ var dictTypeMap={
 };
 var dSelType='random',dCurrentCard=null,dPhotoB64=null,dCardPhotoB64=null;
 var dFB={liked:{},disliked:{},recent:[]};
-(function(){try{var s=JSON.parse(localStorage.getItem('inkbot_dict_fb')||'{}');if(s.liked)dFB.liked=s.liked;if(s.disliked)dFB.disliked=s.disliked;if(s.recent)dFB.recent=s.recent;if(s.recentTypes)dFB.recentTypes=s.recentTypes;}catch(e){}})();
+(function(){try{var s=JSON.parse(localStorage.getItem('inkbot_dict_fb')||'{}');if(s.liked)dFB.liked=s.liked;if(s.disliked)dFB.disliked=s.disliked;if(s.recent)dFB.recent=s.recent;if(s.recentTypes)dFB.recentTypes=s.recentTypes;if(s.recentNames)dFB.recentNames=s.recentNames;}catch(e){}})();
 function saveDFB(){try{localStorage.setItem('inkbot_dict_fb',JSON.stringify(dFB));}catch(e){}}
 
 /* ── Tema dict ── */
@@ -2755,7 +2880,7 @@ document.getElementById('d-type-pills').addEventListener('click',function(e){
   setTimeout(prefetchDict,300);
 });
 // Deja cards listas en segundo plano (al abrir y al cambiar tema)
-var _dPf=null;function dPrefetchSoon(){clearTimeout(_dPf);_dPf=setTimeout(prefetchDict,1500);}
+var _dPf=null;function dPrefetchSoon(){clearTimeout(_dPf);_dPf=setTimeout(prefetchDict,2500);}
 dTemaInp.addEventListener('input',dPrefetchSoon);document.getElementById('d-tema-sugs').addEventListener('click',dPrefetchSoon);
 setTimeout(prefetchDict,6000);
 
@@ -2840,37 +2965,38 @@ function buildDictSVG(){
 }
 
 /* ── Prompt del diccionario ── */
+function dRecentNames(){return (dFB.recentNames||[]).slice(-20);}
 function buildDictPrompt(type){
   if(type==='random'){
     var all=Object.keys(dictTypeMap).filter(function(k){return k!=='random';});
-    var rec=(dFB.recent||[]).slice(-5);
+    var rec=(dFB.recentTypes||[]).slice(-5);
     var fresh=all.filter(function(t){return rec.indexOf(t)===-1;});
     var pool=fresh.length?fresh:all;
     type=pool[Math.floor(Math.random()*pool.length)];
   }
   window._dLastType=type;
   var tema=dTemaInp.value.trim();
-  var temaBloque='';
-  if(tema){
-    temaBloque='\n\nTEMA DE LA CARD: '+tema+'\n'
-      +'REGLA TEMÁTICA ABSOLUTA: El dato histórico y el significado deben ser 100% sobre '+tema+' y '+dictTypeMap[type]+'. '
-      +'Busca hechos REALES que conecten directamente '+tema+' con este símbolo. '
-      +'Ejemplos de cómo pensar: si es "Navidad + Koi" → peces en el folklore nórdico de invierno; si es "Halloween + Calavera" → el origen real del sugar skull en Samhain celta. '
-      +'NO adaptes datos genéricos del símbolo añadiendo el tema al final. El tema debe ser el NÚCLEO del dato, no un adorno.';
-  }
+  var temaBloque=tema?TEMA.block(tema,'card',dRecentNames().concat((dFB.recent||[]).slice(-8))):'';
   var anti='';
+  var names=dRecentNames();
+  if(names.length)anti+='\n\nSÍMBOLOS/NOMBRES YA USADOS HACE POCO (PROHIBIDO repetirlos como protagonista):\n- '+names.join('\n- ');
+  var cansa=TEMA.overused((dFB.recent||[]).slice(-10).concat(names),tema,3);
+  if(cansa.length)anti+='\n\nPALABRAS QUE YA SE REPITIERON DEMASIADO (no las uses): '+cansa.join(', ');
   var rec=(dFB.recent||[]).slice(-8);
   if(rec.length){anti+='\n\nÚLTIMAS GENERADAS (no repetir ángulo ni dato):\n';rec.forEach(function(b){anti+='- '+b+'\n';});}
   var dis=(dFB.disliked[type]||[]).slice(-15);
   if(dis.length){anti+='\n\nMARCADOS REPETITIVOS (evitar):\n';dis.forEach(function(b){anti+='- '+b+'\n';});}
   var globalDis=flattenDisliked(dFB.disliked);
   if(globalDis.length){anti+='\n\nEL USUARIO YA RECHAZÓ ESTOS DATOS/SIGNIFICADOS EN CUALQUIER SÍMBOLO (PROHIBICIÓN ABSOLUTA — ni con otras palabras, ni adaptado):\n';globalDis.slice(-30).forEach(function(b){anti+='- '+b+'\n';});}
-  var liked=(dFB.liked[type]||[]).slice(-3);
+  // Con tema, los ejemplos que gustaron (de otros temas) jalan a la IA fuera del tema: no se mandan
+  var liked=tema?[]:(dFB.liked[type]||[]).slice(-3);
   if(liked.length){anti+='\n\nGUSTARON (solo el estilo, contenido diferente):\n';liked.forEach(function(b){anti+='- '+b+'\n';});}
 
   return 'Eres experto en simbología del tatuaje, antropología, historia del arte y comunicación para Instagram.\n\n'
     +'SÍMBOLO: '+dictTypeMap[type]+temaBloque+'\n\n'
-    +'REGLAS:\n- Dato histórico real, específico y sorprendente que poca gente conozca\n- Profundiza en el SIGNIFICADO simbólico, mitológico, cultural o emocional del símbolo\n- Conecta orígenes, leyendas o significados de distintas culturas o épocas\n- PROHIBIDO mencionar estilos de tatuaje (blackwork, fineline, realismo, irezumi, etc). El significado debe ser universal para poder tatuarse en CUALQUIER estilo\n- Body de 280 a 400 caracteres: rico, narrativo e interesante, no resumido\n- Nombre del símbolo corto e impactante\n'
+    +'REGLAS:\n- Dato histórico real, específico y sorprendente que poca gente conozca\n- Profundiza en el SIGNIFICADO simbólico, mitológico, cultural o emocional del símbolo\n'
+    +(tema?'- Todo dentro de '+tema+': origen, leyenda y significado propios de '+tema+'\n':'- Conecta orígenes, leyendas o significados de distintas culturas o épocas\n')
+    +'- PROHIBIDO mencionar estilos de tatuaje (blackwork, fineline, realismo, irezumi, etc). El significado debe ser universal para poder tatuarse en CUALQUIER estilo\n- Body de 280 a 400 caracteres: rico, narrativo e interesante, no resumido\n- Nombre del símbolo corto e impactante\n'
     +anti
     +'\n\nResponde SOLO con JSON válido sin markdown:\n'
     +'{"eyebrow":"2-3 palabras clasificadoras MAYÚSCULAS",'
@@ -2906,14 +3032,22 @@ function callDictAPI(prompt){return callAI('free',prompt,null,900);}
 // ── Banco del diccionario: varias cards por llamada; «otra» sale al instante ──
 var DICT_BATCH=4;
 function dictKey(){return 'd|'+dSelType+'|'+(dTemaInp.value||'').trim().toLowerCase();}
+function dCardName(c){return ((c&&c.name1||'')+' '+(c&&c.name2||'')).trim();}
 function dictAccept(c){
   var b=c&&c.body||'';if(!b)return false;
+  var tema=(dTemaInp.value||'').trim();
   if(isTooSimilarToAny(b,flattenDisliked(dFB.disliked)))return false;
   if(isTooSimilarToAny(b,(dFB.recent||[]).slice(-15),.55))return false;
+  // Nada de «aunque X no tiene que ver con…» ni símbolos de otra cultura como protagonista
+  if(TEMA.offTopic(b)||(tema&&TEMA.wrongCulture(tema,c)))return false;
+  // No repetir el mismo símbolo (ej. quetzal) aunque cambie el texto
+  var n=normalizeTxt(dCardName(c));
+  if(n&&dRecentNames().slice(-12).some(function(x){var nx=normalizeTxt(x);return nx===n||(nx.length>4&&(n.indexOf(nx)!==-1||nx.indexOf(n)!==-1));}))return false;
   return true;
 }
 function buildDictBatchPrompt(type,n,pending){
   var all=Object.keys(dictTypeMap).filter(function(k){return k!=='random';}),types=[];
+  var tema=dTemaInp.value.trim();
   if(type==='random'){
     var rec=(dFB.recentTypes||[]).slice(-5);
     var pool=all.filter(function(t){return rec.indexOf(t)===-1;});if(pool.length<n)pool=all.slice();
@@ -2921,13 +3055,20 @@ function buildDictBatchPrompt(type,n,pending){
   }else{for(var i=0;i<n;i++)types.push(type);}
   var one=buildDictPrompt(types[0]);
   var a=one.indexOf('SÍMBOLO: '),b=one.indexOf('\n',a);
-  var lista='SÍMBOLOS (una card por cada número):\n'+types.map(function(t,i){return (i+1)+'. ['+t+'] '+dictTypeMap[t]+(types.length>1&&types[0]===types[n-1]&&i>0?' — con OTRO origen, cultura o significado distinto a las demás cards':'');}).join('\n');
+  var lista;
+  if(tema&&type==='random'){
+    // Con tema + RANDOM: la IA elige símbolos que SÍ son del tema (antes se le imponía uno al azar, como el quetzal)
+    lista='SÍMBOLOS: elige TÚ '+n+' símbolos, criaturas, personajes, diseños o historias DISTINTOS que pertenezcan auténticamente a '+tema+' (uno diferente por card). En "tipo" pon "tema".';
+  }else if(tema){
+    lista='SÍMBOLO de las '+n+' cards: '+dictTypeMap[type]+' DENTRO de '+tema+' (la versión, leyenda o uso que ese símbolo tiene realmente en '+tema+'; cada card con otro ángulo). Si este símbolo no tiene una relación real y documentada con '+tema+', NO la inventes: haz la card sobre un símbolo auténtico de '+tema+' y pon "tipo":"tema".';
+  }else{
+    lista='SÍMBOLOS (una card por cada número):\n'+types.map(function(t,i){return (i+1)+'. ['+t+'] '+dictTypeMap[t]+(types.length>1&&types[0]===types[n-1]&&i>0?' — con OTRO origen, cultura o significado distinto a las demás cards':'');}).join('\n');
+  }
   var body=one.slice(0,a)+lista+one.slice(b,one.indexOf('\n\nResponde SOLO con JSON'));
-  if(dTemaInp.value.trim())body=body.split(' y '+dictTypeMap[types[0]]+'. ').join(' y el símbolo de cada card. ');
   var pend=(pending||[]).slice(-12);
   if(pend.length)body+='\n\nYA TIENES PREPARADAS ESTAS (no repitas nada parecido):\n'+pend.map(function(x){return '- '+x;}).join('\n');
-  return body+'\n\nGENERA '+n+' CARDS DISTINTAS ENTRE SÍ. Revisa que cada dato sea verídico antes de escribirlo.'
-    +'\n\nResponde SOLO con JSON válido sin markdown:\n{"ideas":[{"tipo":"la clave entre corchetes de su símbolo","eyebrow":"2-3 palabras clasificadoras MAYÚSCULAS","name1":"primera línea del nombre 1-2 palabras","name2":"segunda línea 1-2 palabras (puede vacío)","accent":"UNA palabra del nombre para dorado","nameJp":"nombre japonés si aplica, si no vacío","body":"3 o 4 oraciones con datos reales: origen + significado simbólico profundo + dato cultural o mitológico sorprendente. NUNCA menciones estilos de tatuaje. Entre 280 y 400 caracteres.","cta":"llamada a acción corta con emoji"}, … '+n+' en total]}';
+  return body+'\n\nGENERA '+n+' CARDS DISTINTAS ENTRE SÍ'+(tema?', TODAS de verdad sobre '+tema:'')+'. Revisa que cada dato sea verídico antes de escribirlo.'
+    +'\n\nResponde SOLO con JSON válido sin markdown:\n{"ideas":[{"tipo":"'+(tema?'la clave de su símbolo, o tema':'la clave entre corchetes de su símbolo')+'","eyebrow":"2-3 palabras clasificadoras MAYÚSCULAS","name1":"primera línea del nombre 1-2 palabras","name2":"segunda línea 1-2 palabras (puede vacío)","accent":"UNA palabra del nombre para dorado","nameJp":"nombre japonés si aplica, si no vacío","body":"3 o 4 oraciones con datos reales: origen + significado simbólico profundo + dato cultural o mitológico sorprendente. NUNCA menciones estilos de tatuaje. Entre 280 y 400 caracteres.","cta":"llamada a acción corta con emoji"}, … '+n+' en total]}';
 }
 function refillDict(){
   var k=dictKey(),type=dSelType;
@@ -2950,7 +3091,7 @@ function genDict(){
       return x;
     });
   }
-  attempt(1).then(function(c){showDict(c);prefetchDict();}).catch(function(e){
+  attempt(2).then(function(c){showDict(c);prefetchDict();}).catch(function(e){
     document.getElementById('d-loader').classList.remove('show');
     setDSt('Error: '+(e.message||'Intenta'),'err');
   });
@@ -2964,6 +3105,8 @@ function showDict(c){
     if(!dFB.recent)dFB.recent=[];
     dFB.recent.push(c.body||'');
     if(dFB.recent.length>15)dFB.recent=dFB.recent.slice(-15);
+    if(!dFB.recentNames)dFB.recentNames=[];var _nm=dCardName(c);if(_nm)dFB.recentNames.push(_nm);
+    if(dFB.recentNames.length>25)dFB.recentNames=dFB.recentNames.slice(-25);
     saveDFB();
     renderDictCard(c);
     document.getElementById('d-loader').classList.remove('show');
